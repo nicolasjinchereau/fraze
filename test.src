@@ -14,7 +14,7 @@ module main
 	int fun2(int a, int b)
     {
         int arg = 1;
-        int ret = 4 - 3 * fun(arg) + 1 - 2 * 5 + 10;1
+        int ret = 4 - 3 * fun(arg) + 1 - 2 * 5 + 10;
         return ret;
     }
 

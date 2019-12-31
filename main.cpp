@@ -11,14 +11,21 @@ using namespace std;
 
 int main(int argc, char** argv)
 {
-    auto filename = "test.src";
-    Parser parser(filename);
-    auto translationUnit = parser.ParseTranslationUnit();
+    try
+    {
+        auto filename = "test.src";
+        Parser parser(filename);
+        auto translationUnit = parser.ParseTranslationUnit();
 
-    std::stringstream stream;
-    translationUnit->Print(stream, 0, 2);
+        std::stringstream stream;
+        translationUnit->Print(stream, 0, 2);
 
-    cout << stream.str() << endl;
+        cout << stream.str() << endl;
+    }
+    catch (exception& ex)
+    {
+        cout << ex.what() << endl;
+    }
 
     return 0;
 }
