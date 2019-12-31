@@ -1,0 +1,92 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Source Files\AST">
+      <UniqueIdentifier>{cb99f39a-08ff-4e62-8771-27aa5edbf031}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Lexer.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Parser.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="TranslationUnit.h">
+      <Filter>Source Files\AST</Filter>
+    </ClInclude>
+    <ClInclude Include="ImportStatement.h">
+      <Filter>Source Files\AST</Filter>
+    </ClInclude>
+    <ClInclude Include="ModuleDefinition.h">
+      <Filter>Source Files\AST</Filter>
+    </ClInclude>
+    <ClInclude Include="Pointers.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="FunctionDefinition.h">
+      <Filter>Source Files\AST</Filter>
+    </ClInclude>
+    <ClInclude Include="ReturnStatement.h">
+      <Filter>Source Files\AST</Filter>
+    </ClInclude>
+    <ClInclude Include="VariableDeclaration.h">
+      <Filter>Source Files\AST</Filter>
+    </ClInclude>
+    <ClInclude Include="FunctionParameter.h">
+      <Filter>Source Files\AST</Filter>
+    </ClInclude>
+    <ClInclude Include="ASTNode.h">
+      <Filter>Source Files\AST</Filter>
+    </ClInclude>
+    <ClInclude Include="Statement.h">
+      <Filter>Source Files\AST</Filter>
+    </ClInclude>
+    <ClInclude Include="Expression.h">
+      <Filter>Source Files\AST</Filter>
+    </ClInclude>
+    <ClInclude Include="ExpressionStatement.h">
+      <Filter>Source Files\AST</Filter>
+    </ClInclude>
+    <ClInclude Include="BlockStatement.h">
+      <Filter>Source Files\AST</Filter>
+    </ClInclude>
+    <ClInclude Include="DeclarationStatement.h">
+      <Filter>Source Files\AST</Filter>
+    </ClInclude>
+    <ClInclude Include="IntegerExpression.h">
+      <Filter>Source Files\AST</Filter>
+    </ClInclude>
+    <ClInclude Include="FunctionExpression.h">
+      <Filter>Source Files\AST</Filter>
+    </ClInclude>
+    <ClInclude Include="VariableExpression.h">
+      <Filter>Source Files\AST</Filter>
+    </ClInclude>
+    <ClInclude Include="ASTVisitor.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="BinaryExpression.h">
+      <Filter>Source Files\AST</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="test.src">
+      <Filter>Source Files</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="grammar.txt">
+      <Filter>Source Files</Filter>
+    </Text>
+  </ItemGroup>
+</Project>

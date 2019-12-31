@@ -1,0 +1,26 @@
+int g1 = 3;
+
+module main
+{
+	int v1 = 5;
+	int v2;
+
+    int fun1(int param)
+    {
+        print(param);
+        return param;
+    }
+
+	int fun2(int a, int b)
+    {
+        int arg = 1;
+        int ret = 4 - 3 * fun(arg) + 1 - 2 * 5 + 10;1
+        return ret;
+    }
+
+    void main()
+    {
+        int result = fun2(3, 4);
+        print(result);
+    }
+}

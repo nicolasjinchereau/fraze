@@ -1,0 +1,8 @@
+Copyright (c) 2020 Nicolas Jinchereau. All rights reserved.
+
+This source code is published for reference purposes only. No license is
+granted for use, copying, modification, or redistribution.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND. IN NO EVENT
+SHALL THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY ARISING
+FROM THE SOFTWARE OR ITS USE.
