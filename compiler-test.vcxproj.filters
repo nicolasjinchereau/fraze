@@ -73,6 +73,12 @@
     <ClInclude Include="BinaryExpression.h">
       <Filter>Source Files\AST</Filter>
     </ClInclude>
+    <ClInclude Include="Json.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Exception.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -83,10 +89,5 @@
     <None Include="test.src">
       <Filter>Source Files</Filter>
     </None>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="grammar.txt">
-      <Filter>Source Files</Filter>
-    </Text>
   </ItemGroup>
 </Project>

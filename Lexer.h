@@ -1,6 +1,5 @@
 /*---------------------------------------------------------------------------------------------
-*  Copyright (c) 2020 Nicolas Jinchereau. All rights reserved.
-*  Licensed under the MIT License. See License.txt in the project root for license information.
+*  Copyright (c) 2022 Nicolas Jinchereau. All rights reserved.
 *--------------------------------------------------------------------------------------------*/
 
 #pragma once
@@ -16,259 +15,268 @@
 #include <stdexcept>
 #include <iostream>
 #include <utf8.h>
+#include <variant>
+#include <filesystem>
+#include <charconv>
+
 using namespace std::string_literals;
 
-enum class TokenType
+enum class TokenType : int8_t
 {
-    Invalid = -1, // invalid 
-    EndOfFile,    // EOF
-    LeftCurly,    // {
-    RightCurly,   // }
-    LeftBracket,  // [
-    RightBracket, // ]
-    LeftParen,    // (
-    RightParen,   // )
-    Equals,       // =
-    Plus,         // +
-    Minus,        // -
-    Multiply,     // *
-    Divide,       // /
-    Dot,          // .
-    Comma,        // ,
-    Colon,        // :
-    Semicolon,    // ;
-    String,       // "abcd1234"
-    Integer,      // 123
-    Float,        // 12.34
-    Boolean,      // true false
-    Null,         // null
-    Identifier,   // _asdf3423
+    Invalid = -1,     //  invalid
+    EndOfFile,        //  EOF
+
+    LeftBrace,        //  {
+    RightBrace,       //  }
+    LeftBracket,      //  [
+    RightBracket,     //  ]
+    LeftParen,        //  (
+    RightParen,       //  )
+
+    Assign,           //  =
+
+    Add,              //  +
+    AddAssign,        //  +=
+    AddOne,           //  ++
+    Sub,              //  -
+    SubAssign,        //  -=
+    SubOne,           //  --
+    Mul,              //  *
+    MulAssign,        //  *=
+    Div,              //  /
+    DivAssign,        //  /=
+    Mod,              //  %
+    ModAssign,        //  %=
+
+    LeftShift,        //  <<
+    LeftShiftAssign,  //  <<=
+    RightShift,       //  >>
+    RightShiftAssign, //  >>=
+
+    BitOr,            //  |
+    BitOrAssign,      //  |=
+    BitAnd,           //  &
+    BitAndAssign,     //  &=
+    BitNot,           //  ~
+    BitNotAssign,     //  ~=
+    BitXor,           //  ^
+    BitXorAssign,     //  ^=
+
+    LogicalAnd,       //  &&
+    LogicalOr,        //  ||
+    LogicalNot,       //  !
+    QuestionMark,     //  ?
+
+    Equal,            //  ==
+    NotEqual,         //  !=
+    Less,             //  <
+    LessEqual,        //  <=
+    Greater,          //  >
+    GreaterEqual,     //  >=
+
+    Dot,              //  .
+    Comma,            //  ,
+    Colon,            //  :
+    Semicolon,        //  ;
+
+    CharacterLiteral, //  'a'
+    IntegerLiteral,   //  123
+    FloatLiteral,     //  12.34
+    BitLiteral,       //  0b1010
+    HexLiteral,       //  0xFF99
+    StringLiteral,    //  "abcd1234"
+
+    Identifier        //  _asdf3423
+};
+
+enum class Keyword : uint8_t
+{
+    Module,
+    Import,
+    If,
+    Else,
+    Class,
+    New,
+    Void,
+    True,
+    False,
+    Return
 };
 
 struct Token
 {
-    union ValueType {
-        int64_t intValue;
-        double floatValue;
-        bool boolValue;
-        char charValue;
-        std::string stringValue;
-
-        ValueType(){}
-        ~ValueType(){}
-    };
-
     TokenType type = TokenType::EndOfFile;
-    size_t pos = -1;
-    ValueType storage;
+    std::string_view chars;
+    std::variant<nullptr_t, char32_t, int64_t, uint64_t, float, double, std::string, Keyword> value;
 
     Token() = default;
 
-    Token(const Token& tok) : type(tok.type), pos(tok.pos)
-    {
-        if (type == TokenType::String)
-            new (&storage.stringValue) std::string(tok.storage.stringValue);
-        else
-            memcpy(&storage, &tok.storage, sizeof(ValueType));
-    }
+    Token(TokenType type, std::string_view chars)
+        : type(type), chars(chars), value() { }
 
-    Token(Token&& tok) noexcept : type(tok.type), pos(tok.pos)
-    {
-        if (type == TokenType::String)
-            new (&storage.stringValue) std::string(std::move(tok.storage.stringValue));
-        else
-            memcpy(&storage, &tok.storage, sizeof(ValueType));
-    }
+    Token(std::string_view chars, char32_t characterLiteral)
+        : type(TokenType::CharacterLiteral), chars(chars), value(characterLiteral) { }
 
-    Token& operator=(const Token& tok)
-    {
-        if (type == TokenType::String) {
-            typedef std::string stype;
-            storage.stringValue.~stype();
-        }
+    Token(std::string_view chars, int64_t integerLiteral)
+        : type(TokenType::IntegerLiteral), chars(chars), value(integerLiteral) { }
+    
+    Token(std::string_view chars, uint64_t integerLiteral)
+        : type(TokenType::IntegerLiteral), chars(chars), value(integerLiteral) { }
 
-        type = tok.type;
-        pos = tok.pos;
+    Token(std::string_view chars, float floatLiteral)
+        : type(TokenType::FloatLiteral), chars(chars), value(floatLiteral) { }
 
-        if (type == TokenType::String)
-            new (&storage.stringValue) std::string(tok.storage.stringValue);
-        else
-            memcpy(&storage, &tok.storage, sizeof(ValueType));
+    Token(std::string_view chars, double floatLiteral)
+        : type(TokenType::FloatLiteral), chars(chars), value(floatLiteral) { }
 
-        return *this;
-    }
+    Token(std::string_view chars, const std::string& stringLiteral)
+        : type(TokenType::StringLiteral), chars(chars), value(stringLiteral) { }
 
-    Token& operator=(Token&& tok) noexcept
-    {
-        if (type == TokenType::String) {
-            typedef std::string stype;
-            storage.stringValue.~stype();
-        }
+    Token( std::string_view chars, std::string&& stringLiteral)
+        : type(TokenType::FloatLiteral), chars(chars), value(std::move(stringLiteral)) { }
 
-        type = tok.type;
-        pos = tok.pos;
+    Token(std::string_view chars, Keyword keyword)
+        : type(TokenType::Identifier), chars(chars), value(keyword) { }
 
-        if (type == TokenType::String)
-            new (&storage.stringValue) std::string(std::move(tok.storage.stringValue));
-        else
-            memcpy(&storage, &tok.storage, sizeof(ValueType));
+    bool IsCharacter() const { return std::holds_alternative<char32_t>(value); }
+    bool IsInt() const { return std::holds_alternative<int64_t>(value); }
+    bool IsUInt() const { return std::holds_alternative<uint64_t>(value); }
+    bool IsFloat() const { return std::holds_alternative<float>(value); }
+    bool IsDouble() const { return std::holds_alternative<double>(value); }
+    bool IsString() const { return std::holds_alternative<std::string>(value); }
+    bool IsKeyword(Keyword keyword) const { return type == TokenType::Identifier && std::get<Keyword>(value) == keyword; }
+    
+    char32_t GetCharacter() const { return std::get<char32_t>(value); }
+    int64_t GetInt() const { return std::get<int64_t>(value); }
+    uint64_t GetUInt() const { return std::get<uint64_t>(value); }
+    float GetFloat() const { return std::get<float>(value); }
+    double GetDouble() const { return std::get<double>(value); }
+    const std::string& GetString() const { return std::get<std::string>(value); }
+    Keyword GetKeyword() const { return std::get<Keyword>(value); }
 
-        return *this;
-    }
+    std::string_view GetSource() const { return chars; }
+};
 
-    Token(TokenType type, size_t pos, const std::string& value)
-        : type(type), pos(pos)
-    {
-        new (&storage.stringValue) std::string(value);
-    }
+const std::unordered_map<std::string, const Keyword> Keywords
+{
+    { "module", Keyword::Module },
+    { "import", Keyword::Import },
+    { "if",     Keyword::If },
+    { "else",   Keyword::Else },
+    { "class",  Keyword::Class },
+    { "new",    Keyword::New },
+    { "void",   Keyword::Void },
+    { "true",   Keyword::True },
+    { "false",  Keyword::False },
+    { "return", Keyword::Return }
+};
 
-    Token(TokenType type, size_t pos, std::string&& value)
-        : type(type), pos(pos)
-    {
-        new (&storage.stringValue) std::string(std::move(value));
-    }
+const std::unordered_map<Keyword, const std::string> KeywordNames
+{
+    { Keyword::Module, "module" },
+    { Keyword::Import, "import" },
+    { Keyword::If, "if" },
+    { Keyword::Else, "else" },
+    { Keyword::Class, "class" },
+    { Keyword::New, "new" },
+    { Keyword::Void, "void" },
+    { Keyword::True, "true" },
+    { Keyword::False, "false" },
+    { Keyword::Return, "return" }
+};
 
-    Token(TokenType type, size_t pos, int64_t value)
-        : type(type), pos(pos)
-    {
-        storage.intValue = value;
-    }
+const std::unordered_map<TokenType, const std::string> TokenNames
+{
+    { TokenType::Invalid,          "invalid token" },
+    { TokenType::EndOfFile,        "end of file" },
 
-    Token(TokenType type, size_t pos, double value)
-        : type(type), pos(pos)
-    {
-        storage.floatValue = value;
-    }
+    { TokenType::LeftBrace,        "{" },
+    { TokenType::RightBrace,       "}" },
+    { TokenType::LeftBracket,      "[" },
+    { TokenType::RightBracket,     "]" },
+    { TokenType::LeftParen,        "(" },
+    { TokenType::RightParen,       ")" },
 
-    Token(TokenType type, size_t pos, bool value)
-        : type(type), pos(pos)
-    {
-        storage.boolValue = value;
-    }
+    { TokenType::Assign,           "=" },
 
-    Token(TokenType type, size_t pos, char value)
-        : type(type), pos(pos)
-    {
-        storage.charValue = value;
-    }
+    { TokenType::Add,              "+" },
+    { TokenType::AddAssign,        "+=" },
+    { TokenType::AddOne,           "++" },
+    { TokenType::Sub,              "-" },
+    { TokenType::SubAssign,        "-=" },
+    { TokenType::SubOne,           "--" },
+    { TokenType::Mul,              "*" },
+    { TokenType::MulAssign,        "*=" },
+    { TokenType::Div,              "/" },
+    { TokenType::DivAssign,        "/=" },
 
-    Token(TokenType type, size_t pos, std::nullptr_t value)
-        : type(type), pos(pos)
-    {
-        storage.intValue = 0;
-    }
+    { TokenType::LeftShift,        "<<" },
+    { TokenType::LeftShiftAssign,  "<<=" },
+    { TokenType::RightShift,       ">>" },
+    { TokenType::RightShiftAssign, ">>=" },
 
-    ~Token()
-    {
-        if (type == TokenType::String) {
-            typedef std::string stype;
-            storage.stringValue.~stype();
-        }
-    }
+    { TokenType::Mod,              "%" },
+    { TokenType::ModAssign,        "%=" },
+
+    { TokenType::BitOr,            "|" },
+    { TokenType::BitOrAssign,      "|=" },
+    { TokenType::BitAnd,           "&" },
+    { TokenType::BitAndAssign,     "&=" },
+    { TokenType::BitNot,           "~" },
+    { TokenType::BitNotAssign,     "~=" },
+    { TokenType::BitXor,           "^" },
+    { TokenType::BitXorAssign,     "^=" },
+
+    { TokenType::Equal,            "==" },
+    { TokenType::NotEqual,         "!=" },
+    { TokenType::Less,             "<" },
+    { TokenType::LessEqual,        "<=" },
+    { TokenType::Greater,          ">" },
+    { TokenType::GreaterEqual,     ">=" },
+    { TokenType::QuestionMark,     "?" },
+
+    { TokenType::Dot,              "." },
+    { TokenType::Comma,            "," },
+    { TokenType::Colon,            ":" },
+    { TokenType::Semicolon,        ";" },
+
+    { TokenType::CharacterLiteral, "character literal" },
+    { TokenType::IntegerLiteral,   "integer literal" },
+    { TokenType::FloatLiteral,     "float literal" },
+    { TokenType::BitLiteral,       "binary literal" },
+    { TokenType::HexLiteral,       "hex literal" },
+    { TokenType::StringLiteral,    "string literal" },
+
+    { TokenType::Identifier,       "identifier" }
 };
 
 class Lexer
 {
-    size_t line;
-    size_t column;
-    size_t offset;
-    char32_t value;
-    std::basic_string<int, std::char_traits<int>> chars;
-    int tabLength = 4;
+    std::string chars;
+    std::string::iterator pos;
+    std::string::iterator next;
+    char32_t value{};
+    size_t line = 0;
+    size_t column = 0;
 
+    constexpr static int TabLength = 4;
 public:
-
-    static const std::string& GetTokenName(TokenType type)
+    Lexer(const std::filesystem::path& path)
+        : Lexer(ReadFile(path))
     {
-        static const std::unordered_map<int, std::string> tokenNames {
-            { (int)TokenType::Invalid, "invalid token" },
-            { (int)TokenType::EndOfFile, "end of file" },
-            { (int)TokenType::LeftCurly, "{" },
-            { (int)TokenType::RightCurly, "}" },
-            { (int)TokenType::LeftBracket, "[" },
-            { (int)TokenType::RightBracket, "]" },
-            { (int)TokenType::LeftParen, "(" },
-            { (int)TokenType::RightParen, ")" },
-            { (int)TokenType::Equals, "=" },
-            { (int)TokenType::Plus, "+" },
-            { (int)TokenType::Minus, "-" },
-            { (int)TokenType::Multiply, "*" },
-            { (int)TokenType::Divide, "/" },
-            { (int)TokenType::Dot, "." },
-            { (int)TokenType::Comma, "," },
-            { (int)TokenType::Colon, ":" },
-            { (int)TokenType::Semicolon, ";" },
-            { (int)TokenType::String, "string" },
-            { (int)TokenType::Integer, "integer" },
-            { (int)TokenType::Float, "float" },
-            { (int)TokenType::Boolean, "boolean" },
-            { (int)TokenType::Null, "null" },
-            { (int)TokenType::Identifier, "identifier" }
-        };
-        
-        return tokenNames.at((int)type);
     }
 
-    bool endOfFile() const {
-        return offset == chars.size();
-    }
-
-    char32_t getValue() const {
-        return value;
-    }
-
-    size_t getOffset() const {
-        return offset;
-    }
-
-    size_t contentLength() const {
-        return chars.size();
-    }
-
-    Lexer(const std::string& filename)
+    Lexer(const std::string& text)
+        : Lexer(std::string(text))
     {
-        std::ifstream fin(filename, std::ios::in | std::ios::binary);
-
-        if (!fin.good())
-            throw std::runtime_error("failed to open file: "s + filename);
-
-        fin.seekg(0, std::ios::end);
-        auto sz = (size_t)fin.tellg();
-        fin.seekg(0, std::ios::beg);
-
-        if (sz == 0)
-            throw std::runtime_error("file is empty: "s + filename);
-
-        auto buffer = std::unique_ptr<char[]>(new char[sz]);
-        fin.read(buffer.get(), sz);
-
-        utf8::utf8to32(buffer.get(), buffer.get() + sz, std::back_inserter(chars));
-
-        line = 0;
-        column = 0;
-        offset = 0;
-        value = chars[0];
     }
 
-    static std::vector<Token> Tokenize(const std::string& filename)
+    Lexer(std::string&& text)
+        : chars(std::move(text))
     {
-        std::vector<Token> tokens;
-        Lexer lexer(filename);
-
-        do {
-            tokens.push_back(lexer.GetNextToken());
-        } while (!lexer.endOfFile());
-
-        return tokens;
-    }
-
-    void Tokenize(std::vector<Token>& outTokens)
-    {
-        assert(offset == 0);
-
-        do {
-            outTokens.push_back(GetNextToken());
-        } while (!endOfFile());
+        pos = chars.begin();
+        next = pos;
+        value = utf8::next(next, chars.end());
     }
 
     std::vector<Token> Tokenize()
@@ -278,65 +286,262 @@ public:
         return tokens;
     }
 
+    void Tokenize(std::vector<Token>& outTokens)
+    {
+        outTokens.clear();
+
+        do {
+            outTokens.push_back(GetNextToken());
+        } while (pos != chars.end());
+    }
+    
+    static const std::string& GetTokenName(TokenType type) {
+        auto it = TokenNames.find(type);
+        return it != TokenNames.end() ? it->second : TokenNames.at(TokenType::Invalid);
+    }
+
+private:
     Token GetNextToken()
     {
         SkipWhitespace();
 
-        auto pos = offset;
-
-        if (offset == chars.size())
-            return Token(TokenType::EndOfFile, pos, (char)EOF);
+        if (pos == chars.end())
+            return Token();
         
+        auto start = pos;
+
         switch (value)
         {
         case '{':
             SkipChar();
-            return Token(TokenType::LeftCurly, pos, '{');
+            return Token(TokenType::LeftBrace, { start, pos });
         case '}':
             SkipChar();
-            return Token(TokenType::RightCurly, pos, '}');
+            return Token(TokenType::RightBrace, { start, pos });
         case '[':
             SkipChar();
-            return Token(TokenType::LeftBracket, pos, '[');
+            return Token(TokenType::LeftBracket, { start, pos });
         case ']':
             SkipChar();
-            return Token(TokenType::RightBracket, pos, ']');
+            return Token(TokenType::RightBracket, { start, pos });
         case '(':
             SkipChar();
-            return Token(TokenType::LeftParen, pos, '(');
+            return Token(TokenType::LeftParen, { start, pos });
         case ')':
             SkipChar();
-            return Token(TokenType::RightParen, pos, ')');
+            return Token(TokenType::RightParen, { start, pos });
         case '=':
             SkipChar();
-            return Token(TokenType::Equals, pos, '=');
+
+            if(value == '=') {
+                SkipChar();
+                return Token(TokenType::Equal, { start, pos });
+            }
+            else {
+                return Token(TokenType::Assign, { start, pos });
+            }
+
         case '+':
             SkipChar();
-            return Token(TokenType::Plus, pos, '+');
+
+            if(value == '=') {
+                SkipChar();
+                return Token(TokenType::AddAssign, { start, pos });
+            }
+            else if(value == '+') {
+                SkipChar();
+                return Token(TokenType::AddOne, { start, pos });
+            }
+            else {
+                return Token(TokenType::Add, { start, pos });
+            }
+
         case '-':
             SkipChar();
-            return Token(TokenType::Minus, pos, '-');
+
+            if(value == '=') {
+                SkipChar();
+                return Token(TokenType::SubAssign, { start, pos });
+            }
+            else if(value == '-') {
+                SkipChar();
+                return Token(TokenType::SubOne, { start, pos });
+            }
+            else {
+                return Token(TokenType::Sub, { start, pos });
+            }
+
         case '*':
             SkipChar();
-            return Token(TokenType::Multiply, pos, '*');
+
+            if(value == '=') {
+                SkipChar();
+                return Token(TokenType::MulAssign, { start, pos });
+            }
+            else {
+                return Token(TokenType::Mul, { start, pos });
+            }
+
         case '/':
             SkipChar();
-            return Token(TokenType::Divide, pos, '/');
+
+            if(value == '=') {
+                SkipChar();
+                return Token(TokenType::DivAssign, { start, pos });
+            }
+            else {
+                return Token(TokenType::Div, { start, pos });
+            }
+
+        case '%':
+            SkipChar();
+
+            if(value == '=') {
+                SkipChar();
+                return Token(TokenType::ModAssign, { start, pos });
+            }
+            else {
+                return Token(TokenType::Mod, { start, pos });
+            }
+
+        case '<':
+            SkipChar();
+
+            if(value == '<') {
+                SkipChar();
+
+                if(value == '=') {
+                    SkipChar();
+                    return Token(TokenType::LeftShiftAssign, { start, pos });
+                }
+                else {
+                    return Token(TokenType::LeftShift, { start, pos });
+                }
+            }
+            else {
+                if(value == '=') {
+                    SkipChar();
+                    return Token(TokenType::LessEqual, { start, pos });
+                }
+                else {
+                    return Token(TokenType::Less, { start, pos });
+                }
+            }
+
+        case '>':
+            SkipChar();
+
+            if(value == '>') {
+                SkipChar();
+
+                if(value == '=') {
+                    SkipChar();
+                    return Token(TokenType::RightShiftAssign, { start, pos });
+                }
+                else {
+                    return Token(TokenType::RightShift, { start, pos });
+                }
+            }
+            else {
+                if(value == '=') {
+                    SkipChar();
+                    return Token(TokenType::GreaterEqual, { start, pos });
+                }
+                else {
+                    return Token(TokenType::Greater, { start, pos });
+                }
+            }
+
+        case '!':
+            SkipChar();
+
+            if(value == '=') {
+                SkipChar();
+                return Token(TokenType::NotEqual, { start, pos });
+            }
+            else {
+                return Token(TokenType::LogicalNot, { start, pos });
+            }
+
+        case '&':
+            SkipChar();
+
+            if(value == '=') {
+                SkipChar();
+                return Token(TokenType::BitAndAssign, { start, pos });
+            }
+            else if(value == '&') {
+                SkipChar();
+                return Token(TokenType::LogicalAnd, { start, pos });
+            }
+            else {
+                return Token(TokenType::BitAnd, { start, pos });
+            }
+
+        case '|':
+            SkipChar();
+
+            if(value == '=') {
+                SkipChar();
+                return Token(TokenType::BitOrAssign, { start, pos });
+            }
+            else if(value == '|') {
+                SkipChar();
+                return Token(TokenType::LogicalOr, { start, pos });
+            }
+            else {
+                return Token(TokenType::BitOr, { start, pos });
+            }
+
+        case '~':
+            SkipChar();
+
+            if(value == '=') {
+                SkipChar();
+                return Token(TokenType::BitNotAssign, { start, pos });
+            }
+            else {
+                return Token(TokenType::BitNot, { start, pos });
+            }
+
+        case '^':
+            SkipChar();
+
+            if(value == '=') {
+                SkipChar();
+                return Token(TokenType::BitXorAssign, { start, pos });
+            }
+            else {
+                return Token(TokenType::BitXor, { start, pos });
+            }
+
+        case '?':
+            SkipChar();
+            return Token(TokenType::QuestionMark, { start, pos });
+
         case ',':
             SkipChar();
-            return Token(TokenType::Comma, pos, ',');
+            return Token(TokenType::Comma, { start, pos });
         case ':':
             SkipChar();
-            return Token(TokenType::Colon, pos, ':');
+            return Token(TokenType::Colon, { start, pos });
         case ';':
             SkipChar();
-            return Token(TokenType::Semicolon, pos, ',');
+            return Token(TokenType::Semicolon, { start, pos });
         case '\"':
             return GetStringToken();
+        case '\'':
+        {
+            SkipChar();
+            char32_t charLiteral = value;
+            SkipChar();
+            SkipChar();
+            return Token({ start, pos }, charLiteral);
+        }
         case '.':
-            if(!isdigit(chars[offset + 1])) {
+            if(next == chars.end() || !isdigit(*next)) {
                 SkipChar();
-                return Token(TokenType::Dot, pos, ',');
+                return Token(TokenType::Dot, { start, pos });
             }
         case '0':
         case '1':
@@ -402,17 +607,37 @@ public:
         case 'Y':
         case 'Z':
         case '_':
-            return GetIdentifierToken();
+            return GetIdentifierOrKeywordToken();
         default:
-            throw std::runtime_error("found unexpected input: "s + (char)value);
+            throw std::runtime_error("unexpected character: "s + (char)value);
         }
     }
 
-private:
-    
+    static std::string ReadFile(const std::filesystem::path& path)
+    {
+        std::ifstream fin(path, std::ios::in | std::ios::binary);
+
+        if (!fin.good())
+            throw std::runtime_error("failed to open file: "s + path.string());
+
+        fin.seekg(0, std::ios::end);
+        auto sz = (size_t)fin.tellg();
+        fin.seekg(0, std::ios::beg);
+
+        if (sz == 0)
+            throw std::runtime_error("file is empty: "s + path.string());
+
+        std::string ret;
+        ret.resize(sz);
+        if(!fin.read(reinterpret_cast<char*>(ret.data()), sz))
+            throw std::runtime_error("file read failed: "s + path.string());
+
+        return ret;
+    }
+
     void SkipWhitespace()
     {
-        while (offset != chars.size())
+        while (pos != chars.end())
         {
             if (value == ' ') // spaces
             {
@@ -420,7 +645,7 @@ private:
             }
             else if (value == '\t')
             {
-                column += tabLength;
+                column += TabLength;
             }
             else if (value == '\n') // new line
             {
@@ -441,19 +666,17 @@ private:
         }
     }
 
-    char32_t PeekNextChar() {
-        assert(offset < chars.size());
-        return chars[offset + 1];
-    }
-
     void SkipChar() {
-        assert(offset <= chars.size());
-        value = chars[++offset];
+        assert(pos != next);
+        pos = next;
+        value = (next != chars.end()) ? utf8::next(next, chars.end()) : 0;
     }
 
-    void SkipChars(int count) {
-        assert(offset <= chars.size() - count);
-        value = chars[offset += count];
+    void SkipChars(ptrdiff_t count) {
+        assert(pos != next);
+        utf8::advance(pos, count, chars.end());
+        next = pos;
+        value = (next != chars.end()) ? utf8::next(next, chars.end()) : 0;
     }
 
     bool IsStartOfNumber(char32_t c) {
@@ -468,66 +691,62 @@ private:
     {
         assert(value == '\"');
         
-        auto start = offset;
+        auto start = pos;
         SkipChar();
 
-        std::u32string str;
+        std::string str;
         
-        while (offset != chars.size())
+        while (pos != chars.end())
         {
             if (value == '\"')
             {
                 SkipChar();
-
-                std::string utf8str;
-                utf8str.reserve(str.size());
-                utf8::utf32to8(str.begin(), str.end(), std::back_inserter(utf8str));
-                return Token(TokenType::String, start, utf8str);
+                return Token({ start, pos }, std::move(str));
             }
             else if (value == '\\')
             {
                 SkipChar();
 
-                if (offset == chars.size())
+                if (pos == chars.end())
                     throw std::runtime_error("unexpected end of input");
 
-                if (value == '\"') {
+                if (value == U'\"') {
+                    utf8::append(U'\"', std::back_inserter(str));
                     SkipChar();
-                    str += '\"';
                 }
-                else if (value == '\\') {
+                else if (value == U'\\') {
+                    utf8::append(U'\\', std::back_inserter(str));
                     SkipChar();
-                    str += '\\';
                 }
-                else if (value == '/') {
+                else if (value == U'/') {
+                    utf8::append(U'/', std::back_inserter(str));
                     SkipChar();
-                    str += '/';
                 }
-                else if (value == 'b') {
+                else if (value == U'r') {
+                    utf8::append(U'\r', std::back_inserter(str));
                     SkipChar();
-                    str += '\b';
                 }
-                else if (value == 'f') {
+                else if (value == U'n') {
+                    utf8::append(U'\n', std::back_inserter(str));
                     SkipChar();
-                    str += '\f';
                 }
-                else if (value == 'n') {
+                else if (value == U't') {
+                    utf8::append(U'\t', std::back_inserter(str));
                     SkipChar();
-                    str += '\n';
                 }
-                else if (value == 'r') {
+                else if (value == U'b') {
+                    utf8::append(U'\b', std::back_inserter(str));
                     SkipChar();
-                    str += '\r';
                 }
-                else if (value == 't') {
+                else if (value == U'f') {
+                    utf8::append(U'\f', std::back_inserter(str));
                     SkipChar();
-                    str += '\t';
                 }
                 else if (value == 'u')
                 {
                     SkipChar();
 
-                    if (offset > chars.size() - 4)
+                    if ((chars.end() - pos) < 4)
                         throw std::runtime_error("unexpected end of input");
 
                     char hex[4];
@@ -541,123 +760,99 @@ private:
                         SkipChar();
                     }
                     
-                    str += (char32_t)std::strtoul(hex, nullptr, 16);
+                    char32_t charValue = (char32_t)std::strtoul(hex, nullptr, 16);
+                    utf8::append(charValue, std::back_inserter(str));
                 }
                 else
                 {
-                    str += value;
+                    // eat this character or throw?
+                    utf8::append(value, std::back_inserter(str));
                     SkipChar();
                 }
             }
             else
             {
-                str += value;
+                utf8::append(value, std::back_inserter(str));
                 SkipChar();
             }
         }
 
-        assert(offset == chars.size());
+        assert(pos == chars.end());
         throw std::runtime_error("unexpected end of input");
     }
 
     Token GetNumberToken()
     {
-        size_t numberStart = offset;
+        char* charsPos = reinterpret_cast<char*>(chars.data()) + (pos - chars.begin());
+        char* charsEnd = reinterpret_cast<char*>(chars.data()) + chars.size();
+
+        double value;
+        std::from_chars_result ret = std::from_chars(charsPos, charsEnd, value);
+        if(ret.ec != std::errc())
+            throw std::runtime_error("invalid number");
+
+        auto len = ret.ptr - reinterpret_cast<char*>(&pos[0]);
+        std::string_view number(charsPos, charsPos + len);
         
-        //int sign = 1;
+        std::string::iterator begin = pos;
+        SkipChars(len);
 
-        //if (value == '-') {
-        //    sign = -1;
-        //    SkipChar();
-        //}
-        //else if (value == '+') {
-        //    SkipChar();
-        //}
-
-        // MANTISSA
-        size_t mantStart = offset;
-        int64_t mantissa = 0;
-        int64_t exponent = 0;
-        bool hasDecimal = false;
-        
-        while (offset < chars.size())
+        if(number.find('.') != std::string_view::npos || value == 'f')
         {
-            if (isdigit(value)) {
-
-                if (hasDecimal)
-                    --exponent;
-
-                mantissa = mantissa * 10 + (value - U'0');
+            if(value == 'f')
+            {
                 SkipChar();
+                return Token({ begin, pos }, static_cast<float>(value));
             }
-            else if (value == '.' && !hasDecimal) {
-                hasDecimal = true;
-                SkipChar();
-                continue;
-            }
-            else {
-                break;
+            else
+            {
+                return Token({ begin, pos }, value);
             }
         }
-
-        //if (offset - mantStart == 0)
-        //    throw runtime_error("invalid number (no whole part)");
-
-        if (value == 'e' || value == 'E')
+        else
         {
-            SkipChar();
-
-            int expSign = 1;
-
-            if (value == '-') {
-                expSign = -1;
+            if(value == 'u')
+            {
                 SkipChar();
+                
+                uint64_t uintValue;
+                ret = std::from_chars(charsPos, charsEnd, uintValue);
+                if(ret.ec != std::errc())
+                    throw std::runtime_error("invalid number");
+
+                return Token({ begin, pos }, uintValue);
             }
-            else if (value == '+') {
-                SkipChar();
+            else
+            {
+                int64_t intValue;
+                ret = std::from_chars(charsPos, charsEnd, intValue);
+                if(ret.ec != std::errc())
+                    throw std::runtime_error("invalid number");
+
+                return Token({ begin, pos }, intValue);
             }
-
-            int64_t exp = 0;
-
-            while (offset < chars.size() && isdigit(value)) {
-                exp = exp * 10 + (value - U'0');
-                SkipChar();
-            }
-
-            exponent += exp * expSign;
-
-            // exponent is required if 'e' or 'E' are present
-            //if (expStart == expEnd)
-            //    throw runtime_error("invalid number");
         }
-
-        if (exponent >= 0) {
-            //auto wholeNumber = mantissa * (int64_t)(std::pow(10, exponent) + 0.5) * sign;
-            auto wholeNumber = mantissa * (int64_t)(std::pow(10, exponent) + 0.5);
-            return Token(TokenType::Integer, numberStart, wholeNumber);
-        }
-
-        //auto fractNumber = (double)std::copysign(mantissa * std::pow(10.0L, exponent), sign);
-        auto fractNumber = (double)(mantissa * std::pow(10.0L, exponent));
-        return Token(TokenType::Float, numberStart, fractNumber);
     }
 
-    Token GetIdentifierToken()
+    Token GetIdentifierOrKeywordToken()
     {
         assert(isalpha(value) || value == '_');
 
-        size_t start = offset;
-        std::u32string str;
-
+        std::string::iterator start = pos;
+        
         do {
-            str.push_back(value);
             SkipChar();
-        } while (offset != chars.size() && (isalnum(value) || value == '_'));
+        } while (pos != chars.end() && (isalnum(value) || value == '_'));
 
-        std::string utf8str;
-        utf8str.reserve(str.size());
-        utf8::utf32to8(str.begin(), str.end(), std::back_inserter(utf8str));
+        std::string_view chars { start, pos };
 
-        return Token(TokenType::Identifier, start, utf8str);
+        if(auto keyword = Keywords.find(std::string(chars)); keyword != Keywords.end())
+        {
+            return Token(chars, keyword->second);
+        }
+        else
+        {
+            return Token(TokenType::Identifier, chars);
+        }
     }
 };

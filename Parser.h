@@ -1,6 +1,5 @@
 /*---------------------------------------------------------------------------------------------
-*  Copyright (c) 2020 Nicolas Jinchereau. All rights reserved.
-*  Licensed under the MIT License. See License.txt in the project root for license information.
+*  Copyright (c) 2022 Nicolas Jinchereau. All rights reserved.
 *--------------------------------------------------------------------------------------------*/
 
 #pragma once
@@ -13,6 +12,9 @@
 #include <utility>
 #include <cassert>
 #include <unordered_map>
+#include <filesystem>
+#include <format>
+#include "Exception.h"
 #include "Pointers.h"
 #include "TranslationUnit.h"
 #include "FunctionDefinition.h"
@@ -29,21 +31,17 @@
 #include "VariableExpression.h"
 #include "BinaryExpression.h"
 
-const std::unordered_set<std::string> keywords = {
-    "module",
-    "return"
-};
-
 class Parser
 {
+    Lexer lexer;
     std::vector<Token> tokens;
     size_t index = 0;
     Token token;
 public:
 
-    Parser(const std::string& filename)
+    Parser(const std::filesystem::path& path)
+        : lexer(path)
     {
-        Lexer lexer(filename);
         lexer.Tokenize(tokens);
         token = tokens[0];
     }
@@ -53,12 +51,12 @@ public:
         assert(index < tokens.size() - 1);
 
         if(tokenType != TokenType::Invalid && token.type != tokenType)
-            throw std::runtime_error("expected "s + Lexer::GetTokenName(tokenType));
+            throw Exception("expected "s + Lexer::GetTokenName(tokenType));
 
         token = tokens[++index];
         
         if(throwOnEOF && token.type == TokenType::EndOfFile)
-            throw std::runtime_error("unexpected end of file");
+            throw Exception("unexpected end of file");
     }
 
     void Consume(bool throwOnEOF) {
@@ -100,32 +98,32 @@ public:
     sptr<ModuleDefinition> ParseModule()
     {
         auto ret = spnew<ModuleDefinition>();
-
-        Enforce(token.type == TokenType::Identifier && token.storage.stringValue == "module", "expected 'module'");
+        
+        Enforce(token.IsKeyword(Keyword::Module), "expected 'module'");
         Consume(true);
         
         Expect(TokenType::Identifier, "module name");
-        ret->id = token.storage.stringValue;
+        ret->id = token.GetString();
         Consume(true);
         
-        Consume(TokenType::LeftCurly, true);
+        Consume(TokenType::LeftBrace, true);
 
         ParseModuleBody(ret);
 
-        Consume(TokenType::RightCurly, false);
+        Consume(TokenType::RightBrace, false);
 
         return ret;
     }
 
     void ParseModuleBody(sptr<ModuleDefinition>& mod)
     {
-        while (token.type != TokenType::RightCurly && token.type != TokenType::EndOfFile)
+        while (token.type != TokenType::RightBrace && token.type != TokenType::EndOfFile)
         {
             switch (token.type)
             {
             case TokenType::Identifier:
                 // module SomeModule { .. }
-                if (token.storage.stringValue == "module")
+                if (token.IsKeyword(Keyword::Module))
                 {
                     auto nestedMod = ParseModule();
                     mod->modules.push_back(nestedMod);
@@ -144,7 +142,7 @@ public:
                             mod->functions.push_back(std::move(func));
                         }
                         // int Variable
-                        else
+                        else if (next == TokenType::Assign || next == TokenType::Semicolon)
                         {
                             auto var = ParseVariableDeclaration();
                             mod->variables.push_back(var);
@@ -165,20 +163,20 @@ public:
         auto varDecl = spnew<VariableDeclaration>();
         
         Expect(TokenType::Identifier, "a type name");
-        varDecl->typeName = token.storage.stringValue;
+        varDecl->typeName = token.GetString();
 
         // consume type name
         Consume(true);
 
         Enforce(token.type == TokenType::Identifier, "expected variable name");
-        varDecl->id = token.storage.stringValue;
+        varDecl->id = token.GetString();
 
         // consume variable name
         Consume(true);
         
         sptr<Expression> initializer;
 
-        if (token.type == TokenType::Equals)
+        if (token.type == TokenType::Assign)
         {
             // consume '=' operator
             Consume(true);
@@ -205,12 +203,12 @@ public:
         auto func = spnew<FunctionDefinition>();
 
         Expect(TokenType::Identifier, "a type name");
-        func->returnTypeName = token.storage.stringValue;
+        func->returnTypeName = token.GetString();
 
         Consume(true);
         
         Expect(TokenType::Identifier, "a function name");
-        func->name = token.storage.stringValue;
+        func->name = token.GetString();
         Consume(true);
         
         Consume(TokenType::LeftParen, true);
@@ -221,11 +219,11 @@ public:
             auto param = spnew<FunctionParameter>();
 
             Expect(TokenType::Identifier, "a type name");
-            param->typeName = token.storage.stringValue;
+            param->typeName = token.GetString();
             Consume(true);
             
             Expect(TokenType::Identifier, "a variable name");
-            param->id = token.storage.stringValue;
+            param->id = token.GetString();
             func->params.push_back(param);
             Consume(true);
 
@@ -237,7 +235,7 @@ public:
         Consume(TokenType::RightParen, true);
 
         // following function definition, there should be a block statement
-        Expect(TokenType::LeftCurly);
+        Expect(TokenType::LeftBrace);
 
         func->body = ParseStatement();
 
@@ -246,27 +244,27 @@ public:
 
     sptr<Statement> ParseStatement()
     {
-        if (token.type == TokenType::LeftCurly)
+        if (token.type == TokenType::LeftBrace)
         {
             // parse block statement
             Consume(true);
 
             auto block = spnew<BlockStatement>();
 
-            while (token.type != TokenType::RightCurly && token.type != TokenType::EndOfFile)
+            while (token.type != TokenType::RightBrace && token.type != TokenType::EndOfFile)
             {
                 auto stmt = ParseStatement();
                 block->statements.push_back(std::move(stmt));
             }
 
-            Consume(TokenType::RightCurly, false);
+            Consume(TokenType::RightBrace, false);
 
             return block;
         }
         
         if (token.type == TokenType::Identifier)
         {
-            auto& id = token.storage.stringValue;
+            auto& id = token.GetString();
             if (id == "return")
             {
                 // consume "return" keyword
@@ -303,22 +301,22 @@ public:
     bool IsBinaryOperator(TokenType token)
     {
         return
-            token == TokenType::Plus ||
-            token == TokenType::Minus ||
-            token == TokenType::Multiply ||
-            token == TokenType::Divide;
+            token == TokenType::Add ||
+            token == TokenType::Sub ||
+            token == TokenType::Mul ||
+            token == TokenType::Div;
     }
 
     int GetPrecendence(TokenType tok)
     {
         switch (tok)
         {
-        case TokenType::Plus:
-        case TokenType::Minus:
+        case TokenType::Add:
+        case TokenType::Sub:
             return 0;
 
-        case TokenType::Multiply:
-        case TokenType::Divide:
+        case TokenType::Mul:
+        case TokenType::Div:
             return 1;
 
         default:
@@ -363,7 +361,7 @@ public:
                 auto func = spnew<FunctionExpression>();
 
                 // function name
-                func->name = token.storage.stringValue;
+                func->name = token.GetString();
                 Consume(true);
 
                 // '('
@@ -389,16 +387,16 @@ public:
                 auto var = spnew<VariableExpression>();
 
                 // variable name
-                var->name = token.storage.stringValue;
+                var->name = token.GetString();
                 Consume(true);
 
                 return var;
             }
         }
-        else if (token.type == TokenType::Integer)
+        else if (token.type == TokenType::IntegerLiteral)
         {
             // primary expression
-            auto num = spnew<IntegerExpression>((int)token.storage.intValue);
+            auto num = spnew<IntegerExpression>((int)token.GetInt());
             Consume(true);
             return num;
         }
