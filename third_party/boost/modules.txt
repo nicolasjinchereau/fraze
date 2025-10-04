@@ -1,0 +1,11 @@
+https://github.com/boostorg/
+https://pdimov.github.io/boostdep-report/master/module-overview.html
+
+smart_ptr
+assert
+config
+core
+move
+static_assert
+throw_exception
+type_traits

@@ -1,0 +1,149 @@
+/*--------------------------------------------------------------*
+*  Copyright (c) 2025 Nicolas Jinchereau. All rights reserved.  *
+*---------------------------------------------------------------*/
+
+class List<T>
+{
+    T[] items;
+    int count = 0;
+
+    this() {
+        items = new T[0];
+    }
+
+    void Reserve(int request)
+    {
+        int capacity = items != null ? items.Count : 0;
+        if(capacity >= request)
+            return;
+        
+        if(capacity == 0)
+        {
+            capacity = request;
+            if(capacity < 8)
+                capacity = 8;
+                
+            items = new T[capacity];
+        }
+        else
+        {
+            var doubleCap = capacity * 2;
+            capacity = request > doubleCap ? request : doubleCap;
+
+            T[] newItems = new T[capacity];
+
+            for(int i = 0; i != count; ++i)
+                newItems[i] = items[i];
+
+            items = newItems;
+        }
+    }
+
+    void Add(T item)
+    {
+        Reserve(count + 1);
+        items[count++] = item;
+    }
+
+    void RemoveAt(int index)
+    {
+        assert(index >= 0 && index < count);
+
+        for(int i = index + 1; i < count; ++i)
+            items[i - 1] = items[i];
+        
+        T defaultValue;
+        items[count - 1] = defaultValue;
+        
+        --count;
+    }
+
+    bool Remove(T item)
+    {
+        for(int i = 0; i < count; ++i)
+        {
+            if(items[i] == item)
+            {
+                RemoveAt(i);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // removes item at 'index' and replaces it with last item or default value
+    void RestockAt(int index)
+    {
+        assert(index >= 0 && index < count);
+
+        int last = count - 1;
+        if(index < last)
+            items[index] = items[last];
+
+        T defaultValue;
+        items[last] = defaultValue;
+
+        --count;
+    }
+    
+    // removes 'item' and replaces it with last or default
+    void Restock(T item)
+    {
+        int index = FindIndex(item);
+        if(index == -1)
+            return;
+
+        int last = count - 1;
+        if(index < last)
+            items[index] = items[last];
+
+        T defaultValue;
+        items[last] = defaultValue;
+
+        --count;
+    }
+
+    void Clear()
+    {
+        T defaultValue;
+        for(int i = 0; i != count; ++i)
+            items[i] = defaultValue;
+
+        count = 0;
+    }
+
+    int FindIndex(T item)
+    {
+        for(int i = 0; i != items.Count; ++i)
+        {
+            if(items[i] == item)
+                return i;
+        }
+
+        return -1;
+    }
+
+    T operator[](int index)
+    {
+        return items[index];
+    }
+
+    void operator[](int index, T value)
+    {
+        items[index] = value;
+    }
+
+    T Get(int index)
+    {
+        return items[index];
+    }
+
+    int Count {
+        get { return count; }
+    }
+
+    int Capacity {
+        get { return items.Count; }
+    }
+}

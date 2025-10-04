@@ -1,0 +1,37 @@
+/*--------------------------------------------------------------*
+*  Copyright (c) 2025 Nicolas Jinchereau. All rights reserved.  *
+*---------------------------------------------------------------*/
+
+interface IPredicate
+{
+    bool IsMatch(object obj);
+}
+
+class Number
+{
+    extern int GetHashCode(num value);
+}
+
+class String
+{
+    extern string[] Split(string input, string delim);
+    extern int GetHashCode(string value);
+}
+
+class Object
+{
+    extern int GetHashCode(object value);
+}
+
+class Console
+{
+    extern void Write(string msg);
+    extern void WriteLine(string msg);
+}
+
+class GC
+{
+    extern void Collect();
+    extern void Report();
+}
+

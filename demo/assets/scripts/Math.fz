@@ -1,0 +1,1314 @@
+/*--------------------------------------------------------------*
+*  Copyright (c) 2025 Nicolas Jinchereau. All rights reserved.  *
+*---------------------------------------------------------------*/
+
+struct Vec2
+{
+    num x;
+    num y;
+
+    static Vec2 Zero { get { return new Vec2{ 0, 0 }; } }
+    static Vec2 One { get { return new Vec2{ 1, 1 }; } }
+    static Vec2 Right { get { return new Vec2{ 1, 0 }; } }
+    static Vec2 Left { get { return new Vec2{ -1, 0 }; } }
+    static Vec2 Up { get { return new Vec2{ 0, 1 }; } }
+    static Vec2 Down { get { return new Vec2{ 0, -1 }; } }
+
+    static Vec2 operator-(Vec2 value) {
+        return new Vec2{ -value.x, -value.y };
+    }
+
+    static Vec2 operator++(Vec2 value) {
+        return new Vec2{ value.x + 1, value.y + 1 };
+    }
+
+    static Vec2 operator+(Vec2 left, Vec2 right) {
+        return new Vec2{ left.x + right.x, left.y + right.y };
+    }
+
+    static Vec2 operator-(Vec2 left, Vec2 right) {
+        return new Vec2{ left.x - right.x, left.y - right.y };
+    }
+
+    static Vec2 operator*(Vec2 left, num s) {
+        return new Vec2{left.x * s, left.y * s};
+    }
+
+    static Vec2 operator/(Vec2 left, num s) {
+        return new Vec2{left.x / s, left.y / s};
+    }
+
+    static num operator*(Vec2 left, Vec2 right) {
+        return left.x * right.x + left.y * right.y;
+    }
+
+    static bool operator==(Vec2 left, Vec2 right) {
+        return left.x == right.x && left.y == right.y;
+    }
+
+    static bool operator!=(Vec2 left, Vec2 right) {
+        return left.x != right.x || left.y != right.y;
+    }
+
+    Vec2 PerpCW() {
+        return new Vec2{ y, -x };
+    }
+
+    Vec2 PerpCCW() {
+        return new Vec2{ -y, x };
+    }
+
+    num Det(Vec2 v) {
+        return x * v.y - y * v.x;
+    }
+
+    num Dot(Vec2 v) {
+        return x * v.x + y * v.y;
+    }
+
+    num Length {
+        get { return Math.Sqrt(x * x + y * y); }
+    }
+
+    num LengthSq {
+        get { return x * x + y * y; }
+    }
+
+    num Distance(Vec2 v) {
+        Vec2 diff = new Vec2{ v.x - x, v.y - y };
+        return diff.Length;
+    }
+
+    num DistanceSq(Vec2 v) {
+        Vec2 diff = new Vec2{ v.x - x, v.y - y };
+        return diff.LengthSq;
+    }
+
+    void Normalize()
+    {
+        num sqLen = x * x + y * y;
+        if(sqLen >= 1e-6 && Math.Abs(1.0 - sqLen) > 1e-6)
+        {
+            num len = Math.Sqrt(sqLen);
+            x /= len;
+            y /= len;
+        }
+    }
+
+    Vec2 Normalized
+    {
+        get
+        {
+            num sqLen = x * x + y * y;
+            if(sqLen >= 1e-6 && Math.Abs(1.0 - sqLen) > 1e-6)
+            {
+                num len = Math.Sqrt(sqLen);
+                return new Vec2{ x / len, y / len };
+            }
+            
+            return new Vec2{ x, y };
+        }
+    }
+
+    bool IsNormalized
+    {
+        get
+        {
+            num sqLen = x * x + y * y;
+            return Math.Abs(1.0 - sqLen) <= 1e-6;
+        }
+    }
+
+    static Vec2 Lerp(Vec2 a, Vec2 b, num t) {
+        Vec2 diff = b - a;
+        return a + diff * t;
+    }
+
+    string ToString() {
+        return "{" + x + ", " + y + "}";
+    }
+}
+
+struct Vec3
+{
+    num x;
+    num y;
+    num z;
+
+    static Vec3 Zero { get { return new Vec3{ 0, 0, 0 }; } }
+    static Vec3 One { get { return new Vec3{ 1, 1, 1 }; } }
+    static Vec3 Right { get { return new Vec3{ 1, 0, 0 }; } }
+    static Vec3 Left { get { return new Vec3{ -1, 0, 0 }; } }
+    static Vec3 Up { get { return new Vec3{ 0, 1, 0 }; } }
+    static Vec3 Down { get { return new Vec3{ 0, -1, 0 }; } }
+    static Vec3 Forward { get { return new Vec3{ 0, 0, 1 }; } }
+    static Vec3 Backward { get { return new Vec3{ 0, 0, -1 }; } }
+
+    static Vec3 operator-(Vec3 value) {
+        return new Vec3{ -value.x, -value.y, -value.z };
+    }
+
+    static Vec3 operator+(Vec3 left, Vec3 right) {
+        return new Vec3{ left.x + right.x, left.y + right.y, left.z + right.z };
+    }
+
+    static Vec3 operator-(Vec3 left, Vec3 right) {
+        return new Vec3{ left.x - right.x, left.y - right.y, left.z - right.z };
+    }
+
+    static Vec3 operator*(Vec3 left, num s) {
+        return new Vec3{ left.x * s, left.y * s, left.z * s };
+    }
+
+    static Vec3 operator/(Vec3 left, num s) {
+        return new Vec3{ left.x / s, left.y / s, left.z / s };
+    }
+
+    static num operator*(Vec3 left, Vec3 right) {
+        return left.x * right.x + left.y * right.y + left.z * right.z;
+    }
+
+    static bool operator==(Vec3 left, Vec3 right) {
+        return left.x == right.x && left.y == right.y && left.z == right.z;
+    }
+
+    static bool operator!=(Vec3 left, Vec3 right) {
+        return left.x != right.x || left.y != right.y || left.z != right.z;
+    }
+
+    num Dot(Vec3 v) {
+        return x * v.x + y * v.y + z * v.z;
+    }
+
+    Vec3 Multiply(Vec3 v) {
+        return new Vec3{ x * v.x, y * v.y, z * v.z };
+    }
+
+    Vec3 Divide(Vec3 v) {
+        return new Vec3{ x / v.x, y / v.y, z / v.z };
+    }
+
+    Vec3 Cross(Vec3 v)
+    {
+        return new Vec3{
+            (y * v.z) - (z * v.y),
+            (z * v.x) - (x * v.z),
+            (x * v.y) - (y * v.x)
+        };
+    }
+
+    num Angle(Vec3 v) {
+        return Math.Acos(Dot(v)) * Math.RadToDeg;
+    }
+
+    static num Angle(Vec3 a, Vec3 b) {
+        return Math.Acos(a.Dot(b)) * Math.RadToDeg;
+    }
+
+    num Length {
+        get { return Math.Sqrt(x * x + y * y + z * z); }
+    }
+
+    num LengthSq {
+        get { return x * x + y * y + z * z; }
+    }
+
+    num Distance(Vec3 v) {
+        Vec3 diff = new Vec3{ v.x - x, v.y - y, v.z - z };
+        return diff.Length;
+    }
+
+    num DistanceSq(Vec3 v) {
+        Vec3 diff = new Vec3{ v.x - x, v.y - y, v.z - z };
+        return diff.LengthSq;
+    }
+
+    void Normalize()
+    {
+        num sqLen = x * x + y * y + z * z;
+        if(sqLen >= 1e-6 && Math.Abs(1.0 - sqLen) > 1e-6)
+        {
+            num len = Math.Sqrt(sqLen);
+            x /= len;
+            y /= len;
+            z /= len;
+        }
+    }
+
+    Vec3 Normalized
+    {
+        get
+        {
+            num sqLen = x * x + y * y + z * z;
+            if(sqLen >= 1e-6 && Math.Abs(1.0 - sqLen) > 1e-6)
+            {
+                num len = Math.Sqrt(sqLen);
+                return new Vec3{ x / len, y / len, z / len };
+            }
+            
+            return new Vec3{ x, y, z };
+        }
+    }
+
+    bool IsNormalized
+    {
+        get
+        {
+            num sqLen = x * x + y * y + z * z;
+            return Math.Abs(1.0 - sqLen) <= 1e-6;
+        }
+    }
+
+    static Vec3 Lerp(Vec3 a, Vec3 b, num t) {
+        Vec3 diff = b - a;
+        return a + diff * t;
+    }
+
+    string ToString() {
+        return "{" + x + ", " + y + ", " + z + "}";
+    }
+}
+
+struct Vec4
+{
+    num x;
+    num y;
+    num z;
+    num w;
+
+    static Vec4 Zero { get { return new Vec4{ 0, 0, 0, 0 }; } }
+    static Vec4 One { get { return new Vec4{ 1, 1, 1, 1 }; } }
+    static Vec4 Right { get { return new Vec4{ 1, 0, 0, 0 }; } }
+    static Vec4 Left { get { return new Vec4{ -1, 0, 0, 0 }; } }
+    static Vec4 Up { get { return new Vec4{ 0, 1, 0, 0 }; } }
+    static Vec4 Down { get { return new Vec4{ 0, -1, 0, 0 }; } }
+    static Vec4 Forward { get { return new Vec4{ 0, 0, 1, 0 }; } }
+    static Vec4 Backward { get { return new Vec4{ 0, 0, -1, 0 }; } }
+    static Vec4 Future { get { return new Vec4{ 0, 0, 0, 1 }; } }
+    static Vec4 Past { get { return new Vec4{ 0, 0, 0, -1 }; } }
+
+    num operator[](int index)
+    {
+        if(index == 0)
+            return x;
+        else if(index == 1)
+            return y;
+        else if(index == 2)
+            return z;
+        else if(index == 3)
+            return w;
+
+        assert(false, "invalid component index");
+        return 0;
+    }
+
+    static Vec4 operator-(Vec4 value) {
+        return new Vec4{ -value.x, -value.y, -value.z, -value.w };
+    }
+
+    static Vec4 operator+(Vec4 left, Vec4 right) {
+        return new Vec4{ left.x + right.x, left.y + right.y, left.z + right.z, left.w + right.w };
+    }
+
+    static Vec4 operator-(Vec4 left, Vec4 right) {
+        return new Vec4{ left.x - right.x, left.y - right.y, left.z - right.z, left.w - right.w };
+    }
+
+    static Vec4 operator*(Vec4 left, num s) {
+        return new Vec4{ left.x * s, left.y * s, left.z * s, left.w * s };
+    }
+
+    static Vec4 operator/(Vec4 left, num s) {
+        return new Vec4{ left.x / s, left.y / s, left.z / s, left.w / s };
+    }
+
+    static num operator*(Vec4 left, Vec4 right) {
+        return left.x * right.x + left.y * right.y + left.z * right.z + left.w * right.w;
+    }
+
+    static bool operator==(Vec4 left, Vec4 right) {
+        return left.x == right.x && left.y == right.y && left.z == right.z && left.w == right.w;
+    }
+
+    static bool operator!=(Vec4 left, Vec4 right) {
+        return left.x != right.x || left.y != right.y || left.z != right.z || left.w != right.w;
+    }
+
+    extern Vec4 operator*(Vec4 v, Mat4 m);
+
+    num Dot(Vec4 v) {
+        return x * v.x + y * v.y + z * v.z + w * v.w;
+    }
+
+    num Length {
+        get { return Math.Sqrt(x * x + y * y + z * z + w * w); }
+    }
+
+    num LengthSq {
+        get { return x * x + y * y + z * z + w * w; }
+    }
+
+    num Distance(Vec4 v) {
+        Vec4 diff = new Vec4{ v.x - x, v.y - y, v.z - z, v.w - w };
+        return diff.Length;
+    }
+
+    num DistanceSq(Vec4 v) {
+        Vec4 diff = new Vec4{ v.x - x, v.y - y, v.z - z, v.w - w };
+        return diff.LengthSq;
+    }
+
+    void Normalize()
+    {
+        num sqLen = x * x + y * y + z * z + w * w;
+        if(sqLen >= 1e-6 && Math.Abs(1.0 - sqLen) > 1e-6)
+        {
+            num len = Math.Sqrt(sqLen);
+            x /= len;
+            y /= len;
+            z /= len;
+            w /= len;
+        }
+    }
+
+    Vec4 Normalized
+    {
+        get
+        {
+            num sqLen = x * x + y * y + z * z + w * w;
+            if(sqLen >= 1e-6 && Math.Abs(1.0 - sqLen) > 1e-6)
+            {
+                num len = Math.Sqrt(sqLen);
+                return new Vec4{ x / len, y / len, z / len, w / len };
+            }
+            
+            return new Vec4{ x, y, z, w };
+        }
+    }
+
+    bool IsNormalized
+    {
+        get
+        {
+            num sqLen = x * x + y * y + z * z + w * w;
+            return Math.Abs(1.0 - sqLen) <= 1e-6;
+        }
+    }
+
+    static Vec4 Lerp(Vec4 a, Vec4 b, num t) {
+        Vec4 diff = b - a;
+        return a + diff * t;
+    }
+
+    string ToString() {
+        return "{" + x + ", " + y + ", " + z + ", " + w + "}";
+    }
+}
+
+struct IVec2
+{
+    int x;
+    int y;
+
+    static IVec2 operator-(IVec2 left, IVec2 right) {
+        return new IVec2{ left.x - right.x, left.y - right.y };
+    }
+}
+
+struct IVec4
+{
+    int x;
+    int y;
+    int z;
+    int w;
+
+    int operator[](int index)
+    {
+        if(index == 0)
+            return x;
+        else if(index == 1)
+            return y;
+        else if(index == 2)
+            return z;
+        else if(index == 3)
+            return w;
+
+        assert(false, "invalid component index");
+        return 0;
+    }
+}
+
+struct Mat3
+{
+    num m11;  num m12;  num m13; //row 1
+    num m21;  num m22;  num m23; //row 2
+    num m31;  num m32;  num m33; //row 3
+
+    static Mat3 Zero
+    {
+        get {
+            return new Mat3 {
+                0, 0, 0,
+                0, 0, 0,
+                0, 0, 0,
+            };
+        }
+    }
+
+    static Mat3 Identity
+    {
+        get {
+            return new Mat3 {
+                1, 0, 0,
+                0, 1, 0,
+                0, 0, 1,
+            };
+        }
+    }
+
+    static Mat3 operator+(Mat3 left, Mat3 right)
+    {
+        return new Mat3{
+            left.m11 + right.m11, left.m12 + right.m12, left.m13 + right.m13,
+            left.m21 + right.m21, left.m22 + right.m22, left.m23 + right.m23,
+            left.m31 + right.m31, left.m32 + right.m32, left.m33 + right.m33
+        };
+    }
+
+    static Mat3 operator-(Mat3 left, Mat3 right)
+    {
+        return new Mat3{
+            left.m11 - right.m11, left.m12 - right.m12, left.m13 - right.m13,
+            left.m21 - right.m21, left.m22 - right.m22, left.m23 - right.m23,
+            left.m31 - right.m31, left.m32 - right.m32, left.m33 - right.m33
+        };
+    }
+
+    static Mat3 operator+(Mat3 m, num s)
+    {
+        return new Mat3{
+            m.m11 + s, m.m12 + s, m.m13 + s,
+            m.m21 + s, m.m22 + s, m.m23 + s,
+            m.m31 + s, m.m32 + s, m.m33 + s
+        };
+    }
+
+    static Mat3 operator-(Mat3 m, num s)
+    {
+        return new Mat3{
+            m.m11 - s, m.m12 - s, m.m13 - s,
+            m.m21 - s, m.m22 - s, m.m23 - s,
+            m.m31 - s, m.m32 - s, m.m33 - s
+        };
+    }
+
+    static Mat3 operator*(Mat3 m, num s)
+    {
+        return new Mat3{
+            m.m11 * s, m.m12 * s, m.m13 * s,
+            m.m21 * s, m.m22 * s, m.m23 * s,
+            m.m31 * s, m.m32 * s, m.m33 * s
+        };
+    }
+
+    static Mat3 operator/(Mat3 m, num s)
+    {
+        num i = 1.0 / s;
+        return new Mat3{
+            m.m11 * i, m.m12 * i, m.m13 * i,
+            m.m21 * i, m.m22 * i, m.m23 * i,
+            m.m31 * i, m.m32 * i, m.m33 * i
+        };
+    }
+
+    static Mat3 operator*(Mat3 left, Mat3 right)
+    {
+        return new Mat3{
+            left.m11 * right.m11 + left.m12 * right.m21 + left.m13 * right.m31,
+            left.m11 * right.m12 + left.m12 * right.m22 + left.m13 * right.m32,
+            left.m11 * right.m13 + left.m12 * right.m23 + left.m13 * right.m33,
+
+            left.m21 * right.m11 + left.m22 * right.m21 + left.m23 * right.m31,
+            left.m21 * right.m12 + left.m22 * right.m22 + left.m23 * right.m32,
+            left.m21 * right.m13 + left.m22 * right.m23 + left.m23 * right.m33,
+
+            left.m31 * right.m11 + left.m32 * right.m21 + left.m33 * right.m31,
+            left.m31 * right.m12 + left.m32 * right.m22 + left.m33 * right.m32,
+            left.m31 * right.m13 + left.m32 * right.m23 + left.m33 * right.m33
+        };
+    }
+
+    static bool operator==(Mat3 left, Mat3 right)
+    {
+        return
+            left.m11 == right.m11 && left.m12 == right.m12 && left.m13 == right.m13 &&
+            left.m21 == right.m21 && left.m22 == right.m22 && left.m23 == right.m23 &&
+            left.m31 == right.m31 && left.m32 == right.m32 && left.m33 == right.m33;
+    }
+
+    static bool operator!=(Mat3 left, Mat3 right)
+    {
+        return
+            left.m11 != right.m11 || left.m12 != right.m12 || left.m13 != right.m13 ||
+            left.m21 != right.m21 || left.m22 != right.m22 || left.m23 != right.m23 ||
+            left.m31 != right.m31 || left.m32 != right.m32 || left.m33 != right.m33;
+    }
+
+    Mat3 Transposed
+    {
+        get
+        {
+            return new Mat3{
+                m11, m21, m31,
+                m12, m22, m32,
+                m13, m23, m33
+            };
+        }
+    }
+
+    Mat3 Inverse
+    {
+        get
+        {
+            Mat3 adj;
+            
+            adj.m11 = m22 * m33 - m23 * m32;
+            adj.m12 = -(m12 * m33 - m13 * m32);
+            adj.m13 = m12 * m23 - m13 * m22;
+            adj.m21 = -(m21 * m33 - m23 * m31);
+            adj.m22 = m11 * m33 - m13 * m31;
+            adj.m23 = -(m11 * m23 - m13 * m21);
+            adj.m31 = m21 * m32 - m22 * m31;
+            adj.m32 = -(m11 * m32 - m12 * m31);
+            adj.m33 = m11 * m22 - m12 * m21;
+
+            num det = m11 * adj.m11 + m12 * adj.m21 + m13 * adj.m31;
+            if(Math.Abs(det) < Math.Epsilon)
+            {
+                return new Mat3{
+                    m11, m12, m13,
+                    m21, m22, m23,
+                    m31, m32, m33
+                };
+            }
+
+            return adj * (1.0 / det);
+        }
+    }
+
+    static Mat3 Scale(num x, num y, num z)
+    {
+        return new Mat3{
+            x, 0, 0,
+            0, y, 0,
+            0, 0, z
+        };
+    }
+
+    static Mat3 Translation(num x, num y, num z)
+    {
+        return new Mat3{
+            1, 0, 0,
+            0, 1, 0,
+            x, y, 1,
+        };
+    }
+
+    static Mat3 Rotation(num x, num y, num z)
+    {
+        num rx = x * Math.DegToRad;
+        num ry = y * Math.DegToRad;
+        num rz = z * Math.DegToRad;
+
+        num sx = Math.Sin(rx);
+        num sy = Math.Sin(ry);
+        num sz = Math.Sin(rz);
+        num cx = Math.Cos(rx);
+        num cy = Math.Cos(ry);
+        num cz = Math.Cos(rz);
+
+        return new Mat3{
+            (cy * cz + sx * sy * sz), (cx * sz), (sx * cy * sz - sy * cz),
+            (sx * sy * cz - cy * sz), (cx * cz), (sx * cy * cz + sy * sz),
+            (cx * sy), (-sx), (cx * cy),
+        };
+    }
+
+    static Mat3 Scale(Vec3 scale) {
+        return Mat3.Scale(scale.x, scale.y, scale.z);
+    }
+
+    static Mat3 Translation(Vec3 offset) {
+        return Mat3.Translation(offset.x, offset.y, offset.z);
+    }
+
+    static Mat3 Rotation(Vec3 eulerAngles) {
+        return Mat3.Rotation(eulerAngles.x, eulerAngles.y, eulerAngles.z);
+    }
+
+    static Mat3 Ortho2D(num left, num right, num bottom, num top)
+    {
+        num w = right - left;
+        num h = top - bottom;
+
+        if (Math.Abs(w) < Math.Epsilon || Math.Abs(h) < Math.Epsilon)
+            return Mat3.Identity;
+
+        num sx = 2.0 / w;
+        num sy = 2.0 / h;
+        num tx = -(left + right) / w;
+        num ty = -(top + bottom) / h;
+
+        return new Mat3{
+            sx, 0,  0,
+            0,  sy, 0,
+            tx, ty, 1
+        };
+    }
+
+    static Mat3 LookRotation(Vec3 forward, Vec3 upward)
+    {
+        Vec3 zaxis = forward.Normalized;
+        Vec3 xaxis = upward.Cross(zaxis).Normalized;
+        Vec3 yaxis = zaxis.Cross(xaxis);
+
+        return new Mat3{
+            xaxis.x, xaxis.y, xaxis.z,
+            yaxis.x, yaxis.y, yaxis.z,
+            zaxis.x, zaxis.y, zaxis.z
+        };
+    }
+
+    string ToString()
+    {
+        return
+            "{ {" + m11 + ", " + m12 + ", " + m13 + "}, " +
+              "{" + m21 + ", " + m22 + ", " + m23 + "}, " +
+              "{" + m31 + ", " + m32 + ", " + m33 + "} }";
+    }
+}
+
+struct Mat4
+{
+    num m11;  num m12;  num m13;  num m14; //row 1
+    num m21;  num m22;  num m23;  num m24; //row 2
+    num m31;  num m32;  num m33;  num m34; //row 3
+    num m41;  num m42;  num m43;  num m44; //row 4
+
+    static Mat4 Zero
+    {
+        get {
+            return new Mat4 {
+                0, 0, 0, 0,
+                0, 0, 0, 0,
+                0, 0, 0, 0,
+                0, 0, 0, 0,
+            };
+        }
+    }
+
+    static Mat4 Identity
+    {
+        get {
+            return new Mat4 {
+                1, 0, 0, 0,
+                0, 1, 0, 0,
+                0, 0, 1, 0,
+                0, 0, 0, 1,
+            };
+        }
+    }
+
+    static Mat4 FromMat3(Mat3 m)
+    {
+        return new Mat4{
+            m.m11, m.m12, m.m13, 0,
+            m.m21, m.m22, m.m23, 0,
+            m.m31, m.m32, m.m33, 0,
+            0, 0, 0, 1,
+        };
+    }
+
+    extern Mat4 operator+(Mat4 left, Mat4 right);
+    extern Mat4 operator-(Mat4 left, Mat4 right);
+    extern Mat4 operator*(Mat4 left, Mat4 right);
+
+    static Mat4 operator+(Mat4 m, num s)
+    {
+        return new Mat4{
+            m.m11 + s, m.m12 + s, m.m13 + s, m.m14 + s,
+            m.m21 + s, m.m22 + s, m.m23 + s, m.m24 + s,
+            m.m31 + s, m.m32 + s, m.m33 + s, m.m34 + s,
+            m.m41 + s, m.m42 + s, m.m43 + s, m.m44 + s
+        };
+    }
+
+    static Mat4 operator-(Mat4 m, num s)
+    {
+        return new Mat4{
+            m.m11 - s, m.m12 - s, m.m13 - s, m.m14 - s,
+            m.m21 - s, m.m22 - s, m.m23 - s, m.m24 - s,
+            m.m31 - s, m.m32 - s, m.m33 - s, m.m34 - s,
+            m.m41 - s, m.m42 - s, m.m43 - s, m.m44 - s
+        };
+    }
+
+    extern Mat4 operator*(Mat4 m, num s);
+
+    static Mat4 operator/(Mat4 m, num s)
+    {
+        num i = 1.0 / s;
+        return new Mat4{
+            m.m11 * i, m.m12 * i, m.m13 * i, m.m14 * i,
+            m.m21 * i, m.m22 * i, m.m23 * i, m.m24 * i,
+            m.m31 * i, m.m32 * i, m.m33 * i, m.m34 * i,
+            m.m41 * i, m.m42 * i, m.m43 * i, m.m44 * i
+        };
+    }
+
+    static bool operator==(Mat4 left, Mat4 right)
+    {
+        return
+            left.m11 == right.m11 && left.m12 == right.m12 && left.m13 == right.m13 && left.m14 == right.m14 &&
+            left.m21 == right.m21 && left.m22 == right.m22 && left.m23 == right.m23 && left.m24 == right.m24 &&
+            left.m31 == right.m31 && left.m32 == right.m32 && left.m33 == right.m33 && left.m34 == right.m34 &&
+            left.m41 == right.m41 && left.m42 == right.m42 && left.m43 == right.m43 && left.m44 == right.m44;
+    }
+
+    static bool operator!=(Mat4 left, Mat4 right)
+    {
+        return
+            left.m11 != right.m11 || left.m12 != right.m12 || left.m13 != right.m13 || left.m14 != right.m14 ||
+            left.m21 != right.m21 || left.m22 != right.m22 || left.m23 != right.m23 || left.m24 != right.m24 ||
+            left.m31 != right.m31 || left.m32 != right.m32 || left.m33 != right.m33 || left.m34 != right.m34 ||
+            left.m41 != right.m41 || left.m42 != right.m42 || left.m43 != right.m43 || left.m44 != right.m44;
+    }
+
+    Mat4 Transposed
+    {
+        get
+        {
+            return new Mat4{
+                m11, m21, m31, m41,
+                m12, m22, m32, m42,
+                m13, m23, m33, m43,
+                m14, m24, m34, m44
+            };
+        }
+    }
+
+    Mat4 Inverse
+    {
+        get
+        {
+            Mat4 adj;
+
+            adj.m11 = m22 * m33 * m44 - m22 * m34 * m43 - m32 * m23 * m44 + m32 * m24 * m43 + m42 * m23 * m34 - m42 * m24 * m33;
+            adj.m21 = -m21 * m33 * m44 + m21 * m34 * m43 + m31 * m23 * m44 - m31 * m24 * m43 - m41 * m23 * m34 + m41 * m24 * m33;
+            adj.m31 = m21 * m32 * m44 - m21 * m34 * m42 - m31 * m22 * m44 + m31 * m24 * m42 + m41 * m22 * m34 - m41 * m24 * m32;
+            adj.m41 = -m21 * m32 * m43 + m21 * m33 * m42 + m31 * m22 * m43 - m31 * m23 * m42 - m41 * m22 * m33 + m41 * m23 * m32;
+            adj.m12 = -m12 * m33 * m44 + m12 * m34 * m43 + m32 * m13 * m44 - m32 * m14 * m43 - m42 * m13 * m34 + m42 * m14 * m33;
+            adj.m22 = m11 * m33 * m44 - m11 * m34 * m43 - m31 * m13 * m44 + m31 * m14 * m43 + m41 * m13 * m34 - m41 * m14 * m33;
+            adj.m32 = -m11 * m32 * m44 + m11 * m34 * m42 + m31 * m12 * m44 - m31 * m14 * m42 - m41 * m12 * m34 + m41 * m14 * m32;
+            adj.m42 = m11 * m32 * m43 - m11 * m33 * m42 - m31 * m12 * m43 + m31 * m13 * m42 + m41 * m12 * m33 - m41 * m13 * m32;
+            adj.m13 = m12 * m23 * m44 - m12 * m24 * m43 - m22 * m13 * m44 + m22 * m14 * m43 + m42 * m13 * m24 - m42 * m14 * m23;
+            adj.m23 = -m11 * m23 * m44 + m11 * m24 * m43 + m21 * m13 * m44 - m21 * m14 * m43 - m41 * m13 * m24 + m41 * m14 * m23;
+            adj.m33 = m11 * m22 * m44 - m11 * m24 * m42 - m21 * m12 * m44 + m21 * m14 * m42 + m41 * m12 * m24 - m41 * m14 * m22;
+            adj.m43 = -m11 * m22 * m43 + m11 * m23 * m42 + m21 * m12 * m43 - m21 * m13 * m42 - m41 * m12 * m23 + m41 * m13 * m22;
+            adj.m14 = -m12 * m23 * m34 + m12 * m24 * m33 + m22 * m13 * m34 - m22 * m14 * m33 - m32 * m13 * m24 + m32 * m14 * m23;
+            adj.m24 = m11 * m23 * m34 - m11 * m24 * m33 - m21 * m13 * m34 + m21 * m14 * m33 + m31 * m13 * m24 - m31 * m14 * m23;
+            adj.m34 = -m11 * m22 * m34 + m11 * m24 * m32 + m21 * m12 * m34 - m21 * m14 * m32 - m31 * m12 * m24 + m31 * m14 * m22;
+            adj.m44 = m11 * m22 * m33 - m11 * m23 * m32 - m21 * m12 * m33 + m21 * m13 * m32 + m31 * m12 * m23 - m31 * m13 * m22;
+
+            num det = m11 * adj.m11 + m12 * adj.m21 + m13 * adj.m31 + m14 * adj.m41;
+            if (!(Math.Abs(det) > 0))
+            {
+                return new Mat4{
+                    m11, m12, m13, m14,
+                    m21, m22, m23, m24,
+                    m31, m32, m33, m34,
+                    m41, m42, m43, m44
+                };
+            }
+
+            return adj * (1.0 / det);
+        }
+    }
+
+    static Mat4 Scale(num x, num y, num z)
+    {
+        return new Mat4{
+            x, 0, 0, 0,
+            0, y, 0, 0,
+            0, 0, z, 0,
+            0, 0, 0, 1
+        };
+    }
+
+    static Mat4 Translation(num x, num y, num z)
+    {
+        return new Mat4{
+            1, 0, 0, 0,
+            0, 1, 0, 0,
+            0, 0, 1, 0,
+            x, y, z, 1
+        };
+    }
+
+    static Mat4 Rotation(num x, num y, num z)
+    {
+        num rx = x * Math.DegToRad;
+        num ry = y * Math.DegToRad;
+        num rz = z * Math.DegToRad;
+
+        num sx = Math.Sin(rx);
+        num sy = Math.Sin(ry);
+        num sz = Math.Sin(rz);
+        num cx = Math.Cos(rx);
+        num cy = Math.Cos(ry);
+        num cz = Math.Cos(rz);
+
+        return new Mat4{
+            (cy * cz + sx * sy * sz), (cx * sz), (sx * cy * sz - sy * cz), 0,
+            (sx * sy * cz - cy * sz), (cx * cz), (sx * cy * cz + sy * sz), 0,
+            (cx * sy), (-sx), (cx * cy), 0,
+            0, 0, 0, 1
+        };
+    }
+
+    static Mat4 Scale(Vec3 scale) {
+        return Mat4.Scale(scale.x, scale.y, scale.z);
+    }
+
+    static Mat4 Translation(Vec3 offset) {
+        return Mat4.Translation(offset.x, offset.y, offset.z);
+    }
+
+    static Mat4 Rotation(Vec3 eulerAngles) {
+        return Mat4.Rotation(eulerAngles.x, eulerAngles.y, eulerAngles.z);
+    }
+
+    static Mat4 LookRotation(Vec3 forward, Vec3 upward)
+    {
+        Vec3 zaxis = forward.Normalized;
+        Vec3 xaxis = upward.Cross(zaxis).Normalized;
+        Vec3 yaxis = zaxis.Cross(xaxis);
+
+        return new Mat4{
+            xaxis.x, xaxis.y, xaxis.z, 0,
+            yaxis.x, yaxis.y, yaxis.z, 0,
+            zaxis.x, zaxis.y, zaxis.z, 0,
+            0, 0, 0, 1
+        };
+    }
+
+    static Mat4 Transform(Vec3 pos, Vec3 scale, Quat rot)
+    {
+        Mat4 mtx = Mat4.FromMat3(rot.ToMatrix());
+
+        mtx.m11 *= scale.x;
+        mtx.m12 *= scale.x;
+        mtx.m13 *= scale.x;
+
+        mtx.m21 *= scale.y;
+        mtx.m22 *= scale.y;
+        mtx.m23 *= scale.y;
+
+        mtx.m31 *= scale.z;
+        mtx.m32 *= scale.z;
+        mtx.m33 *= scale.z;
+
+        mtx.m41 = pos.x;
+        mtx.m42 = pos.y;
+        mtx.m43 = pos.z;
+
+        return mtx;
+    }
+
+    static Mat4 InverseTransform(Vec3 pos, Vec3 scale, Quat rotation)
+    {
+        Vec3 invPos = -pos;
+        Quat invRot = rotation.Inverse;
+        Vec3 invScale = new Vec3{ 1 / scale.x, 1 / scale.y, 1 / scale.z };
+
+        Mat4 mtx = Mat4.FromMat3(invRot.ToMatrix());
+
+        mtx.m11 *= invScale.x;
+        mtx.m12 *= invScale.x;
+        mtx.m13 *= invScale.x;
+
+        mtx.m21 *= invScale.y;
+        mtx.m22 *= invScale.y;
+        mtx.m23 *= invScale.y;
+
+        mtx.m31 *= invScale.z;
+        mtx.m32 *= invScale.z;
+        mtx.m33 *= invScale.z;
+
+        mtx.m41 = (invPos.x * mtx.m11) + (invPos.y * mtx.m21) + (invPos.z * mtx.m31);
+        mtx.m42 = (invPos.x * mtx.m12) + (invPos.y * mtx.m22) + (invPos.z * mtx.m32);
+        mtx.m43 = (invPos.x * mtx.m13) + (invPos.y * mtx.m23) + (invPos.z * mtx.m33);
+
+        return mtx;
+    }
+
+    // D3D version (z=[0,1])
+    static Mat4 Perspective(num fovY, num aspect, num znear, num zfar)
+    {
+        num f = 1.0 / Math.Tan(Math.DegToRad * fovY / 2.0);
+        num sx = f / aspect;
+        num sy = f;
+        num sz = zfar / (zfar - znear);
+        num tz = -(zfar * znear) / (zfar - znear);
+        num w = 1.0;
+
+        return new Mat4{
+            sx, 0, 0, 0,
+            0, sy, 0, 0,
+            0, 0, sz, w,
+            0, 0, tz, 0
+        };
+    }
+
+    string ToString()
+    {
+        return
+            "{\n  {" + m11 + ", " + m12 + ", " + m13 + ", " + m14 + "},\n" +
+              "  {" + m21 + ", " + m22 + ", " + m23 + ", " + m24 + "},\n" +
+              "  {" + m31 + ", " + m32 + ", " + m33 + ", " + m34 + "},\n" +
+              "  {" + m41 + ", " + m42 + ", " + m43 + ", " + m44 + "}\n}\n";
+    }
+}
+
+struct Quat
+{
+    Vec3 v;
+    num w;
+
+    static Quat Zero { get { return new Quat{ new Vec3{ 0, 0, 0 }, 0 }; } }
+    static Quat Identity { get { return new Quat{ new Vec3{ 0, 0, 0 }, 1 }; } }
+
+    static Quat FromAngles(num xAngle, num yAngle, num zAngle)
+    {
+        num xRadHalf = xAngle * Math.DegToRad * 0.5;
+        num yRadHalf = yAngle * Math.DegToRad * 0.5;
+        num zRadHalf = zAngle * Math.DegToRad * 0.5;
+
+        num hsinz = Math.Sin(zRadHalf);
+        num hsinx = Math.Sin(xRadHalf);
+        num hsiny = Math.Sin(yRadHalf);
+
+        num hcosz = Math.Cos(zRadHalf);
+        num hcosx = Math.Cos(xRadHalf);
+        num hcosy = Math.Cos(yRadHalf);
+
+        Quat q;
+        q.v.x = hcosy * hsinx * hcosz + hsiny * hcosx * hsinz;
+        q.v.y = hsiny * hcosx * hcosz - hcosy * hsinx * hsinz;
+        q.v.z = hcosy * hcosx * hsinz - hsiny * hsinx * hcosz;
+        q.w   = hcosy * hcosx * hcosz + hsiny * hsinx * hsinz;
+        return q;
+    }
+
+    static Quat operator+(Quat left, Quat right) {
+        return new Quat{ left.v + right.v, left.w + right.w };
+    }
+
+    static Quat operator-(Quat left, Quat right) {
+        return new Quat{ left.v - right.v, left.w - right.w };
+    }
+
+    static Quat operator*(Quat left, Quat right)
+    {
+        Quat q;
+        q.v.x = left.v.z * right.v.y - left.v.y * right.v.z + left.v.x * right.w + left.w * right.v.x;
+        q.v.y = left.v.x * right.v.z - left.v.z * right.v.x + left.v.y * right.w + left.w * right.v.y;
+        q.v.z = left.v.y * right.v.x - left.v.x * right.v.y + left.v.z * right.w + left.w * right.v.z;
+        q.w   = left.w   * right.w   - left.v   * right.v;
+        return q;
+    }
+
+    static Vec3 operator*(Vec3 v, Quat q)
+    {
+        Vec3 uv = q.v.Cross(v);
+        Vec3 uuv = q.v.Cross(uv);
+        uv = uv * (2.0 * q.w);
+        uuv = uuv * 2.0;
+        return v + uv + uuv;
+    }
+
+    static Quat operator/(Quat left, Quat right)
+    {
+        return left * right.Inverse;
+    }
+
+    static Quat operator*(Quat left, num s) {
+        return new Quat{ left.v * s, left.w * s };
+    }
+
+    static Quat operator/(Quat left, num s) {
+        return new Quat{ left.v / s, left.w / s };
+    }
+
+    static Quat operator-(Quat q)
+    {
+        return new Quat{ -q.v, -q.w };
+    }
+
+    static bool operator==(Quat left, Quat right) {
+        return left.v.x == right.v.x && left.v.y == right.v.y && left.v.z == right.v.z && left.w == right.w;
+    }
+
+    static bool operator!=(Quat left, Quat right) {
+        return left.v.x != right.v.x || left.v.y != right.v.y || left.v.z != right.v.z || left.w != right.w;
+    }
+
+    num Dot(Quat q)
+    {
+        return v * q.v + w * q.w;
+    }
+    
+    num Length {
+        get { return Math.Sqrt(v * v + w * w); }
+    }
+
+    num LengthSq {
+        get { return v * v + w * w; }
+    }
+
+    void Normalize()
+    {
+        num sqLen = v * v + w * w;
+        if(sqLen >= 1e-6 && Math.Abs(1.0 - sqLen) > 1e-6)
+        {
+            num len = Math.Sqrt(sqLen);
+            v /= len;
+            w /= len;
+        }
+    }
+
+    Quat Normalized
+    {
+        get
+        {
+            num sqLen = v * v + w * w;
+            if(sqLen >= 1e-6 && Math.Abs(1.0 - sqLen) > 1e-6)
+            {
+                num len = Math.Sqrt(sqLen);
+                return new Quat{ v / len, w / len };
+            }
+            
+            return new Quat{ v, w };
+        }
+    }
+
+    bool IsNormalized
+    {
+        get
+        {
+            num sqLen = v * v + w * w;
+            return Math.Abs(1.0 - sqLen) <= 1e-6;
+        }
+    }
+
+    Quat Inverse
+    {
+        get
+        {
+            num s = 1.0 / (v * v + w * w);
+            Quat q;
+            q.v = -v * s;
+            q.w = w * s;
+            return q;
+        }
+    }
+
+    Quat Conjugate
+    {
+        get
+        {
+            Quat q;
+            q.v = new Vec3{ -v.x, -v.y, -v.z };
+            q.w = w;
+            return q;
+        }
+    }
+
+    static Quat FromMatrix(Mat3 matrix)
+    {
+        Quat q;
+
+        num trace = matrix.m11 + matrix.m22 + matrix.m33;
+        if (trace > 0.0)
+        {
+            num s = Math.Sqrt(trace + 1.0);
+            q.w = s * 0.5;
+            s = 0.5 / s;
+            q.v.x = (matrix.m23 - matrix.m32) * s;
+            q.v.y = (matrix.m31 - matrix.m13) * s;
+            q.v.z = (matrix.m12 - matrix.m21) * s;
+        }
+        else
+        {
+            if (matrix.m11 >= matrix.m22 && matrix.m11 >= matrix.m33)
+            {
+                num s = Math.Sqrt(1.0 + matrix.m11 - matrix.m22 - matrix.m33);
+                num invS = 0.5 / s;
+                q.v.x = 0.5 * s;
+                q.v.y = (matrix.m12 + matrix.m21) * invS;
+                q.v.z = (matrix.m13 + matrix.m31) * invS;
+                q.w = (matrix.m23 - matrix.m32) * invS;
+            }
+            else if (matrix.m22 > matrix.m33)
+            {
+                num s = Math.Sqrt(1.0 + matrix.m22 - matrix.m11 - matrix.m33);
+                num invS = 0.5 / s;
+                q.v.x = (matrix.m21 + matrix.m12) * invS;
+                q.v.y = 0.5 * s;
+                q.v.z = (matrix.m32 + matrix.m23) * invS;
+                q.w = (matrix.m31 - matrix.m13) * invS;
+            }
+            else
+            {
+                num s = Math.Sqrt(1.0 + matrix.m33 - matrix.m11 - matrix.m22);
+                num invS = 0.5 / s;
+                q.v.x = (matrix.m31 + matrix.m13) * invS;
+                q.v.y = (matrix.m32 + matrix.m23) * invS;
+                q.v.z = 0.5 * s;
+                q.w = (matrix.m12 - matrix.m21) * invS;
+            }
+        }
+
+        return q;
+    }
+
+    Mat3 ToMatrix()
+    {
+        num xx = v.x * v.x;
+        num yy = v.y * v.y;
+        num zz = v.z * v.z;
+        num xy = v.x * v.y;
+        num xz = v.x * v.z;
+        num xw = v.x * w;
+        num yz = v.y * v.z;
+        num yw = v.y * w;
+        num zw = v.z * w;
+
+        return new Mat3{
+            1 - 2 * (zz + yy), 2 * (xy + zw), 2 * (xz - yw),
+            2 * (xy - zw), 1 - 2 * (zz + xx), 2 * (yz + xw),
+            2 * (yw + xz), 2 * (yz - xw), 1 - 2 * (yy + xx)
+        };
+    }
+
+    static Quat AngleAxis(num angle, Vec3 axis)
+    {
+        num ha = angle * 0.5 * Math.DegToRad;
+        return new Quat{ axis * Math.Sin(ha), Math.Cos(ha) };
+    }
+
+    static Quat FromTo(Vec3 from, Vec3 to)
+    {
+        Vec3 v0 = from.Normalized;
+        Vec3 v1 = to.Normalized;
+        num dot = v0.Dot(v1);
+
+        if(dot >= 1.0 - Math.Epsilon)
+        {
+            return Quat.Identity;
+        }
+        else if(dot <= -1.0 + Math.Epsilon)
+        {
+            Vec3 right = Vec3.Right;
+            Vec3 axis = right.Cross(v0);
+
+            Vec3 up = Vec3.Up;
+            if (axis.LengthSq < Math.Epsilon * 2)
+                axis = up.Cross(v0);
+
+            Quat q;
+            q.v = axis.Normalized;
+            q.w = 0;
+            return q;
+        }
+
+        num s = Math.Sqrt((1.0 + dot) * 2.0);
+        num invs = 1.0 / s;
+        Vec3 c = v0.Cross(v1) * invs;
+
+        Quat q;
+        q.v = c;
+        q.w = s * 0.5;
+        return q.Normalized;
+    }
+
+    static Quat LookRotation(Vec3 forward, Vec3 upward) {
+        return FromMatrix(Mat3.LookRotation(forward, upward));
+    }
+
+    static Quat Lerp(Quat a, Quat b, num t)
+    {
+        num ta = (1.0 - t);
+        num tb = (a.Dot(b) < 0) ? -t : t;
+        Quat q = a * ta + b * tb;
+        return q.Normalized;
+    }
+
+    static Quat Slerp(Quat a, Quat b, num t)
+    {
+        num dot = a.Dot(b);
+
+        bool flip = false;
+
+        if(dot < 0)
+        {
+            flip = true;
+            dot = -dot;
+        }
+
+        num ta;
+        num tb;
+
+        if(dot > (1.0 - Math.Epsilon))
+        {
+            ta = 1 - t;
+            tb = flip ? -t : t;
+        }
+        else
+        {
+            num angle = Math.Acos(dot);
+            num invSinAngle = 1.0 / Math.Sin(angle);
+            ta = Math.Sin((1.0 - t) * angle) * invSinAngle;
+            tb = flip ? -Math.Sin(t * angle) * invSinAngle : Math.Sin(t * angle) * invSinAngle;
+        }
+
+        return a * ta + b * tb;
+    }
+
+    Vec4 ToAxisAndAngle()
+    {
+        num a = Math.Acos(w);
+        Vec3 axis = v * (1.0 / Math.Sin(a));
+        num angle = a * 2.0 * Math.RadToDeg;
+        return new Vec4{ axis.x, axis.y, axis.z, angle };
+    }
+
+    Vec3 EulerAngles
+    {
+        get
+        {
+            Vec3 ret;
+            ret.x = Math.Asin(Math.Clamp(2 * (v.x * w - v.y * v.z), -1.0, 1.0)) * Math.RadToDeg;
+            ret.y = Math.Atan2(2 * (v.y * w + v.x * v.z), 1 - 2 * (v.x * v.x + v.y * v.y)) * Math.RadToDeg;
+            ret.z = Math.Atan2(2 * (v.x * v.y + v.z * w), 1 - 2 * (v.x * v.x + v.z * v.z)) * Math.RadToDeg;
+            return ret;
+        }
+    }
+
+    /*
+    string ToString() {
+        Vec3 a = EulerAngles;
+        return "{" + a.x + ", " + a.y + ", " + a.z + "}";
+    }
+    */
+}

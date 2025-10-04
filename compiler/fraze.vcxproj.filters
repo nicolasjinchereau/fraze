@@ -1,0 +1,373 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="source">
+      <UniqueIdentifier>{9d50bcf2-ea6b-4e4b-af50-d5f282936629}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="natvis">
+      <UniqueIdentifier>{3a4b2a88-72bd-4be6-b19e-702bb1f6e806}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="assets">
+      <UniqueIdentifier>{2426641e-bc64-4f69-bd3e-5d56d5fc7e21}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source\fraze">
+      <UniqueIdentifier>{ad97f77b-bb76-4dbd-9af7-5ce2372c4c06}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source\fraze\ast">
+      <UniqueIdentifier>{49b7194c-4fe8-4fea-b4d6-1f6efed83066}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source\fraze\ast\def">
+      <UniqueIdentifier>{6e4cc61b-985f-440a-b1e1-ef02b42fdb67}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source\fraze\ast\stmt">
+      <UniqueIdentifier>{f408aae6-8de5-447f-9202-72f7ece2c3a2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source\fraze\ast\expr">
+      <UniqueIdentifier>{7c32d44e-dd05-418d-b168-99988a34b83a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source\fraze\ast\type">
+      <UniqueIdentifier>{e24417f1-bbb9-4507-a789-79fa03abd368}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source\fraze\common">
+      <UniqueIdentifier>{e96bf754-7914-4221-8cee-988e436ef9a3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source\fraze\compiler">
+      <UniqueIdentifier>{3bb08fd0-7c66-4e83-9010-3a43dbdf213f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source\fraze\program">
+      <UniqueIdentifier>{21ebe25e-1b57-4e1d-8ce9-5100cefb0f97}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source\fraze\memory">
+      <UniqueIdentifier>{06738b8f-e95c-48af-82ae-70401ab84b9a}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\fraze\ast\ASTPrinter.cpp">
+      <Filter>source\fraze\ast</Filter>
+    </ClCompile>
+    <ClCompile Include="source\fraze\ast\ASTVisitor.cpp">
+      <Filter>source\fraze\ast</Filter>
+    </ClCompile>
+    <ClCompile Include="source\fraze\common\Object.cpp">
+      <Filter>source\fraze\common</Filter>
+    </ClCompile>
+    <ClCompile Include="source\fraze\compiler\CodeGenerator.cpp">
+      <Filter>source\fraze\compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="source\fraze\compiler\Compiler.cpp">
+      <Filter>source\fraze\compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="source\fraze\ast\expr\IdentifierExpression.cpp">
+      <Filter>source\fraze\ast\expr</Filter>
+    </ClCompile>
+    <ClCompile Include="source\fraze\compiler\SemanticAnalyzer.cpp">
+      <Filter>source\fraze\compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="source\fraze\ast\type\Type.cpp">
+      <Filter>source\fraze\ast\type</Filter>
+    </ClCompile>
+    <ClCompile Include="source\fraze\common\Scope.cpp">
+      <Filter>source\fraze\common</Filter>
+    </ClCompile>
+    <ClCompile Include="source\fraze\program\Program.cpp">
+      <Filter>source\fraze\program</Filter>
+    </ClCompile>
+    <ClCompile Include="source\fraze\ast\def\Def.cpp">
+      <Filter>source\fraze\ast\def</Filter>
+    </ClCompile>
+    <ClCompile Include="source\fraze\program\Dispatcher.cpp">
+      <Filter>source\fraze\program</Filter>
+    </ClCompile>
+    <ClCompile Include="source\fraze\ast\CodePrinter.cpp">
+      <Filter>source\fraze\ast</Filter>
+    </ClCompile>
+    <ClCompile Include="source\fraze\common\Exception.cpp">
+      <Filter>source\fraze\common</Filter>
+    </ClCompile>
+    <ClCompile Include="source\fraze\ast\type\TypeSpecifier.cpp">
+      <Filter>source\fraze\ast\type</Filter>
+    </ClCompile>
+    <ClCompile Include="source\fraze\memory\ScopedAllocator.cpp">
+      <Filter>source\fraze\memory</Filter>
+    </ClCompile>
+    <ClCompile Include="source\fraze\memory\Heap.cpp">
+      <Filter>source\fraze\memory</Filter>
+    </ClCompile>
+    <ClCompile Include="source\fraze\compiler\Lexer.cpp">
+      <Filter>source\fraze\compiler</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="source\fraze\ast\ASTNode.h">
+      <Filter>source\fraze\ast</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\common\Pointers.h">
+      <Filter>source\fraze\common</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\common\Exception.h">
+      <Filter>source\fraze\common</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\ASTPrinter.h">
+      <Filter>source\fraze\ast</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\ASTVisitor.h">
+      <Filter>source\fraze\ast</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\common\Object.h">
+      <Filter>source\fraze\common</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\ASTFwd.h">
+      <Filter>source\fraze\ast</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\AST.h">
+      <Filter>source\fraze\ast</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\def\FunctionDefinition.h">
+      <Filter>source\fraze\ast\def</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\def\SectionDefinition.h">
+      <Filter>source\fraze\ast\def</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\def\VariableDefinition.h">
+      <Filter>source\fraze\ast\def</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\def\ClassDefinition.h">
+      <Filter>source\fraze\ast\def</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\def\Definition.h">
+      <Filter>source\fraze\ast\def</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\stmt\ReturnStatement.h">
+      <Filter>source\fraze\ast\stmt</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\stmt\Statement.h">
+      <Filter>source\fraze\ast\stmt</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\stmt\BlockStatement.h">
+      <Filter>source\fraze\ast\stmt</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\stmt\VariableDefinitionStatement.h">
+      <Filter>source\fraze\ast\stmt</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\stmt\ExposeStatement.h">
+      <Filter>source\fraze\ast\stmt</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\def\ParameterDefinition.h">
+      <Filter>source\fraze\ast\def</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\expr\Expression.h">
+      <Filter>source\fraze\ast\expr</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\expr\IdentifierExpression.h">
+      <Filter>source\fraze\ast\expr</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\expr\NullLiteralExpression.h">
+      <Filter>source\fraze\ast\expr</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\expr\NumberLiteralExpression.h">
+      <Filter>source\fraze\ast\expr</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\expr\PostfixExpression.h">
+      <Filter>source\fraze\ast\expr</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\expr\StringLiteralExpression.h">
+      <Filter>source\fraze\ast\expr</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\expr\PrefixExpression.h">
+      <Filter>source\fraze\ast\expr</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\expr\AssignExpression.h">
+      <Filter>source\fraze\ast\expr</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\expr\BinaryExpression.h">
+      <Filter>source\fraze\ast\expr</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\expr\BooleanLiteralExpression.h">
+      <Filter>source\fraze\ast\expr</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\expr\CallExpression.h">
+      <Filter>source\fraze\ast\expr</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\stmt\ExpressionStatement.h">
+      <Filter>source\fraze\ast\stmt</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\def\BasicTypeDefinition.h">
+      <Filter>source\fraze\ast\def</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\expr\IndexExpression.h">
+      <Filter>source\fraze\ast\expr</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\expr\NewExpression.h">
+      <Filter>source\fraze\ast\expr</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\compiler\Parser.h">
+      <Filter>source\fraze\compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\compiler\Lexer.h">
+      <Filter>source\fraze\compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\stmt\ForStatement.h">
+      <Filter>source\fraze\ast\stmt</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\stmt\IfStatement.h">
+      <Filter>source\fraze\ast\stmt</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\common\Scope.h">
+      <Filter>source\fraze\common</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\compiler\CodeGenerator.h">
+      <Filter>source\fraze\compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\program\Program.h">
+      <Filter>source\fraze\program</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\stmt\WhileStatement.h">
+      <Filter>source\fraze\ast\stmt</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\compiler\Compiler.h">
+      <Filter>source\fraze\compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\common\Stack.h">
+      <Filter>source\fraze\common</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\program\TypeInfo.h">
+      <Filter>source\fraze\program</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\common\Utility.h">
+      <Filter>source\fraze\common</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\common\ExternalFunction.h">
+      <Filter>source\fraze\common</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\compiler\SemanticAnalyzer.h">
+      <Filter>source\fraze\compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\expr\IntegerLiteralExpression.h">
+      <Filter>source\fraze\ast\expr</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\ASTRoot.h">
+      <Filter>source\fraze\ast</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\type\TypeSpecifier.h">
+      <Filter>source\fraze\ast\type</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\type\Type.h">
+      <Filter>source\fraze\ast\type</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\expr\ConvertExpression.h">
+      <Filter>source\fraze\ast\expr</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\expr\DefaultValueExpression.h">
+      <Filter>source\fraze\ast\expr</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\memory\Heap.h">
+      <Filter>source\fraze\memory</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\def\TemplateParameterDefinition.h">
+      <Filter>source\fraze\ast\def</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\expr\AsExpression.h">
+      <Filter>source\fraze\ast\expr</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\expr\IsExpression.h">
+      <Filter>source\fraze\ast\expr</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\stmt\AssertStatement.h">
+      <Filter>source\fraze\ast\stmt</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\def\InterfaceDefinition.h">
+      <Filter>source\fraze\ast\def</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\def\TemplateDefinition.h">
+      <Filter>source\fraze\ast\def</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\stmt\GotoStatement.h">
+      <Filter>source\fraze\ast\stmt</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\expr\EmitExpression.h">
+      <Filter>source\fraze\ast\expr</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\expr\TernaryExpression.h">
+      <Filter>source\fraze\ast\expr</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\expr\AwaitExpression.h">
+      <Filter>source\fraze\ast\expr</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\program\Dispatcher.h">
+      <Filter>source\fraze\program</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\CodePrinter.h">
+      <Filter>source\fraze\ast</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\def\StructDefinition.h">
+      <Filter>source\fraze\ast\def</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\common\ScopeUtil.h">
+      <Filter>source\fraze\common</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\expr\CachedExpression.h">
+      <Filter>source\fraze\ast\expr</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\def\PropertyDefinition.h">
+      <Filter>source\fraze\ast\def</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\expr\FoldExpression.h">
+      <Filter>source\fraze\ast\expr</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\def\EnumDefinition.h">
+      <Filter>source\fraze\ast\def</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\def\EnumMemberDefinition.h">
+      <Filter>source\fraze\ast\def</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\common\Extensions.h">
+      <Filter>source\fraze\common</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\expr\SizeOfExpression.h">
+      <Filter>source\fraze\ast\expr</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\memory\ScopedAllocator.h">
+      <Filter>source\fraze\memory</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\program\OpCode.h">
+      <Filter>source\fraze\program</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\common\Platform.h">
+      <Filter>source\fraze\common</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\common\SourceLocation.h">
+      <Filter>source\fraze\common</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\common\SharedString.h">
+      <Filter>source\fraze\common</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\compiler\NativeFunctions.h">
+      <Filter>source\fraze\compiler</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="natvis\fraze.natvis">
+      <Filter>natvis</Filter>
+    </Natvis>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="assets\fraze.task.fz">
+      <Filter>assets</Filter>
+    </None>
+    <None Include="assets\fraze.tests.fz">
+      <Filter>assets</Filter>
+    </None>
+    <None Include="assets\fraze.list.fz">
+      <Filter>assets</Filter>
+    </None>
+    <None Include="assets\fraze.math.fz">
+      <Filter>assets</Filter>
+    </None>
+    <None Include="assets\fraze.system.fz">
+      <Filter>assets</Filter>
+    </None>
+    <None Include="assets\fraze.table.fz">
+      <Filter>assets</Filter>
+    </None>
+  </ItemGroup>
+</Project>

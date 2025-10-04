@@ -1,0 +1,205 @@
+/*--------------------------------------------------------------*
+*  Copyright (c) 2025 Nicolas Jinchereau. All rights reserved.  *
+*---------------------------------------------------------------*/
+
+extern void RecordFrameStart();
+extern void RecordFrameEnd();
+
+class IsType<T> : IPredicate
+{
+    bool IsMatch(object obj) {
+        return obj is T;
+    }
+}
+
+class App
+{
+    Window window;
+    Graphics graphics;
+    Shader litShader;
+    Shader unlitShader;
+
+    Scene scene;
+    Node cameraNode;
+    Camera camera;
+    CameraController controller;
+    Node loadingIndicator;
+
+    Task<Node> LoadLoadingIndicator()
+    {
+        Console.WriteLine("Loading: assets/textures/loading.png");
+        Texture texture = await Texture.CreateTextureAsync(graphics, "assets/textures/loading.png");
+
+        Console.WriteLine("Loading: assets/models/loading.fbx");
+        Model model = await Model.ImportModelAsync(graphics, "assets/models/loading.fbx");
+
+        Node node = model.BuildTree(texture, unlitShader);
+        node.Scale = new Vec3{ 0.2, 0.2, 0.2 };
+        node.AddComponent(new Spinner{});
+
+        var renderer = node.GetComponent(new IsType<MeshRenderer>{}) as MeshRenderer;
+        renderer.mask = 2;
+        renderer.depthTest = DepthTest.Always;
+
+        Camera loadingCamera = new Camera{};
+        loadingCamera.mask = 2;
+
+        Node loadingCamNode = scene.RootNode.NewChild();
+        loadingCamNode.AddComponent(loadingCamera);
+        loadingCamNode.Position = new Vec3{ 0, 0, -200 };
+
+        return node;
+    }
+
+    Task<Node> LoadEnvironment()
+    {
+        Console.WriteLine("Loading: assets/textures/environment.png");
+        Texture texture = await Texture.CreateTextureAsync(graphics, "assets/textures/environment.png");
+        Mesh mesh = Model.CreateSphereMesh(graphics, 10000.0, 16, 8, true);
+
+        Node node = new Node{};
+        node.Name = "Sphere";
+        node.Rotation = Quat.FromAngles( 0, 90, 0 );
+        node.AddComponent(new MeshRenderer{ mesh, texture, unlitShader, null });
+
+        var renderer = node.GetComponent(new IsType<MeshRenderer>{}) as MeshRenderer;
+        renderer.mask = 1;
+
+        return node;
+    }
+
+    Task<Node> LoadDiorama()
+    {
+        Console.WriteLine("Loading: assets/textures/stairs.png");
+        Texture texture = await Texture.CreateTextureAsync(graphics, "assets/textures/stairs.png");
+
+        Console.WriteLine("Loading: assets/models/stairs.fbx");
+        Model model = await Model.ImportModelAsync(graphics, "assets/models/stairs.fbx");
+
+        Node node = model.BuildTree(texture, litShader);
+        node.Position = new Vec3{ 0, 78, -70 };
+        node.Scale = new Vec3{ 2, 2, 2 };
+        node.Rotation = Quat.FromAngles( 0, 180, 0 );
+
+        var renderer = node.GetComponent(new IsType<MeshRenderer>{}) as MeshRenderer;
+        renderer.mask = 1;
+
+        return node;
+    }
+
+    Task<Node> LoadCharacter()
+    {
+        Console.WriteLine("Loading: assets/textures/character_low.png");
+        Texture texture = await Texture.CreateTextureAsync(graphics, "assets/textures/character_low.png");
+
+        Console.WriteLine("Loading: assets/models/character_low.fbx");
+        Model model = await Model.ImportModelAsync(graphics, "assets/models/character_low.fbx");
+
+        Node node = model.BuildTree(texture, litShader);
+        node.Rotation = Quat.FromAngles(0, -120, 0);
+
+        var renderer = node.GetComponent(new IsType<MeshRenderer>{}) as MeshRenderer;
+        renderer.mask = 1;
+
+        return node;
+    }
+
+    Task<void> LoadSceneAsync()
+    {
+        Console.WriteLine("Loading: assets/shaders/unlit.hlsl");
+        string unlitShaderSource = await File.ReadAllTextAsync("assets/shaders/unlit.hlsl");
+        unlitShader = await Shader.CreateShaderAsync(graphics, unlitShaderSource, "vs_main", "ps_main");
+
+        loadingIndicator = await LoadLoadingIndicator();
+        scene.RootNode.AddChild(loadingIndicator);
+
+        Console.WriteLine("Loading: assets/shaders/lit.hlsl");
+        string litShaderSource = await File.ReadAllTextAsync("assets/shaders/lit.hlsl");
+        litShader = await Shader.CreateShaderAsync(graphics, litShaderSource, "vs_main", "ps_main");
+
+        Node environment = await LoadEnvironment();
+        scene.RootNode.AddChild(environment);
+
+        Node diorama = await LoadDiorama();
+        scene.RootNode.AddChild(diorama);
+
+        Node character = await LoadCharacter();
+        scene.RootNode.AddChild(character);
+
+        scene.RootNode.RemoveChild(loadingIndicator);
+        loadingIndicator = null;
+
+        Console.WriteLine("Finished loading scene.");
+    }
+
+    Task<void> Run()
+    {
+        window = new Window{ "Fraze Demo", 100, 100, 1600, 900 };
+        window.Show();
+
+        graphics = new Graphics{};
+        graphics.SetRenderTarget(window);
+        graphics.SetClearColor(Color.Green);
+        graphics.SetBlendFactors(BlendFactor.SrcAlpha, BlendFactor.OneMinusSrcAlpha);
+        graphics.SetBlendingEnabled(true);
+        Graphics.Current = graphics;
+
+        scene = new Scene{};
+
+        cameraNode = scene.RootNode.NewChild();
+        cameraNode.Position = new Vec3{ -348, 228, -412 };
+        cameraNode.Rotation = Quat.LookRotation(new Vec3{ 0, 15, 0 } - cameraNode.Position, Vec3.Up);
+
+        camera = new Camera{};
+        camera.FarPlane = 20000;
+        camera.mask = 1;
+        cameraNode.AddComponent(camera);
+
+        controller = new CameraController{ camera };
+        cameraNode.AddComponent(controller);
+        window.AddEventHandler(controller);
+
+        LoadSceneAsync();
+
+        bool run = true;
+        while(run)
+        {
+            RecordFrameStart();
+
+            int status = window.PumpMessage();
+            if(status == 1)
+            {
+                // message processed
+            }
+            else if(status == -1)
+            {
+                // quit message processed
+                run = false;
+            }
+            else
+            {
+                // no message processed
+
+                graphics.Clear();
+
+                if(scene != null)
+                    scene.UpdateAndDraw(graphics);
+
+                graphics.Present();
+
+                // allow task completions to run
+                await YieldAsync();
+            }
+
+            RecordFrameEnd();
+        }
+    }
+}
+
+int main(string[] args)
+{
+    RunAllTests();
+    App app = new App{};
+    app.Run();
+    return 0;
+}

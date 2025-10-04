@@ -1,0 +1,506 @@
+/*--------------------------------------------------------------*
+*  Copyright (c) 2025 Nicolas Jinchereau. All rights reserved.  *
+*---------------------------------------------------------------*/
+
+#include <ExternFunctions.h>
+#include <Buffer.h>
+#include <Graphics.h>
+#include <Shader.h>
+#include <Texture.h>
+#include <Model.h>
+#include <Window.h>
+#include <Types.h>
+#include <File.h>
+#include <fraze/program/Program.h>
+#include <fraze/compiler/Compiler.h>
+#include <array>
+#include <string>
+#include <print>
+#include <chrono>
+
+using clock_type = std::chrono::high_resolution_clock;
+
+namespace fraze {
+
+void AddExternFunctions(Compiler& compiler)
+{
+    compiler.AddFunction("RecordFrameStart", &RecordFrameStart);
+    compiler.AddFunction("RecordFrameEnd", &RecordFrameEnd);
+    compiler.AddFunction("Time.GetTicks", &Time_GetTicks);
+    compiler.AddFunction("Time.GetTicksPerSecond", &Time_GetTicksPerSecond);
+    compiler.AddFunction("Window.CreateNativeWindow", &Window_CreateNativeWindow);
+    compiler.AddFunction("Window.Show", &Window_Show);
+    compiler.AddFunction("Window.Hide", &Window_Hide);
+    compiler.AddFunction("Window.Close", &Window_Close);
+    compiler.AddFunction("Window.PumpMessage", &Window_PumpMessage);
+    compiler.AddFunction("Window.GetWidth", &Window_GetWidth);
+    compiler.AddFunction("Window.GetHeight", &Window_GetHeight);
+    compiler.AddFunction("Graphics.CreateNativeGraphics", &Graphics_CreateNativeGraphics);
+    compiler.AddFunction("Graphics.SetRenderTarget", &Graphics_SetRenderTarget);
+    compiler.AddFunction("Graphics.SetShader", &Graphics_SetShader);
+    compiler.AddFunction("Graphics.SetVertexBuffer", &Graphics_SetVertexBuffer);
+    compiler.AddFunction("Graphics.SetIndexBuffer", &Graphics_SetIndexBuffer);
+    compiler.AddFunction("Graphics.SetClearColor", &Graphics_SetClearColor);
+    compiler.AddFunction("Graphics.SetViewport", &Graphics_SetViewport);
+    compiler.AddFunction("Graphics.GetViewport", &Graphics_GetViewport);
+    compiler.AddFunction("Graphics.SetCullMode", &Graphics_SetCullMode);
+    compiler.AddFunction("Graphics.SetScissorTestEnabled", &Graphics_SetScissorTestEnabled);
+    compiler.AddFunction("Graphics.SetScissorRect", &Graphics_SetScissorRect);
+    compiler.AddFunction("Graphics.SetDepthTest", &Graphics_SetDepthTest);
+    compiler.AddFunction("Graphics.SetDepthWriteEnabled", &Graphics_SetDepthWriteEnabled);
+    compiler.AddFunction("Graphics.SetBlendingEnabled", &Graphics_SetBlendingEnabled);
+    compiler.AddFunction("Graphics.SetBlendOperations", &Graphics_SetBlendOperations);
+    compiler.AddFunction("Graphics.SetBlendFactors", &Graphics_SetBlendFactors);
+    compiler.AddFunction("Graphics.SetColorMask", &Graphics_SetColorMask);
+    compiler.AddFunction("Graphics.SetBlendColor", &Graphics_SetBlendColor);
+    compiler.AddFunction("Graphics.Clear", &Graphics_Clear);
+    compiler.AddFunction("Graphics.Present", &Graphics_Present);
+    compiler.AddFunction("Graphics.DrawArray", &Graphics_DrawArray);
+    compiler.AddFunction("Graphics.DrawIndexed", &Graphics_DrawIndexed);
+    compiler.AddFunction("Shader.CreateNativeShader", &Shader_CreateNativeShader);
+    compiler.AddFunction("Shader.CreateNativeShaderAsync", &Shader_CreateShaderObjectAsync);
+    compiler.AddFunction("Shader.SetUniformMat4", &Shader_SetUniformMat4);
+    compiler.AddFunction("Shader.SetUniformTex", &Shader_SetUniformTex);
+    compiler.AddFunction("Texture.CreateNativeTexture", &Texture_CreateNativeTexture);
+    compiler.AddFunction("Texture.CreateNativeTextureAsync", &Texture_CreateNativeTextureAsync);
+    compiler.AddFunction("Model.ImportModel", &Model_ImportModel);
+    compiler.AddFunction("Model.CreateSphereMesh", &Model_CreateSphereMesh);
+    compiler.AddFunction("Model.ImportModelObjectAsync", &Model_ImportModelObjectAsync);
+    compiler.AddFunction("Buffer.CreateNativeBufferWithSize", &Buffer_CreateNativeBufferWithSize);
+    compiler.AddFunction("Buffer.CreateNativeBufferFromData", &Buffer_CreateNativeBufferFromData);
+    compiler.AddFunction("Buffer.SetData", &Buffer_SetData);
+    compiler.AddFunction("Buffer.GetSize", &Buffer_GetSize);
+    compiler.AddFunction("Buffer.GetStride", &Buffer_GetStride);
+    compiler.AddFunction("File.ReadAllText", &File_ReadAllText);
+    compiler.AddFunction("File.ReadAllTextAsync", &File_ReadAllTextAsync);
+    compiler.AddIntrinsic("Mat4.operator+:Mat4(Mat4,Mat4)", &Intrinsic_Mat4Add);
+    compiler.AddIntrinsic("Mat4.operator-:Mat4(Mat4,Mat4)", &Intrinsic_Mat4Sub);
+    compiler.AddIntrinsic("Mat4.operator*:Mat4(Mat4,Mat4)", &Intrinsic_Mat4Mul);
+    compiler.AddIntrinsic("Mat4.operator*:Mat4(Mat4,num)", &Intrinsic_Mat4NumMul);
+    compiler.AddIntrinsic("Vec4.operator*", &Intrinsic_Vec4Mat4Mul);
+}
+
+//#define PRINT_FPS
+
+#ifdef PRINT_FPS
+clock_type::time_point _startTime;
+uint64_t totalFrameNanos = 0;
+uint64_t totalFrameCount = 0;
+
+// MAIN
+void RecordFrameStart() {
+    _startTime = clock_type::now();
+}
+
+void RecordFrameEnd()
+{
+    auto end = clock_type::now();
+    totalFrameNanos += duration_cast<std::chrono::nanoseconds>(end - _startTime).count();
+    totalFrameCount += 1;
+
+    if(totalFrameCount % 30 == 0)
+    {
+        double nanosPerFrame = static_cast<double>(totalFrameNanos) / totalFrameCount;
+        double secondsPerFrame = nanosPerFrame / 1000000000.0;
+        std::println("secondsPerFrame: {}", secondsPerFrame);
+        std::println("FPS: {}", 1.0 / secondsPerFrame);
+    }
+}
+#else
+void RecordFrameStart(){}
+void RecordFrameEnd(){}
+#endif // PRINT_FPS
+
+// TIME
+Integer Time_GetTicks() {
+    return static_cast<Integer>(clock_type::now().time_since_epoch().count());
+}
+
+Integer Time_GetTicksPerSecond() {
+    static_assert(clock_type::period::den >= clock_type::period::num);
+    constexpr uint64_t ticksPerSecond = clock_type::period::den / clock_type::period::num;
+    return static_cast<Integer>(ticksPerSecond);
+}
+
+// WINDOW
+Object* Window_CreateNativeWindow(Program* program, Object& window, const String& title, Integer x, Integer y, Integer width, Integer height) {
+    return new Window(
+        program,
+        &window,
+        title.GetView(),
+        IVec2(static_cast<int>(x), static_cast<int>(y)),
+        IVec2(static_cast<int>(width), static_cast<int>(height))
+    );
+}
+
+void Window_Show(Object& windowObj) {
+    auto window = static_cast<Window*>(&windowObj);
+    window->Show();
+}
+
+void Window_Hide(Object& windowObj) {
+    auto window = static_cast<Window*>(&windowObj);
+    window->Hide();
+}
+
+void Window_Close(Object& windowObj) {
+    auto window = static_cast<Window*>(&windowObj);
+    window->Close();
+}
+
+Integer Window_GetWidth(Object& windowObj) {
+    auto window = static_cast<Window*>(&windowObj);
+    return window->GetSize().x;
+}
+
+Integer Window_GetHeight(Object& windowObj) {
+    auto window = static_cast<Window*>(&windowObj);
+    return window->GetSize().y;
+}
+
+Integer Window_PumpMessage(Object& windowObj) {
+    auto window = static_cast<Window*>(&windowObj);
+    return window->PumpMessage();
+}
+
+// GRAPHICS
+Object* Graphics_CreateNativeGraphics() {
+    return new Graphics();
+}
+
+void Graphics_SetRenderTarget(Object& graphicsObj, Object& windowObj) {
+    auto graphics = static_cast<Graphics*>(&graphicsObj);
+    auto window = static_cast<Window*>(&windowObj);
+    graphics->SetRenderTarget(window);
+}
+
+void Graphics_SetShader(Object& graphicsObj, Object& shaderObj) {
+    auto graphics = static_cast<Graphics*>(&graphicsObj);
+    auto shader = static_cast<Shader*>(&shaderObj);
+    graphics->SetShader(shader);
+}
+
+void Graphics_SetVertexBuffer(Object& graphicsObj, Object& bufferObj) {
+    auto graphics = static_cast<Graphics*>(&graphicsObj);
+    auto buffer = static_cast<Buffer*>(&bufferObj);
+    graphics->SetVertexBuffer(buffer);
+}
+
+void Graphics_SetIndexBuffer(Object& graphicsObj, Object& bufferObj) {
+    auto graphics = static_cast<Graphics*>(&graphicsObj);
+    auto buffer = static_cast<Buffer*>(&bufferObj);
+    graphics->SetIndexBuffer(buffer);
+}
+
+void Graphics_SetClearColor(Object& graphicsObj, const Color& color) {
+    auto graphics = static_cast<Graphics*>(&graphicsObj);
+    graphics->SetClearColor(color);
+}
+
+void Graphics_SetViewport(Object& graphicsObj, IntRect rect) {
+    auto graphics = static_cast<Graphics*>(&graphicsObj);
+    graphics->SetViewport(rect);
+}
+
+IntRect Graphics_GetViewport(Object& graphicsObj) {
+    auto graphics = static_cast<Graphics*>(&graphicsObj);
+    return graphics->GetViewport();
+}
+
+void Graphics_SetCullMode(Object& graphicsObj, CullMode mode) {
+    auto graphics = static_cast<Graphics*>(&graphicsObj);
+    graphics->SetCullMode(mode);
+}
+
+void Graphics_SetScissorTestEnabled(Object& graphicsObj, bool enabled) {
+    auto graphics = static_cast<Graphics*>(&graphicsObj);
+    graphics->SetScissorTestEnabled(enabled);
+}
+
+void Graphics_SetScissorRect(Object& graphicsObj, IntRect rect) {
+    auto graphics = static_cast<Graphics*>(&graphicsObj);
+    graphics->SetScissorRect(rect);
+}
+
+void Graphics_SetDepthTest(Object& graphicsObj, DepthTest test) {
+    auto graphics = static_cast<Graphics*>(&graphicsObj);
+    graphics->SetDepthTest(test);
+}
+
+void Graphics_SetDepthWriteEnabled(Object& graphicsObj, bool enabled) {
+    auto graphics = static_cast<Graphics*>(&graphicsObj);
+    graphics->SetDepthWriteEnabled(enabled);
+}
+
+void Graphics_SetBlendingEnabled(Object& graphicsObj, bool enabled) {
+    auto graphics = static_cast<Graphics*>(&graphicsObj);
+    graphics->SetBlendingEnabled(enabled);
+}
+
+void Graphics_SetBlendOperations(Object& graphicsObj, BlendOperation colorBlendOp, BlendOperation alphaBlendOp) {
+    auto graphics = static_cast<Graphics*>(&graphicsObj);
+    graphics->SetBlendOperations(colorBlendOp, alphaBlendOp);
+}
+
+void Graphics_SetBlendFactors(Object& graphicsObj, BlendFactor sourceColor, BlendFactor destColor, BlendFactor sourceAlpha, BlendFactor destAlpha) {
+    auto graphics = static_cast<Graphics*>(&graphicsObj);
+    graphics->SetBlendFactors(sourceColor, destColor, sourceAlpha, destAlpha);
+}
+
+void Graphics_SetColorMask(Object& graphicsObj, bool red, bool green, bool blue, bool alpha) {
+    auto graphics = static_cast<Graphics*>(&graphicsObj);
+    graphics->SetColorMask(red, green, blue, alpha);
+}
+
+void Graphics_SetBlendColor(Object& graphicsObj, const Color& color) {
+    auto graphics = static_cast<Graphics*>(&graphicsObj);
+    graphics->SetBlendColor(color);
+}
+
+void Graphics_Clear(Object& graphicsObj) {
+    auto graphics = static_cast<Graphics*>(&graphicsObj);
+    graphics->Clear();
+}
+
+void Graphics_Present(Object& graphicsObj) {
+    auto graphics = static_cast<Graphics*>(&graphicsObj);
+    graphics->Present();
+}
+
+void Graphics_DrawArray(Object& graphicsObj, Integer start, Integer count, DrawMode mode) {
+    auto graphics = static_cast<Graphics*>(&graphicsObj);
+    graphics->DrawArray(static_cast<int>(start), static_cast<int>(count), mode);
+}
+
+void Graphics_DrawIndexed(Object& graphicsObj, Integer start, Integer count, DrawMode mode) {
+    auto graphics = static_cast<Graphics*>(&graphicsObj);
+    graphics->DrawIndexed(static_cast<int>(start), static_cast<int>(count), mode);
+}
+
+// SHADER
+Object* Shader_CreateNativeShader(Object& graphicsObj, const String& src, const String& vertexEntry, const String& pixelEntry) {
+    auto graphics = static_cast<Graphics*>(&graphicsObj);
+    return new Shader(graphics, src.GetView(), vertexEntry.GetView(), pixelEntry.GetView());
+}
+
+void Shader_CreateShaderObjectAsync(Program* program, Class& task, Object& graphicsObj, const String& src, const String& vertexEntry, const String& pixelEntry)
+{
+    auto graphics = static_cast<Graphics*>(&graphicsObj);
+    Shader::CreateShaderAsync(program, task, graphics, src, vertexEntry, pixelEntry);
+}
+
+void Shader_SetUniformMat4(Object& shaderObj, const String& name, const Mat4& value) {
+    auto shader = static_cast<Shader*>(&shaderObj);
+    shader->SetUniform(name, value);
+}
+
+void Shader_SetUniformTex(Object& shaderObj, const String& name, Object& textureObj) {
+    auto shader = static_cast<Shader*>(&shaderObj);
+    auto texture = static_cast<Texture*>(&textureObj);
+    shader->SetUniform(name, texture);
+}
+
+// TEXTURE
+Object* Texture_CreateNativeTexture(Object& graphicsObj, const String& path) {
+    auto graphics = static_cast<Graphics*>(&graphicsObj);
+    return new Texture(graphics, path);
+}
+
+void Texture_CreateNativeTextureAsync(Program* program, Class& task, Object& graphicsObj, const String& path) {
+    auto graphics = static_cast<Graphics*>(&graphicsObj);
+    Texture::CreateTextureAsync(program, task, graphics, path);
+}
+
+// MODEL
+Object* Model_ImportModel(Program* program, Object& graphicsObj, const String& path) {
+    auto graphics = static_cast<Graphics*>(&graphicsObj);
+    return ModelImporter::ImportModel(program, graphics, std::string(path));
+}
+
+Object* Model_CreateSphereMesh(Program* program, Object& graphicsObj, Number radius, Integer segments, Integer rings, bool invert) {
+    auto graphics = static_cast<Graphics*>(&graphicsObj);
+    return ModelImporter::CreateSphereMesh(program, graphics, radius, segments, rings, invert);
+}
+
+void Model_ImportModelObjectAsync(Program* program, Class& task, Object& graphicsObj, const String& path) {
+    auto graphics = static_cast<Graphics*>(&graphicsObj);
+    ModelImporter::ImportModelAsync(program, task, graphics, std::string(path));
+}
+
+// BUFFER
+Object* Buffer_CreateNativeBufferWithSize(Object& graphicsObj, BufferType type, BufferUsage usage, BufferCPUAccess cpuAccess, Integer size) {
+    auto graphics = static_cast<Graphics*>(&graphicsObj);
+    return new Buffer(graphics, type, usage, cpuAccess, size);
+}
+
+Object* Buffer_CreateNativeBufferFromData(Object& graphicsObj, BufferType type, BufferUsage usage, BufferCPUAccess cpuAccess, const Array<>& data) {
+    auto graphics = static_cast<Graphics*>(&graphicsObj);
+    return new Buffer(graphics, type, usage, cpuAccess, data);
+}
+
+void Buffer_SetData(Object& bufferObj, const Array<>& data)
+{
+    auto buffer = static_cast<Buffer*>(&bufferObj);
+    buffer->SetData(data);
+}
+
+Integer Buffer_GetSize(Object& bufferObj)
+{
+    auto buffer = static_cast<Buffer*>(&bufferObj);
+    return static_cast<Integer>(buffer->GetSize());
+}
+
+Integer Buffer_GetStride(Object& bufferObj)
+{
+    auto buffer = static_cast<Buffer*>(&bufferObj);
+    return static_cast<Integer>(buffer->GetStride());
+}
+
+// FILE
+String* File_ReadAllText(Program* program, const String& path)
+{
+    return File::ReadAllText(program, path);
+}
+
+void File_ReadAllTextAsync(Program* program, Class& task, const String& path)
+{
+    File::ReadAllTextAsync(program, task, path);
+}
+
+// MATH
+void Intrinsic_Mat4Add(const Operation& op, Word*& RESTRICT stackTop, StackFrame* RESTRICT fp)
+{
+    Word* top = stackTop;
+
+    Mat4& right = *reinterpret_cast<Mat4*>(top + 1 - 16);
+    Mat4& left = *(&right - 1);
+    Mat4* result = reinterpret_cast<Mat4*>(fp->start - fp->paramCount - 1 - fp->returnSize);
+
+    result->m11 = left.m11 + right.m11;
+    result->m12 = left.m12 + right.m12;
+    result->m13 = left.m13 + right.m13;
+    result->m14 = left.m14 + right.m14;
+    result->m21 = left.m21 + right.m21;
+    result->m22 = left.m22 + right.m22;
+    result->m23 = left.m23 + right.m23;
+    result->m24 = left.m24 + right.m24;
+    result->m31 = left.m31 + right.m31;
+    result->m32 = left.m32 + right.m32;
+    result->m33 = left.m33 + right.m33;
+    result->m34 = left.m34 + right.m34;
+    result->m41 = left.m41 + right.m41;
+    result->m42 = left.m42 + right.m42;
+    result->m43 = left.m43 + right.m43;
+    result->m44 = left.m44 + right.m44;
+
+    stackTop = (fp->start - fp->paramCount - 1) - 1;
+}
+
+void Intrinsic_Mat4Sub(const Operation& op, Word*& RESTRICT stackTop, StackFrame* RESTRICT fp)
+{
+    Word* top = stackTop;
+
+    Mat4& right = *reinterpret_cast<Mat4*>(top + 1 - 16);
+    Mat4& left = *(&right - 1);
+    Mat4* result = reinterpret_cast<Mat4*>(fp->start - fp->paramCount - 1 - fp->returnSize);
+
+    result->m11 = left.m11 - right.m11;
+    result->m12 = left.m12 - right.m12;
+    result->m13 = left.m13 - right.m13;
+    result->m14 = left.m14 - right.m14;
+    result->m21 = left.m21 - right.m21;
+    result->m22 = left.m22 - right.m22;
+    result->m23 = left.m23 - right.m23;
+    result->m24 = left.m24 - right.m24;
+    result->m31 = left.m31 - right.m31;
+    result->m32 = left.m32 - right.m32;
+    result->m33 = left.m33 - right.m33;
+    result->m34 = left.m34 - right.m34;
+    result->m41 = left.m41 - right.m41;
+    result->m42 = left.m42 - right.m42;
+    result->m43 = left.m43 - right.m43;
+    result->m44 = left.m44 - right.m44;
+
+    stackTop = (fp->start - fp->paramCount - 1) - 1;
+}
+
+
+void Intrinsic_Mat4Mul(const Operation& op, Word*& RESTRICT stackTop, StackFrame* RESTRICT fp)
+{
+    Word* top = stackTop;
+
+    Mat4& right = *reinterpret_cast<Mat4*>(top + 1 - 16);
+    Mat4& left = *(&right - 1);
+    Mat4* result = reinterpret_cast<Mat4*>(fp->start - fp->paramCount - 1 - fp->returnSize);
+
+    result->m11 = left.m11 * right.m11 + left.m12 * right.m21 + left.m13 * right.m31 + left.m14 * right.m41;
+    result->m12 = left.m11 * right.m12 + left.m12 * right.m22 + left.m13 * right.m32 + left.m14 * right.m42;
+    result->m13 = left.m11 * right.m13 + left.m12 * right.m23 + left.m13 * right.m33 + left.m14 * right.m43;
+    result->m14 = left.m11 * right.m14 + left.m12 * right.m24 + left.m13 * right.m34 + left.m14 * right.m44;
+
+    result->m21 = left.m21 * right.m11 + left.m22 * right.m21 + left.m23 * right.m31 + left.m24 * right.m41;
+    result->m22 = left.m21 * right.m12 + left.m22 * right.m22 + left.m23 * right.m32 + left.m24 * right.m42;
+    result->m23 = left.m21 * right.m13 + left.m22 * right.m23 + left.m23 * right.m33 + left.m24 * right.m43;
+    result->m24 = left.m21 * right.m14 + left.m22 * right.m24 + left.m23 * right.m34 + left.m24 * right.m44;
+
+    result->m31 = left.m31 * right.m11 + left.m32 * right.m21 + left.m33 * right.m31 + left.m34 * right.m41;
+    result->m32 = left.m31 * right.m12 + left.m32 * right.m22 + left.m33 * right.m32 + left.m34 * right.m42;
+    result->m33 = left.m31 * right.m13 + left.m32 * right.m23 + left.m33 * right.m33 + left.m34 * right.m43;
+    result->m34 = left.m31 * right.m14 + left.m32 * right.m24 + left.m33 * right.m34 + left.m34 * right.m44;
+
+    result->m41 = left.m41 * right.m11 + left.m42 * right.m21 + left.m43 * right.m31 + left.m44 * right.m41;
+    result->m42 = left.m41 * right.m12 + left.m42 * right.m22 + left.m43 * right.m32 + left.m44 * right.m42;
+    result->m43 = left.m41 * right.m13 + left.m42 * right.m23 + left.m43 * right.m33 + left.m44 * right.m43;
+    result->m44 = left.m41 * right.m14 + left.m42 * right.m24 + left.m43 * right.m34 + left.m44 * right.m44;
+
+    stackTop = (fp->start - fp->paramCount - 1) - 1;
+}
+
+void Intrinsic_Mat4NumMul(const Operation& op, Word*& RESTRICT stackTop, StackFrame* RESTRICT fp)
+{
+    Word* top = stackTop;
+
+    Mat4& left = *reinterpret_cast<Mat4*>(fp->start - fp->paramCount);
+    Number& right = *reinterpret_cast<Number*>(fp->start - fp->paramCount + 16);
+    Mat4* result = reinterpret_cast<Mat4*>(fp->start - fp->paramCount - 1 - fp->returnSize);
+
+    result->m11 = left.m11 * right;
+    result->m12 = left.m12 * right;
+    result->m13 = left.m13 * right;
+    result->m14 = left.m14 * right;
+
+    result->m21 = left.m21 * right;
+    result->m22 = left.m22 * right;
+    result->m23 = left.m23 * right;
+    result->m24 = left.m24 * right;
+
+    result->m31 = left.m31 * right;
+    result->m32 = left.m32 * right;
+    result->m33 = left.m33 * right;
+    result->m34 = left.m34 * right;
+
+    result->m41 = left.m41 * right;
+    result->m42 = left.m42 * right;
+    result->m43 = left.m43 * right;
+    result->m44 = left.m44 * right;
+
+    stackTop = (fp->start - fp->paramCount - 1) - 1;
+}
+
+void Intrinsic_Vec4Mat4Mul(const Operation& op, Word*& RESTRICT stackTop, StackFrame* RESTRICT fp)
+{
+    Word* top = stackTop;
+
+    Mat4& right = *reinterpret_cast<Mat4*>(top + 1 - 16);
+    Vec4& left = *reinterpret_cast<Vec4*>(top + 1 - 16 - 4);
+    Vec4* result = reinterpret_cast<Vec4*>(fp->start - fp->paramCount - 1 - fp->returnSize);
+
+    result->x = left.x * right.m11 + left.y * right.m21 + left.z * right.m31 + left.w * right.m41;
+    result->y = left.x * right.m12 + left.y * right.m22 + left.z * right.m32 + left.w * right.m42;
+    result->z = left.x * right.m13 + left.y * right.m23 + left.z * right.m33 + left.w * right.m43;
+    result->w = left.x * right.m14 + left.y * right.m24 + left.z * right.m34 + left.w * right.m44;
+
+    stackTop = (fp->start - fp->paramCount - 1) - 1;
+}
+
+} // fraze

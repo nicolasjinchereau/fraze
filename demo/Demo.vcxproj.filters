@@ -1,0 +1,165 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="assets">
+      <UniqueIdentifier>{d77cb2b6-c77e-41f3-a9e2-3b961f2a1dc2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="assets\textures">
+      <UniqueIdentifier>{36b731e6-89ee-44c0-9401-91d46142be35}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="assets\models">
+      <UniqueIdentifier>{4f6a3766-41e6-4dea-99ca-381f259a7208}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="assets\scripts">
+      <UniqueIdentifier>{30e399ac-f0a1-4f29-bd2c-f6f24fd550ff}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="assets\shaders">
+      <UniqueIdentifier>{d1a30d68-7db7-4de7-ac5f-1572b8c31c81}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\Buffer.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Graphics.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Model.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Shader.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Texture.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Window.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\main.cpp" />
+    <ClCompile Include="source\ExternFunctions.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\File.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="source\Buffer.h">
+      <Filter>source</Filter>
+    </ClInclude>
+    <ClInclude Include="source\Graphics.h">
+      <Filter>source</Filter>
+    </ClInclude>
+    <ClInclude Include="source\Model.h">
+      <Filter>source</Filter>
+    </ClInclude>
+    <ClInclude Include="source\Shader.h">
+      <Filter>source</Filter>
+    </ClInclude>
+    <ClInclude Include="source\Texture.h">
+      <Filter>source</Filter>
+    </ClInclude>
+    <ClInclude Include="source\Types.h">
+      <Filter>source</Filter>
+    </ClInclude>
+    <ClInclude Include="source\Window.h">
+      <Filter>source</Filter>
+    </ClInclude>
+    <ClInclude Include="source\WindowsPlatform.h">
+      <Filter>source</Filter>
+    </ClInclude>
+    <ClInclude Include="source\ExternFunctions.h">
+      <Filter>source</Filter>
+    </ClInclude>
+    <ClInclude Include="source\File.h">
+      <Filter>source</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="assets\models\character.fbx">
+      <Filter>assets\models</Filter>
+    </None>
+    <None Include="assets\models\character_low.fbx">
+      <Filter>assets\models</Filter>
+    </None>
+    <None Include="assets\scripts\Graphics.fz">
+      <Filter>assets\scripts</Filter>
+    </None>
+    <None Include="assets\scripts\IComponent.fz">
+      <Filter>assets\scripts</Filter>
+    </None>
+    <None Include="assets\scripts\IScript.fz">
+      <Filter>assets\scripts</Filter>
+    </None>
+    <None Include="assets\scripts\Main.fz">
+      <Filter>assets\scripts</Filter>
+    </None>
+    <None Include="assets\scripts\Math.fz">
+      <Filter>assets\scripts</Filter>
+    </None>
+    <None Include="assets\scripts\Mesh.fz">
+      <Filter>assets\scripts</Filter>
+    </None>
+    <None Include="assets\scripts\MeshRenderer.fz">
+      <Filter>assets\scripts</Filter>
+    </None>
+    <None Include="assets\scripts\Model.fz">
+      <Filter>assets\scripts</Filter>
+    </None>
+    <None Include="assets\scripts\Node.fz">
+      <Filter>assets\scripts</Filter>
+    </None>
+    <None Include="assets\scripts\Scene.fz">
+      <Filter>assets\scripts</Filter>
+    </None>
+    <None Include="assets\scripts\Shader.fz">
+      <Filter>assets\scripts</Filter>
+    </None>
+    <None Include="assets\scripts\Texture.fz">
+      <Filter>assets\scripts</Filter>
+    </None>
+    <None Include="assets\scripts\Time.fz">
+      <Filter>assets\scripts</Filter>
+    </None>
+    <None Include="assets\scripts\Window.fz">
+      <Filter>assets\scripts</Filter>
+    </None>
+    <None Include="assets\scripts\Animator.fz">
+      <Filter>assets\scripts</Filter>
+    </None>
+    <None Include="assets\scripts\Buffer.fz">
+      <Filter>assets\scripts</Filter>
+    </None>
+    <None Include="assets\scripts\Camera.fz">
+      <Filter>assets\scripts</Filter>
+    </None>
+    <None Include="assets\scripts\CameraController.fz">
+      <Filter>assets\scripts</Filter>
+    </None>
+    <None Include="assets\scripts\File.fz">
+      <Filter>assets\scripts</Filter>
+    </None>
+    <None Include="assets\shaders\lit.hlsl">
+      <Filter>assets\shaders</Filter>
+    </None>
+    <None Include="assets\shaders\unlit.hlsl">
+      <Filter>assets\shaders</Filter>
+    </None>
+    <None Include="assets\scripts\Spinner.fz">
+      <Filter>assets\scripts</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="assets\textures\character.png">
+      <Filter>assets\textures</Filter>
+    </Image>
+    <Image Include="assets\textures\character_low.png">
+      <Filter>assets\textures</Filter>
+    </Image>
+  </ItemGroup>
+</Project>

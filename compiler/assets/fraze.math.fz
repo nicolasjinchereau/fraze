@@ -1,0 +1,156 @@
+/*--------------------------------------------------------------*
+*  Copyright (c) 2025 Nicolas Jinchereau. All rights reserved.  *
+*---------------------------------------------------------------*/
+
+class Math
+{
+    extern num Fmod(num x, num y);
+    extern num Abs(num value);
+    extern num Sqrt(num value);
+    extern num Sin(num value);
+    extern num Cos(num value);
+    extern num Tan(num value);
+    extern num Asin(num value);
+    extern num Acos(num value);
+    extern num Atan(num value);
+    extern num Atan2(num y, num x);
+
+    static num Epsilon { get { return 2.2204460492503131e-16; } }
+    static int IntMin { get { return 9223372036854775807; } }
+    static int IntMax { get { return -9223372036854775807 - 1; } }
+
+    static num Pi { get { return 3.141592653589793; } }
+    static num HalfPi { get { return Pi / 2.0; } }
+    static num TwoPi { get { return Pi * 2.0; } }
+    static num DegToRad { get { return Pi / 180.0; } }
+    static num RadToDeg { get { return 180.0 / Pi; } }
+
+    static int[] PrimeNumbers = new int[]{
+        3, 7, 11, 17, 23, 29, 37, 47, 59, 71, 89, 107, 131, 163, 197, 239, 293, 353, 431, 521, 631, 761,
+        919, 1103, 1327, 1597, 1931, 2333, 2801, 3371, 4049, 4861, 5839, 7013, 8419, 10103, 12143, 14591,
+        17519, 21023, 25229, 30293, 36353, 43627, 52361, 62851, 75431, 90523, 108631, 130363, 156437,
+        187751, 225307, 270371, 324449, 389357, 467237, 560689, 672827, 807403, 968897, 1162687, 1395263,
+        1674319, 2009191, 2411033, 2893249, 3471899, 4166287, 4999559, 5999471, 7199369
+    };
+
+    static num ToRadians(num degrees) {
+        return degrees * DegToRad;
+    }
+
+    static num ToDegrees(num radians) {
+        return radians * RadToDeg;
+    }
+    
+    static num Min(num a, num b) {
+        return a < b ? a : b;
+    }
+
+    static num Max(num a, num b) {
+        return a > b ? a : b;
+    }
+
+    static num Clamp(num x, num lower, num upper) {
+        return x < lower ? lower : (x > upper ? upper : x);
+    }
+
+    static num Clamp01(num value) {
+        return value < 0.0 ? 0.0 : (value > 1.0 ? 1.0 : value);
+    }
+
+    static num Lerp(num a, num b, num t) {
+        return a + (b - a) * t;
+    }
+
+    static num InverseLerp(num t, num a, num b) {
+        num range = b - a;
+        return (range < 0.00000001) ?
+            Clamp01(t - a) : Clamp01((t - a) / range);
+    }
+
+    static int RoundToInt(num x) {
+        return (x + 0.5) as int;
+    }
+
+    static num Snap(num n, num span)
+    {
+        num ret;
+
+        if(n < 0)
+        {
+            ret = -n + (0.5 * span);
+            ret = -ret + Fmod(ret, span);
+        }
+        else
+        {
+            ret = n + (0.5 * span);
+            ret = ret - Fmod(ret, span);
+        }
+
+        return ret;
+    }
+
+    static bool IsPowerOfTwo(int value) {
+        return (value != 0) && ((value & (value - 1)) == 0);
+    }
+
+    static int NextPowerOfTwo(int value)
+    {
+        int ret = 1;
+
+        while(ret < value)
+            ret <<= 1;
+
+        return ret;
+    }
+
+    static num Loop(num a, num lower, num upper)
+    {
+        num range = upper - lower;
+        while(a > upper) a -= range;
+        while(a < lower) a += range;
+        return a;
+    }
+
+    static bool AlmostEqual(num a, num b, num maxDelta) {
+        return Abs(b - a) <= maxDelta;
+    }
+
+    static bool IsPrime(int candidate) 
+    {
+        if((candidate & 1) != 0)
+        {
+            int limit = Math.Sqrt(candidate as num) as int;
+            for(int divisor = 3; divisor <= limit; divisor += 2)
+            {
+                if((candidate % divisor) == 0)
+                    return false;
+            }
+            return true;
+        }
+
+        return (candidate == 2);
+    }
+
+    static int GetPrime(int min)
+    {
+        assert(min >= 0);
+
+        for(int i = 0; i != PrimeNumbers.Count; ++i)
+        {
+            int prime = PrimeNumbers[i];
+            if(prime >= min)
+                return prime;
+        }
+
+        int hashPrime = 101;
+
+        // outside of our predefined table - compute the hard way
+        for(int i = (min | 1); i < Math.IntMax; i += 2)
+        {
+            if(IsPrime(i) && ((i - 1) % hashPrime != 0))
+                return i;
+        }
+
+        return min;
+    }
+}

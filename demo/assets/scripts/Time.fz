@@ -1,0 +1,35 @@
+/*--------------------------------------------------------------*
+*  Copyright (c) 2025 Nicolas Jinchereau. All rights reserved.  *
+*---------------------------------------------------------------*/
+
+struct Time
+{
+    private extern int GetTicks();
+    private extern int GetTicksPerSecond();
+    
+    private int ticks = 0;
+    private int delta = 0;
+
+    static Time Now {
+        get { return new Time{ GetTicks() }; }
+    }
+
+    num Ticks {
+        get { return ticks; }
+    }
+
+    num Seconds {
+        get { return (ticks as num) / GetTicksPerSecond(); }
+    }
+
+    num Delta {
+        get { return (delta as num) / GetTicksPerSecond(); }
+    }
+
+    void ApproachNow()
+    {
+        int now = GetTicks();
+        delta = now - ticks;
+        ticks = now;
+    }
+}

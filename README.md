@@ -1,3 +1,4 @@
-A basic lexer and parser for a C-like language. ([example](https://github.com/nicolasjinchereau/compiler-test/blob/master/test.src))
+## Fraze
 
-Semantic analysis and code generation (or translation to C++) may be added in the future.
+Fraze is a garbage collected, interpretted C-like language geared toward productivity.
+([example](https://github.com/nicolasjinchereau/fraze/blob/master/demo/assets/scripts/Main.fz))

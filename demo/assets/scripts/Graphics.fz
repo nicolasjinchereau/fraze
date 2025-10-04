@@ -1,0 +1,212 @@
+/*--------------------------------------------------------------*
+*  Copyright (c) 2025 Nicolas Jinchereau. All rights reserved.  *
+*---------------------------------------------------------------*/
+
+enum DrawMode
+{
+    Points,
+    Lines,
+    LineStrip,
+    Triangles,
+    TriangleStrip
+}
+
+enum CullMode
+{
+    Off,
+    Back,
+    Front,
+}
+
+enum DepthTest
+{
+    Never,
+    Less,
+    Equal,
+    LessOrEqual,
+    Greater,
+    NotEqual,
+    GreaterOrEqual,
+    Always
+}
+
+enum BlendFactor
+{
+    Zero,
+    One,
+    SrcColor,
+    OneMinusSrcColor,
+    DstColor,
+    OneMinusDstColor,
+    SrcAlpha,
+    OneMinusSrcAlpha,
+    DstAlpha,
+    OneMinusDstAlpha,
+    SrcAlphaSaturate,
+    ConstColor,
+    OneMinusConstColor,
+    Src1Color,
+    OneMinusSrc1Color,
+    Src1Alpha,
+    OneMinusSrc1Alpha
+}
+
+enum BlendOperation
+{
+    Add,
+    Subtract,
+    ReverseSubtract,
+    Min,
+    Max,
+}
+
+struct Color
+{
+    num r;
+    num g;
+    num b;
+    num a;
+
+    static Color Clear { get { return new Color{ 0.0, 0.0, 0.0, 0.0 }; } }
+    static Color Black { get { return new Color{ 0.0, 0.0, 0.0, 1.0 }; } }
+    static Color White { get { return new Color{ 1.0, 1.0, 1.0, 1.0 }; } }
+    static Color Red   { get { return new Color{ 1.0, 0.0, 0.0, 1.0 }; } }
+    static Color Green { get { return new Color{ 0.0, 1.0, 0.0, 1.0 }; } }
+    static Color Blue  { get { return new Color{ 0.0, 0.0, 1.0, 1.0 }; } }
+}
+
+struct IntRect
+{
+    int x;
+    int y;
+    int w;
+    int h;
+}
+
+class Graphics
+{
+    object nativeGraphics;
+    private extern object CreateNativeGraphics();
+    private extern void SetRenderTarget(object graphicsObj, object windowObj);
+    private extern void SetShader(object graphicsObj, object shaderObj);
+    private extern void SetVertexBuffer(object graphicsObj, object bufferObj);
+    private extern void SetIndexBuffer(object graphicsObj, object bufferObj);
+    private extern void SetClearColor(object graphicsObj, Color color);
+    private extern void SetViewport(object graphicsObj, IntRect rect);
+    private extern IntRect GetViewport(object graphicsObj);
+    private extern void SetCullMode(object graphicsObj, CullMode mode);
+    private extern void SetScissorTestEnabled(object graphicsObj, bool enabled);
+    private extern void SetScissorRect(object graphicsObj, IntRect rect);
+    private extern void SetDepthTest(object graphicsObj, DepthTest test);
+    private extern void SetDepthWriteEnabled(object graphicsObj, bool enabled);
+    private extern void SetBlendingEnabled(object graphicsObj, bool enabled);
+    private extern void SetBlendOperations(object graphicsObj, BlendOperation colorBlendOp, BlendOperation alphaBlendOp);
+    private extern void SetBlendFactors(object graphicsObj, BlendFactor sourceColor, BlendFactor destColor, BlendFactor sourceAlpha, BlendFactor destAlpha);
+    private extern void SetColorMask(object graphicsObj, bool red, bool green, bool blue, bool alpha);
+    private extern void SetBlendColor(object graphicsObj, Color color);
+    private extern void Clear(object graphicsObj);
+    private extern void Present(object graphicsObj);
+    private extern void DrawArray(object graphicsObj, int start, int count, DrawMode mode);
+    private extern void DrawIndexed(object graphicsObj, int start, int count, DrawMode mode);
+
+    private Shader currentShader;
+    private Buffer currentBuffer;
+
+    static Graphics Current = null;
+
+    this() {
+        nativeGraphics = CreateNativeGraphics();
+    }
+
+    void SetRenderTarget(Window window) {
+        SetRenderTarget(nativeGraphics, window.nativeWindow);
+    }
+
+    void SetShader(Shader shader)
+    {
+        SetShader(nativeGraphics, shader.nativeShader);
+        currentShader = shader;  // prevent GC
+    }
+
+    void SetVertexBuffer(Buffer buffer)
+    {
+        SetVertexBuffer(nativeGraphics, buffer.nativeBuffer);
+        currentBuffer = buffer;  // prevent GC
+    }
+
+    void SetIndexBuffer(Buffer buffer)
+    {
+        SetIndexBuffer(nativeGraphics, buffer.nativeBuffer);
+        currentBuffer = buffer;  // prevent GC
+    }
+
+    void SetClearColor(Color color) {
+        SetClearColor(nativeGraphics, color);
+    }
+
+    IntRect Viewport
+    {
+        get { return GetViewport(nativeGraphics); }
+        set { SetViewport(nativeGraphics, value); }
+    }
+
+    void SetCullMode(CullMode mode) {
+        SetCullMode(nativeGraphics, mode);
+    }
+
+    void SetScissorTestEnabled(bool enabled) {
+        SetScissorTestEnabled(nativeGraphics, enabled);
+    }
+
+    void SetScissorRect(IntRect rect) {
+        SetScissorRect(nativeGraphics, rect);
+    }
+
+    void SetDepthTest(DepthTest test) {
+        SetDepthTest(nativeGraphics, test);
+    }
+
+    void SetDepthWriteEnabled(bool enabled) {
+        SetDepthWriteEnabled(nativeGraphics, enabled);
+    }
+
+    void SetBlendingEnabled(bool enabled) {
+        SetBlendingEnabled(nativeGraphics, enabled);
+    }
+
+    void SetBlendOperations(BlendOperation colorBlendOp, BlendOperation alphaBlendOp) {
+        SetBlendOperations(nativeGraphics, colorBlendOp, alphaBlendOp);
+    }
+
+    void SetBlendFactors(BlendFactor sourceColor, BlendFactor destColor, BlendFactor sourceAlpha, BlendFactor destAlpha) {
+        SetBlendFactors(nativeGraphics, sourceColor, destColor, sourceAlpha, destAlpha);
+    }
+
+    void SetBlendFactors(BlendFactor sourceFactor, BlendFactor destFactor) {
+        SetBlendFactors(nativeGraphics, sourceFactor, destFactor, sourceFactor, destFactor);
+    }
+
+    void SetColorMask(bool red, bool green, bool blue, bool alpha) {
+        SetColorMask(nativeGraphics, red, green, blue, alpha);
+    }
+
+    void SetBlendColor(Color color) {
+        SetBlendColor(nativeGraphics, color);
+    }
+
+    void Clear() {
+        Clear(nativeGraphics);
+    }
+
+    void Present() {
+        Present(nativeGraphics);
+    }
+
+    void DrawArray(int start, int count, DrawMode mode) {
+        DrawArray(nativeGraphics, start, count, mode);
+    }
+
+    void DrawIndexed(int start, int count, DrawMode mode) {
+        DrawIndexed(nativeGraphics, start, count, mode);
+    }
+}

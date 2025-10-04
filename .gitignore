@@ -1,7 +1,12 @@
-/Debug/
-/Release/
-/x64/
+compiler/obj/
+compiler/lib/
+demo/obj/
+demo/bin/
+syntax-extensions/VisualStudio/obj/
+syntax-extensions/VisualStudio/bin/
 *.vcxproj.user
 *.VC.opendb
 *.VC.db
 .vs/
+*.csv
+AST.txt

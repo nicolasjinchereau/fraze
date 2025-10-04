@@ -1,0 +1,142 @@
+/*--------------------------------------------------------------*
+*  Copyright (c) 2025 Nicolas Jinchereau. All rights reserved.  *
+*---------------------------------------------------------------*/
+
+enum Keycode
+{
+    A, B, C, D, E, F, G, H, I, J, K, L, M,
+    N, O, P, Q, R, S, T, U, V, W, X, Y, Z,
+    Num0, Num1, Num2, Num3, Num4,
+    Num5, Num6, Num7, Num8, Num9,
+    F1, F2, F3, F4, F5, F6,
+    F7, F8, F9, F10, F11, F12,
+    Back,
+    Forward,
+    VolumeUp,
+    VolumeDown,
+    VolumeMute,
+    Space,
+    Backspace,
+    Del,
+    LeftArrow,
+    RightArrow,
+    UpArrow,
+    DownArrow,
+    Alt,
+    Ctrl,
+    Shift,
+    Enter,
+    Escape,
+    Equals,
+    Minus,
+    LeftBracket,
+    RightBracket,
+    Quote,
+    Semicolon,
+    Backslash,
+    Comma,
+    Slash,
+    Period,
+    Grave,
+    Tab,
+
+    // OS specific keycodes not included above will be returned from TranslateKey as (Keycode::Unknown + keycode)
+    Unknown,
+}
+
+interface IWindowEventHandler
+{
+    void OnKeyDown(Window window, Keycode key);
+    void OnKeyUp(Window window, Keycode key);
+    void OnPointerDown(Window window, IVec2 pos, int id);
+    void OnPointerMove(Window window, IVec2 pos, int id);
+    void OnPointerUp(Window window, IVec2 pos, int id);
+    void OnResize(Window window, IVec2 size);
+}
+
+class Window
+{
+    object nativeWindow;
+    private extern object CreateNativeWindow(object window, string title, int x, int y, int width, int height);
+    private extern void Show(object windowObj);
+    private extern void Hide(object windowObj);
+    private extern void Close(object windowObj);
+    private extern int PumpMessage(object windowObj);
+    private extern int GetWidth(object windowObj);
+    private extern int GetHeight(object windowObj);
+
+    private List<IWindowEventHandler> eventHandlers;
+
+    this(string title, int x, int y, int width, int height) {
+        nativeWindow = CreateNativeWindow(this, title, x, y, width, height);
+        eventHandlers = new List<IWindowEventHandler>{};
+    }
+
+    void Show() {
+        Show(nativeWindow);
+    }
+
+    void Hide() {
+        Hide(nativeWindow);
+    }
+
+    void Close() {
+        Close(nativeWindow);
+    }
+
+    int PumpMessage() {
+        return PumpMessage(nativeWindow);
+    }
+
+    int Width {
+        get { return GetWidth(nativeWindow); }
+    }
+
+    int Height {
+        get { return GetHeight(nativeWindow); }
+    }
+
+    void AddEventHandler(IWindowEventHandler handler) {
+        eventHandlers.Add(handler);
+    }
+
+    void RemoveEventHandler(IWindowEventHandler handler) {
+        eventHandlers.Remove(handler);
+    }
+
+    private static void OnKeyDown(Window window, Keycode key)
+    {
+        for(int i = 0; i != window.eventHandlers.Count; ++i)
+            window.eventHandlers[i].OnKeyDown(window, key);
+    }
+
+    private static void OnKeyUp(Window window, Keycode key)
+    {
+        for(int i = 0; i != window.eventHandlers.Count; ++i)
+            window.eventHandlers[i].OnKeyUp(window, key);
+    }
+
+    private static void OnPointerDown(Window window, int x, int y, int id)
+    {
+        for(int i = 0; i != window.eventHandlers.Count; ++i)
+            window.eventHandlers[i].OnPointerDown(window, new IVec2{ x, y }, id);
+    }
+
+    private static void OnPointerMove(Window window, int x, int y, int id)
+    {
+        for(int i = 0; i != window.eventHandlers.Count; ++i)
+            window.eventHandlers[i].OnPointerMove(window, new IVec2{ x, y }, id);
+    }
+
+    private static void OnPointerUp(Window window, int x, int y, int id)
+    {
+        for(int i = 0; i != window.eventHandlers.Count; ++i)
+            window.eventHandlers[i].OnPointerUp(window, new IVec2{ x, y }, id);
+    }
+
+    private static void OnResize(Window window, int x, int y)
+    {
+        for(int i = 0; i != window.eventHandlers.Count; ++i)
+            window.eventHandlers[i].OnResize(window, new IVec2{ x, y });
+    }
+}

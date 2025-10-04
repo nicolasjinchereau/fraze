@@ -1,0 +1,13 @@
+﻿; Registering the package
+[$RootKey$\InstalledProducts\FrazeLangPackage]
+"Package"="{37799e71-05be-4b24-87eb-8a740a241b14}"
+[$RootKey$\BindingPaths\{37799e71-05be-4b24-87eb-8a740a241b14}]
+"$PackageFolder$"=""
+
+; Registering the TextMate grammar
+[$RootKey$\TextMate\Repositories]
+"fraze-syntax"="$PackageFolder$\Syntax"
+
+; Match file extensions with icons. See full icon list at https://glyphlist.azurewebsites.net/knownmonikers/
+[$RootKey$\ShellFileAssociations\.pkgdef]
+"DefaultIconMoniker"="KnownMonikers.ConfigurationEditor"

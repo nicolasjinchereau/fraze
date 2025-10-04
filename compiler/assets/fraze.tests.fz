@@ -1,0 +1,623 @@
+/*--------------------------------------------------------------*
+*  Copyright (c) 2025 Nicolas Jinchereau. All rights reserved.  *
+*---------------------------------------------------------------*/
+
+section OperatorTests
+{
+    void Run()
+    {
+        int a = 3;
+        int b;
+        int c;
+
+        b = a + 2;
+        assert(b == 5);
+
+        b += 2;
+        assert(b == 7);
+
+        c = ++b;
+        assert(b == 8);
+        assert(c == 8);
+
+        c = b++;
+        assert(b == 9);
+        assert(c == 8);
+
+        b = b - 2;
+        assert(b == 7);
+
+        b -= 2;
+        assert(b == 5);
+
+        c = --b;
+        assert(b == 4);
+        assert(c == 4);
+
+        c = b--;
+        assert(b == 3);
+        assert(c == 4);
+
+        b = a * 2;
+        assert(b == 6);
+
+        b *= 2;
+        assert(b == 12);
+
+        b = b / 2;
+        assert(b == 6);
+
+        b /= 2;
+        assert(b == 3);
+
+        b = 10 % 6;
+        assert(b == 4);
+
+        b %= 3;
+        assert(b == 1);
+
+        a = 1 << 1;
+        assert(a == 2);
+
+        a <<= 1;
+        assert(a == 4);
+
+        a = a >> 1;
+        assert(a == 2);
+        
+        a >>= 1;
+        assert(a == 1);
+
+        a = a | 2;
+        assert(a == 3);
+
+        a |= 4;
+        assert(a == 7);
+
+        a = 0b1111;
+        a = a & 0b1101;
+        assert(a == 0b1101);
+
+        a &= 0b0101;
+        assert(a == 0b0101);
+
+        assert(a &? 0b0001 == true);
+        assert(a &? 0b0010 == false);
+
+        a = 0b1111 ^ 0b1010;
+        assert(a == 0b0101);
+
+        a ^= 0b1100;
+        assert(a == 0b1001);
+
+        a = ~a & 0b1111;
+        assert(a == 0b0110);
+
+        bool x = true;
+        bool y = false;
+        assert((x && y) == false);
+        assert(!x == false);
+        assert(!y == true);
+        
+        a = x ? 1 : 2;
+        assert(a == 1);
+
+        a = y ? 1 : 2;
+        assert(a == 2);
+
+        assert(1 == 1);
+        assert(1 != 2);
+        assert(1 < 2);
+        assert(2 <= 2);
+        assert(2 > 1);
+        assert(2 >= 2);
+    }
+}
+
+section ConversionTests
+{
+    class Test
+    {
+        int value = 111;
+    }
+
+    functor void TestFunctor();
+
+    void TestFunc()
+    {
+    }
+
+    void Run()
+    {
+        // implicit boxing and conversion to object
+        bool L1 = true;
+        object R1 = L1;
+        assert(R1 is bool);
+        assert(R1 as bool == L1);
+
+        int L2 = 5;
+        object R2 = L2;
+        assert(R2 is int);
+        assert(R2 as int == L2);
+
+        num L3 = 5.0;
+        object R3 = L3;
+        assert(R3 is num);
+        assert(R3 as num == L3);
+
+        string L4 = "a";
+        object R4 = L4;
+        assert(R4 is string);
+        assert(R4 as string == L4);
+
+        Test L5 = new Test{};
+        object R5 = L5;
+        assert(R5 is Test);
+        assert(R5 as Test == L5);
+
+        // FIXME
+        //TestFunctor L6 = TestFunc;
+        //object R6 = L6;
+        //assert(R6 as TestFunctor == L6);
+
+        // string concat
+        string L7 = "a=" + true;
+        assert(L7 == "a=true");
+
+        string L8 = "a=" + 1;
+        assert(L8 == "a=1");
+
+        string L9 = "a=" + 0.5;
+        assert(L9 == "a=0.5");
+
+        string L10 = "a=" + "a";
+        assert(L10 == "a=a");
+
+        string L11 = "a=";
+        L11 += true;
+        assert(L11 == "a=true");
+
+        string L12 = "a=";
+        L12 += 1;
+        assert(L12 == "a=1");
+
+        string L13 = "a=";
+        L13 += 0.5;
+        assert(L13 == "a=0.5");
+
+        string L14 = "a=";
+        L14 += "a";
+        assert(L14 == "a=a");
+
+        // int -> num promotion
+        num L15 = 1;
+        assert(L15 == 1.0);
+
+        num L16 = 1 + 0.5;
+        assert(L16 == 1.5);
+
+        num L17 = 0.5 + 1;
+        assert(L17 == 1.5);
+
+        // explicit unboxing and conversion from object
+        object L18 = true;
+        bool R18 = L18 as bool;
+        assert(R18 == true);
+
+        object L19 = 1;
+        int R19 = L19 as int;
+        assert(R19 == 1);
+
+        object L20 = 1.5;
+        num R20 = L20 as num;
+        assert(R20 == 1.5);
+
+        Test T21 = new Test{};
+        object L21 = T21;
+        Test R21 = L21 as Test;
+        assert(R21 == T21);
+
+        int[] T22 = new int[1];
+        object L22 = T22;
+        int[] R22 = L22 as int[];
+        assert(R22 == T22);
+
+        string T23 = "a";
+        object L23 = T23;
+        string R23 = L23 as string;
+        assert(R23 == T23);
+
+        // FIXME
+        //TestFunctor T24 = TestFunc;
+        //object L24 = T24;
+        //TestFunctor R24 = L24 as TestFunctor;
+        //assert(R24 == T24);
+
+        // explicit conversion to object
+        int[] L25 = new int[1];
+        object R25 = L25 as object;
+        assert(L25 == R25);
+
+        string L26 = "a";
+        object R26 = L26 as object;
+        assert(L26 == R26);
+
+        Test L27 = new Test{};
+        object R27 = L27 as object;
+        assert(L27 == R27);
+
+        // explicit conversion between int and num
+        int L28 = 2;
+        num R28 = L28 as num;
+        assert(R28 == 2.0);
+
+        num L29 = 1.5;
+        int R29 = L29 as int;
+        assert(R29 == 1);
+
+        // conversion to string
+        int L30 = 111;
+        string R30 = L30 as string;
+        assert(R30 == "111");
+
+        num L31 = 1.5;
+        string R31 = L31 as string;
+        assert(R31 == "1.5");
+
+        bool L32 = false;
+        string R32 = L32 as string;
+        assert(R32 == "false");
+
+        // type checks
+        assert(true is bool);
+        assert(1 is int);
+        assert(0.5 is num);
+        assert(new int[1] is int[]);
+        assert("a" is string);
+        assert(new Test{} is Test);
+        TestFunctor T33 = TestFunc;
+        // FIXME
+        //assert(T33 is TestFunctor); 
+
+        assert((false as object) is bool);
+        assert((1 as object) is int);
+        assert((0.5 as object) is num);
+        assert((new int[1] as object) is int[]);
+        assert(("a" as object) is string);
+        assert((new Test{} as object) is Test);
+        // FIXME
+        //assert((T33 as object) is TestFunctor);
+    }
+}
+
+section ArrayTests
+{
+    void Run()
+    {
+        int[] numbers = new int[]{ 1, 2, 3 };
+        
+        for(int i = 0; i != numbers.Count; ++i)
+        {
+            assert(numbers[i] == i + 1);
+        }
+    }
+}
+
+section StringTests
+{
+    void Run()
+    {
+        string s1 = "Hello" + " " + "World" + " " + 100;
+        assert(s1 == "Hello World 100");
+
+        string s2 = "Hello";
+        s2 += " ";
+        s2 += "World";
+        s2 += " ";
+        s2 += 100;
+        assert(s2 == "Hello World 100");
+
+        string test = "one,two,three,four";
+        string[] parts = String.Split(test, ",");
+        assert(parts[0] == "one");
+        assert(parts[1] == "two");
+        assert(parts[2] == "three");
+        assert(parts[3] == "four");
+    }
+}
+
+section ContainerTests
+{
+    struct CustomKey
+    {
+        string value;
+    }
+
+    int GetHashCode(CustomKey key) {
+        return String.GetHashCode(key.value);
+    }
+
+    void Run()
+    {
+        // list
+        List<int> list = new List<int>{};
+        list.Add(123);
+        list.Add(456);
+        list.Add(789);
+        assert(list.Count == 3);
+        list.RemoveAt(1);
+        assert(list.Count == 2);
+        assert(list[0] == 123);
+        assert(list[1] == 789);
+        list.Add(111);
+        list.Add(222);
+        list.RestockAt(1);
+        assert(list[1] == 222);
+
+        for(int i = 0; i != list.Count; ++i)
+        {
+            int oldValue = list[i];
+            list[i] += 111;
+            int newValue = list[i];
+            assert(newValue == oldValue + 111);
+        }
+
+        list.Clear();
+        assert(list.Count == 0);
+
+        // table
+        var table1 = new Table<string, string>{};
+        table1["one"] = "1";
+        table1["two"] = "2";
+        table1["three"] = "3";
+        table1["four"] = "4";
+        assert(table1.Count == 4);
+        assert(table1["one"] == "1");
+        assert(table1["two"] == "2");
+        assert(table1["three"] == "3");
+        assert(table1["four"] == "4");
+        assert(table1.Contains("two"));
+        assert(!table1.Contains("five"));
+
+        table1.Remove("two");
+        assert(!table1.Contains("two"));
+        assert(table1.Count == 3);
+        
+        table1.Remove("four");
+        assert(table1.Count == 2);
+        assert(!table1.Contains("four"));
+        
+        table1.Clear();
+        assert(table1.Count == 0);
+
+        var table2 = new Table<num, string>{};
+        table2[1] = "one";
+        table2[2] = "two";
+        table2[3] = "three";
+        assert(table2[1] == "one");
+        assert(table2[2] == "two");
+        assert(table2[3] == "three");
+
+        var table3 = new Table<CustomKey, string>{};
+
+        var key1 = new CustomKey{ "one" };
+        var key2 = new CustomKey{ "two" };
+        var key3 = new CustomKey{ "three" };
+
+        table3[key1] = "one";
+        table3[key2] = "two";
+        table3[key3] = "three";
+        assert(table3[key1] == "one");
+        assert(table3[key2] == "two");
+        assert(table3[key3] == "three");
+    }
+}
+
+section TemplateTests
+{
+    class Money<Units>
+    {
+        Units amount;
+    }
+
+    class Wallet<MoneyType>
+    {
+        MoneyType money = new MoneyType{};
+    }
+
+    class TemplateProperties<T>
+    {
+        T _value;
+
+        T Value {
+            get { return _value; }
+            set { _value = value; }
+        }
+    }
+
+    void Run()
+    {
+        Wallet<Money<num>> wallet = new Wallet<Money<num>>{};
+        wallet.money.amount = 5.50;
+
+        TemplateProperties<int> test1 = new TemplateProperties<int>{};
+        test1.Value = 123;
+        assert(test1.Value == 123);
+
+        TemplateProperties<num> test2 = new TemplateProperties<num>{};
+        test2.Value = 123.456;
+        assert(test2.Value == 123.456);
+
+        TemplateProperties<string> test3 = new TemplateProperties<string>{};
+        test3.Value = "Hello World";
+        assert(test3.Value == "Hello World");
+    }
+}
+
+section InterfaceTests
+{
+    interface Interface1 {
+        int One();
+    }
+
+    interface Interface2 {
+        int Two();
+    }
+
+    interface Interface3<T> {
+        int Value(T value);
+    }
+
+    class ImplementationA : Interface1, Interface2, Interface3<int> {
+        int One() { return 1; }
+        int Two() { return 2; }
+        int Value(int value) { return value; }
+    }
+
+    class ImplementationB : Interface1, Interface2, Interface3<int> {
+        int One() { return 11; }
+        int Two() { return 22; }
+        int Value(int value) { return value * 11; }
+    }
+
+    void Run()
+    {
+        ImplementationA implA = new ImplementationA{};
+        ImplementationB implB = new ImplementationB{};
+        
+        Interface1 itf1;
+        itf1 = implA;
+        assert(itf1.One() == 1);
+        itf1 = implB;
+        assert(itf1.One() == 11);
+        implB = itf1 as ImplementationB;
+
+        Interface2 itf2;
+        itf2 = implA;
+        assert(itf2.Two() == 2);
+        itf2 = implB;
+        assert(itf2.Two() == 22);
+
+        Interface3<int> itf3;
+        itf3 = implA;
+        assert(itf3.Value(3) == 3);
+        itf3 = implB;
+        assert(itf3.Value(3) == 33);
+    }
+}
+
+section StructTests
+{
+    struct Point
+    {
+        num x;
+        num y;
+        num z;
+    }
+
+    void Run()
+    {
+        Point point1 = new Point{ 1, 2, 3 };
+        assert(point1.x == 1);
+        assert(point1.y == 2);
+        assert(point1.z == 3);
+
+        Point point2;
+        point2.x = 777;
+        point2.y = 888;
+        point2.z = 999;
+        assert(point2.x == 777);
+        assert(point2.y == 888);
+        assert(point2.z == 999);
+
+        Point[] points1 = new Point[]{
+            new Point{ 1, 2, 3 },
+            new Point{ 4, 5, 6 },
+            new Point{ 7, 8, 9 }
+        };
+        assert(points1[0].x == 1);
+        assert(points1[0].y == 2);
+        assert(points1[0].z == 3);
+        assert(points1[1].x == 4);
+        assert(points1[1].y == 5);
+        assert(points1[1].z == 6);
+        assert(points1[2].x == 7);
+        assert(points1[2].y == 8);
+        assert(points1[2].z == 9);
+
+        Point[] points2 = new Point[3];
+        points2[0] = new Point{ 1, 2, 3 };
+        points2[1] = new Point{ 4, 5, 6 };
+        points2[2] = new Point{ 7, 8, 9 };
+        assert(points2[0].x == 1);
+        assert(points2[0].y == 2);
+        assert(points2[0].z == 3);
+        assert(points2[1].x == 4);
+        assert(points2[1].y == 5);
+        assert(points2[1].z == 6);
+        assert(points2[2].x == 7);
+        assert(points2[2].y == 8);
+        assert(points2[2].z == 9);
+
+        points2[0].x = 111;
+        points2[1].y = 222;
+        points2[2].z = 333;
+        assert(points2[0].x == 111);
+        assert(points2[1].y == 222);
+        assert(points2[2].z == 333);
+    }
+}
+
+section FunctorTests
+{
+    void TestFunc()
+    {
+    }
+
+    functor void TestFunctor();
+
+    void Run()
+    {
+        TestFunctor fun1 = TestFunc;
+        fun1();
+
+        TestFunctor fun2 = functor void() {
+            
+        };
+        fun2();
+    }
+}
+
+section AsyncTests
+{
+    void Run()
+    {
+        AsyncFunc1();
+    }
+
+    Task<void> AsyncFunc1()
+    {
+        string result = await AsyncFunc2("number: ", 5);
+        assert(result == "number: 5");
+    }
+
+    Task<string> AsyncFunc2(string a, int b)
+    {
+        await WaitAsync(0.1);
+        return a + b;
+    }
+}
+
+void RunAllTests()
+{
+    OperatorTests.Run();
+    ConversionTests.Run();
+    ArrayTests.Run();
+    StringTests.Run();
+    ContainerTests.Run();
+    TemplateTests.Run();
+    InterfaceTests.Run();
+    StructTests.Run();
+    FunctorTests.Run();
+    //AsyncTests.Run();
+}

@@ -1,0 +1,71 @@
+/*--------------------------------------------------------------*
+*  Copyright (c) 2025 Nicolas Jinchereau. All rights reserved.  *
+*---------------------------------------------------------------*/
+
+enum BufferType
+{
+	Vertex,
+	Index,
+}
+
+enum BufferUsage
+{
+	Default,
+	Stream,
+	Static,
+	Dynamic
+}
+
+enum BufferCPUAccess
+{
+	None,
+	ReadOnly,
+	WriteOnly,
+	ReadWrite
+}
+
+enum BufferMapAccess
+{
+	ReadOnly,
+	WriteOnly,
+	ReadWrite,
+	WriteDiscard,
+	WriteNoSync,
+}
+
+struct Vertex
+{
+    Vec3 pos;
+    Vec2 tex;
+    Vec3 norm;
+}
+
+class Buffer
+{
+    object nativeBuffer;
+    private extern object CreateNativeBufferWithSize(object graphicsObj, BufferType type, BufferUsage usage, BufferCPUAccess cpuAccess, int size);
+    private extern object CreateNativeBufferFromData(object graphicsObj, BufferType type, BufferUsage usage, BufferCPUAccess cpuAccess, void[] data);
+	private extern void SetData(object bufferObj, void[] dataArray);
+	private extern int GetSize(object bufferObj);
+	private extern int GetStride(object bufferObj);
+    
+	this(Graphics graphics, BufferType type, BufferUsage usage, BufferCPUAccess cpuAccess, int size) {
+        nativeBuffer = CreateNativeBufferWithSize(graphics.nativeGraphics, type, usage, cpuAccess, size);
+    }
+	
+	this(Graphics graphics, BufferType type, BufferUsage usage, BufferCPUAccess cpuAccess, void[] data) {
+        nativeBuffer = CreateNativeBufferFromData(graphics.nativeGraphics, type, usage, cpuAccess, data);
+    }
+
+	void SetData(void[] data) {
+		SetData(nativeBuffer, data);
+	}
+
+	int Size {
+		get { return GetSize(nativeBuffer); }
+	}
+
+	int Stride {
+		get { return GetStride(nativeBuffer); }
+	}
+}

@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.13.35931.197 d17.13
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "assimp", "assimp.vcxproj", "{F08DE5C5-D991-3EC6-81CD-A4717A75C4E7}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{F08DE5C5-D991-3EC6-81CD-A4717A75C4E7}.Debug|x64.ActiveCfg = Debug|x64
+		{F08DE5C5-D991-3EC6-81CD-A4717A75C4E7}.Debug|x64.Build.0 = Debug|x64
+		{F08DE5C5-D991-3EC6-81CD-A4717A75C4E7}.Release|x64.ActiveCfg = Release|x64
+		{F08DE5C5-D991-3EC6-81CD-A4717A75C4E7}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {32127EC3-6802-357E-8F8A-1DA1130F19C3}
+	EndGlobalSection
+EndGlobal

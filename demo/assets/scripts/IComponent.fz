@@ -1,0 +1,22 @@
+/*--------------------------------------------------------------*
+*  Copyright (c) 2025 Nicolas Jinchereau. All rights reserved.  *
+*---------------------------------------------------------------*/
+
+interface IComponent
+{
+    void OnAttachedToScene();
+    void OnDetachFromScene();
+
+    void OnNodeActivated();
+    void OnNodeDeactivated();
+
+    // transform of the owning node was set to dirty
+    void OnTransformChanged();
+
+    // structure at or below this node has changed
+    // by adding/removing a child or component
+    void OnStructureChanged();
+
+    void SetOwner(Node node);
+    Node GetOwner();
+}

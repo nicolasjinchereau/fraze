@@ -1,0 +1,43 @@
+/*--------------------------------------------------------------*
+*  Copyright (c) 2025 Nicolas Jinchereau. All rights reserved.  *
+*---------------------------------------------------------------*/
+
+enum PixelDataFormat
+{
+    Unspecified,
+    Alpha8,
+    RGB24,
+    RGBA32,
+    RGBAFloat
+}
+
+enum TextureWrapMode
+{
+    Clamp,
+    Repeat,
+}
+
+enum TextureFilterMode
+{
+    Point,
+    Bilinear,
+    Trilinear,
+}
+
+class Texture
+{
+    object nativeTexture;
+    private extern object CreateNativeTexture(object graphicsObj, string path);
+    extern Task<object> CreateNativeTextureAsync(object graphicsObj, string path);
+
+    this(Graphics graphics, string path)
+    {
+        nativeTexture = CreateNativeTexture(graphics.nativeGraphics, path);
+    }
+
+    static Task<Texture> CreateTextureAsync(Graphics graphics, string path)
+    {
+        object nativeTex = await Texture.CreateNativeTextureAsync(graphics.nativeGraphics, path);
+        return new Texture{ nativeTex };
+    }
+}

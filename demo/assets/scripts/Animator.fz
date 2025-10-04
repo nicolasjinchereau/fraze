@@ -1,0 +1,57 @@
+/*--------------------------------------------------------------*
+*  Copyright (c) 2025 Nicolas Jinchereau. All rights reserved.  *
+*---------------------------------------------------------------*/
+
+class Animator : IComponent, IScript
+{
+    private Node owner;
+
+    AnimationClip[] clips;
+    num start;
+
+    this(AnimationClip[] clips)
+    {
+        this.clips = clips;
+        start = Time.Now.Seconds;
+    }
+
+    void OnAttachedToScene(){}
+    void OnDetachFromScene(){}
+    void OnNodeActivated(){}
+    void OnNodeDeactivated(){}
+    void OnTransformChanged(){}
+    void OnStructureChanged(){}
+
+    void SetOwner(Node node) {
+        owner = node;
+    }
+
+    Node GetOwner() {
+        return owner;
+    }
+
+    void Update()
+    {
+        if(clips.Count == 0)
+            return;
+
+        AnimationClip clip = clips[0];
+
+        num elapsed = Math.Fmod(Time.Now.Seconds - start, clip.length);
+        
+        for(int i = 0; i != clip.tracks.Count; ++i)
+        {
+            AnimationTrack track = clip.tracks[i];
+            Node node = owner.FindByName(track.nodeName);
+            if(node != null)
+            {
+                Transform transform = track.Evaluate(elapsed);
+                node.SetLocalTransform(transform);
+            }
+            else
+            {
+                Console.WriteLine("node not found: " + track.nodeName);
+            }
+        }
+    }
+}

@@ -1,0 +1,139 @@
+/*--------------------------------------------------------------*
+*  Copyright (c) 2025 Nicolas Jinchereau. All rights reserved.  *
+*---------------------------------------------------------------*/
+
+struct Keyframe
+{
+    num time;
+    Transform value;
+}
+
+class AnimationTrack
+{
+    string nodeName;
+    Keyframe[] frames;
+
+    int FindFrameIndex(Keyframe[] keyframes, num time)
+    {
+        int left = 0;
+        int right = keyframes.Count;
+
+        while(left < right)
+        {
+            int mid = left + (right - left) / 2;
+
+            if(keyframes[mid].time < time)
+                left = mid + 1;
+            else
+                right = mid;
+        }
+
+        return left;
+    }
+
+    Transform Evaluate(num time)
+    {
+        if(frames.Count == 0)
+            return new Transform{};
+
+        if(frames.Count == 1)
+            return frames[0].value;
+
+        int index = FindFrameIndex(frames, time);
+        if(index == 0)
+            return frames[0].value;
+        
+        if(index == frames.Count)
+            return frames[frames.Count - 1].value;
+
+        Keyframe a = frames[index - 1];
+        Keyframe b = frames[index];
+        assert((b.time - a.time) >= Math.Epsilon);
+
+        num t = (time - a.time) / (b.time - a.time);
+
+        Transform ret;
+        ret.pos = Vec3.Lerp(a.value.pos, b.value.pos, t);
+        ret.rot = Quat.Slerp(a.value.rot, b.value.rot, t);
+        ret.scale = Vec3.Lerp(a.value.scale, b.value.scale, t);
+        return ret;
+    }
+}
+
+class AnimationClip
+{
+    string name;
+    num length;
+    AnimationTrack[] tracks;
+}
+
+class ModelNode
+{
+    string name;
+    Transform transform;
+    ModelNode[] children;
+    Mesh[] meshes;
+}
+
+class Model
+{
+    private extern object ImportModel(object graphicsObj, string path);
+    private extern object CreateSphereMesh(object graphicsObj, num radius, int segments, int rings, bool invert);
+    extern Task<object> ImportModelObjectAsync(object graphicsObj, string path);
+    
+    private ModelNode rootNode;
+    private AnimationClip[] clips;
+
+    static Model ImportModel(Graphics graphics, string path)
+    {
+        return ImportModel(graphics.nativeGraphics, path) as Model;
+    }
+
+    static Task<Model> ImportModelAsync(Graphics graphics, string path)
+    {
+        object modelObj = await Model.ImportModelObjectAsync(graphics.nativeGraphics, path);
+        return modelObj as Model;
+    }
+
+    Node BuildTree(Texture texture, Shader shader)
+    {
+        return BuildNode(rootNode, texture, shader, null, clips);
+    }
+    
+    private static Node BuildNode(ModelNode modelNode, Texture texture, Shader shader, Node rootNode, AnimationClip[] clips)
+    {
+        Node node = new Node{};
+        node.Name = modelNode.name;
+        node.SetLocalTransform(modelNode.transform);
+
+        if(rootNode == null)
+        {
+            rootNode = node;
+
+            if( clips.Count > 0 )
+            {
+                Animator animator = new Animator{ clips };
+                rootNode.AddComponent(animator);
+            }
+        }
+
+        if(modelNode.meshes.Count > 0)
+        {
+            Mesh mesh = modelNode.meshes[0];
+            node.AddComponent(new MeshRenderer{ mesh, texture, shader, rootNode });
+        }
+
+        for(int i = 0; i != modelNode.children.Count; ++i)
+        {
+            Node child = BuildNode(modelNode.children[i], texture, shader, rootNode, null);
+            child.SetParent(node, false);
+        }
+
+        return node;
+    }
+
+    static Mesh CreateSphereMesh(Graphics graphics, num radius, int segments, int rings, bool invert)
+    {
+        return CreateSphereMesh(graphics.nativeGraphics, radius, segments, rings, invert) as Mesh;
+    }
+}

@@ -1,0 +1,42 @@
+{
+  "name": "fraze-syntax",
+  "displayName": "Fraze Syntax Highlighting",
+  "description": "Basic TextMate grammar for the Fraze programming language.",
+  "publisher": "njinchereau",
+  "version": "1.0.0",
+  "engines": {
+    "vscode": "^1.70.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "fraze",
+        "aliases": [
+          "Fraze"
+        ],
+        "extensions": [
+          ".fz"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "fraze",
+        "scopeName": "source.fraze",
+        "path": "./syntax/fraze-syntax.json"
+      }
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nicolasjinchereau/fraze.git"
+  },
+  "license": "MIT",
+  "extensionKind": [
+    "workspace"
+  ]
+}

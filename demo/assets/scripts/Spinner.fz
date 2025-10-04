@@ -1,0 +1,35 @@
+/*--------------------------------------------------------------*
+*  Copyright (c) 2025 Nicolas Jinchereau. All rights reserved.  *
+*---------------------------------------------------------------*/
+
+class Spinner : IComponent, IScript
+{
+    private Node owner;
+    private Time start;
+
+    this()
+    {
+        start = Time.Now;
+    }
+
+    void OnAttachedToScene(){}
+    void OnDetachFromScene(){}
+    void OnNodeActivated(){}
+    void OnNodeDeactivated(){}
+    void OnTransformChanged(){}
+    void OnStructureChanged(){}
+
+    void SetOwner(Node node) {
+        owner = node;
+    }
+
+    Node GetOwner() {
+        return owner;
+    }
+
+    void Update()
+    {
+        num elapsed = Time.Now.Seconds - start.Seconds;
+        owner.Rotation = Quat.FromAngles(0, elapsed * 180.0, 0);
+    }
+}

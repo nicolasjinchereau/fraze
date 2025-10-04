@@ -1,0 +1,146 @@
+/*--------------------------------------------------------------*
+*  Copyright (c) 2025 Nicolas Jinchereau. All rights reserved.  *
+*---------------------------------------------------------------*/
+
+class MeshRenderer : IComponent
+{
+    private Node owner;
+
+    private Mesh mesh;
+    private Texture texture;
+    private Shader shader;
+    private Node rootBone;
+
+    Mat4[] boneMatrices;
+    Vertex[] deformedVerts;
+    int mask = 0xFFFFFFFFFFFFFFFF;
+    DepthTest depthTest = DepthTest.LessOrEqual;
+
+    this(Mesh mesh, Texture texture, Shader shader, Node rootBone)
+    {
+        this.mesh = mesh;
+        this.texture = texture;
+        this.shader = shader;
+        this.rootBone = rootBone;
+    }
+
+    void OnAttachedToScene(){}
+    void OnDetachFromScene(){}
+    void OnNodeActivated(){}
+    void OnNodeDeactivated(){}
+    void OnTransformChanged(){}
+    void OnStructureChanged(){}
+
+    void SetOwner(Node node) {
+        owner = node;
+    }
+
+    Node GetOwner() {
+        return owner;
+    }
+
+    void Deform()
+    {
+        if(mesh == null || rootBone == null)
+            return;
+
+        if(mesh.Bones == null || mesh.Bones.Count == 0)
+            return;
+
+        int boneCount = mesh.Bones.Count;
+        int vertCount = mesh.Vertices.Count;
+
+        if(boneMatrices == null || boneMatrices.Count != boneCount)
+            boneMatrices = new Mat4[boneCount];
+
+        if(deformedVerts == null || deformedVerts.Count != vertCount)
+            deformedVerts = new Vertex[vertCount];
+
+        Node node = owner;
+
+        // calculate all bone matrices
+        for(int i = 0; i < mesh.Bones.Count; ++i)
+        {
+            Node linkNode = rootBone.FindByName(mesh.Bones[i].linkNodeName);
+
+            boneMatrices[i] =
+                mesh.Bones[i].invBoneBindMatrix * // assimp bone offset matrix
+                linkNode.LocalToWorldMatrix *
+                node.WorldToLocalMatrix;
+        }
+
+        // transform all vertices
+        int nVerts = mesh.Vertices.Count;
+
+        int maxBoneCount = 4;
+
+        for(int i = 0; i < nVerts; ++i)
+        {
+            Mat4 deformation = Mat4.Zero;
+            num totalWeight = 0;
+
+            Vec4 vertWeights = mesh.BoneWeights[i];
+            IVec4 vertIndices = mesh.BoneIndices[i];
+
+            for(int b = 0; b < maxBoneCount; ++b)
+            {
+                num vertWeight;
+                int vertIndex;
+
+                if(b == 0) {
+                    vertWeight = vertWeights.x;
+                    vertIndex = vertIndices.x;
+                }
+                else if(b == 1) {
+                    vertWeight = vertWeights.y;
+                    vertIndex = vertIndices.y;
+                }
+                else if(b == 2) {
+                    vertWeight = vertWeights.z;
+                    vertIndex = vertIndices.z;
+                }
+                else if(b == 3) {
+                    vertWeight = vertWeights.w;
+                    vertIndex = vertIndices.w;
+                }
+
+                Mat4 influence = boneMatrices[vertIndex] * vertWeight;
+                deformation += influence;
+                totalWeight += vertWeight;
+            }
+
+            Vec3 pos = mesh.Vertices[i].pos;
+            Vec3 norm = mesh.Vertices[i].norm;
+            Vec4 deformedPos = new Vec4{ pos.x, pos.y, pos.z, 1.0 } * deformation;
+            Vec4 deformedNorm = new Vec4{ norm.x, norm.y, norm.z, 0.0 } * deformation;
+
+            deformedVerts[i].pos = new Vec3{ deformedPos.x, deformedPos.y, deformedPos.z };
+            deformedVerts[i].pos /= totalWeight;
+            deformedVerts[i].tex = mesh.Vertices[i].tex;
+            deformedVerts[i].norm = new Vec3{ deformedNorm.x, deformedNorm.y, deformedNorm.z };
+            deformedVerts[i].norm /= totalWeight;
+        }
+
+        mesh.VertexBuffer.SetData(deformedVerts);
+    }
+
+    void Draw(Graphics graphics, Camera camera)
+    {
+        Deform();
+
+        assert(camera != null);
+
+        var mtxModel = owner.LocalToWorldMatrix;
+        var mtxNormal = mtxModel.Inverse.Transposed;
+        var mtxVP = camera.ViewProjectionMatrix;
+
+        shader.SetUniform("uDiffuse", texture);
+        shader.SetUniform("uMtxMVP", mtxModel * mtxVP);
+        shader.SetUniform("uMtxNormal", mtxNormal);
+
+        graphics.SetShader(shader);
+        graphics.SetVertexBuffer(mesh.VertexBuffer);
+        graphics.SetIndexBuffer(mesh.IndexBuffer);
+        graphics.DrawIndexed(0, mesh.IndexBuffer.Size, mesh.Mode);
+    }
+}

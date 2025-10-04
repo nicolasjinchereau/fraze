@@ -1,0 +1,295 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\fraze\ast\ASTPrinter.cpp" />
+    <ClCompile Include="source\fraze\ast\ASTVisitor.cpp" />
+    <ClCompile Include="source\fraze\ast\CodePrinter.cpp" />
+    <ClCompile Include="source\fraze\ast\def\Def.cpp" />
+    <ClCompile Include="source\fraze\ast\expr\IdentifierExpression.cpp" />
+    <ClCompile Include="source\fraze\ast\type\Type.cpp" />
+    <ClCompile Include="source\fraze\ast\type\TypeSpecifier.cpp" />
+    <ClCompile Include="source\fraze\common\Exception.cpp" />
+    <ClCompile Include="source\fraze\common\Object.cpp" />
+    <ClCompile Include="source\fraze\common\Scope.cpp" />
+    <ClCompile Include="source\fraze\compiler\Compiler.cpp" />
+    <ClCompile Include="source\fraze\compiler\CodeGenerator.cpp" />
+    <ClCompile Include="source\fraze\compiler\Lexer.cpp" />
+    <ClCompile Include="source\fraze\compiler\SemanticAnalyzer.cpp" />
+    <ClCompile Include="source\fraze\memory\Heap.cpp" />
+    <ClCompile Include="source\fraze\memory\ScopedAllocator.cpp" />
+    <ClCompile Include="source\fraze\program\Dispatcher.cpp" />
+    <ClCompile Include="source\fraze\program\Program.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="source\fraze\ast\AST.h" />
+    <ClInclude Include="source\fraze\ast\ASTFwd.h" />
+    <ClInclude Include="source\fraze\ast\ASTNode.h" />
+    <ClInclude Include="source\fraze\ast\ASTPrinter.h" />
+    <ClInclude Include="source\fraze\ast\ASTRoot.h" />
+    <ClInclude Include="source\fraze\ast\ASTVisitor.h" />
+    <ClInclude Include="source\fraze\ast\CodePrinter.h" />
+    <ClInclude Include="source\fraze\ast\def\BasicTypeDefinition.h" />
+    <ClInclude Include="source\fraze\ast\def\ClassDefinition.h" />
+    <ClInclude Include="source\fraze\ast\def\Definition.h" />
+    <ClInclude Include="source\fraze\ast\def\EnumDefinition.h" />
+    <ClInclude Include="source\fraze\ast\def\EnumMemberDefinition.h" />
+    <ClInclude Include="source\fraze\ast\def\FunctionDefinition.h" />
+    <ClInclude Include="source\fraze\ast\def\InterfaceDefinition.h" />
+    <ClInclude Include="source\fraze\ast\def\ParameterDefinition.h" />
+    <ClInclude Include="source\fraze\ast\def\PropertyDefinition.h" />
+    <ClInclude Include="source\fraze\ast\def\SectionDefinition.h" />
+    <ClInclude Include="source\fraze\ast\def\StructDefinition.h" />
+    <ClInclude Include="source\fraze\ast\def\TemplateDefinition.h" />
+    <ClInclude Include="source\fraze\ast\def\TemplateParameterDefinition.h" />
+    <ClInclude Include="source\fraze\ast\def\VariableDefinition.h" />
+    <ClInclude Include="source\fraze\ast\expr\AsExpression.h" />
+    <ClInclude Include="source\fraze\ast\expr\AwaitExpression.h" />
+    <ClInclude Include="source\fraze\ast\expr\CachedExpression.h" />
+    <ClInclude Include="source\fraze\ast\expr\ConvertExpression.h" />
+    <ClInclude Include="source\fraze\ast\expr\DefaultValueExpression.h" />
+    <ClInclude Include="source\fraze\ast\expr\FoldExpression.h" />
+    <ClInclude Include="source\fraze\ast\expr\EmitExpression.h" />
+    <ClInclude Include="source\fraze\ast\expr\IndexExpression.h" />
+    <ClInclude Include="source\fraze\ast\expr\AssignExpression.h" />
+    <ClInclude Include="source\fraze\ast\expr\BinaryExpression.h" />
+    <ClInclude Include="source\fraze\ast\expr\BooleanLiteralExpression.h" />
+    <ClInclude Include="source\fraze\ast\expr\CallExpression.h" />
+    <ClInclude Include="source\fraze\ast\expr\Expression.h" />
+    <ClInclude Include="source\fraze\ast\expr\IdentifierExpression.h" />
+    <ClInclude Include="source\fraze\ast\expr\IntegerLiteralExpression.h" />
+    <ClInclude Include="source\fraze\ast\expr\IsExpression.h" />
+    <ClInclude Include="source\fraze\ast\expr\NewExpression.h" />
+    <ClInclude Include="source\fraze\ast\expr\NullLiteralExpression.h" />
+    <ClInclude Include="source\fraze\ast\expr\NumberLiteralExpression.h" />
+    <ClInclude Include="source\fraze\ast\expr\PostfixExpression.h" />
+    <ClInclude Include="source\fraze\ast\expr\SizeOfExpression.h" />
+    <ClInclude Include="source\fraze\ast\expr\StringLiteralExpression.h" />
+    <ClInclude Include="source\fraze\ast\expr\PrefixExpression.h" />
+    <ClInclude Include="source\fraze\ast\expr\TernaryExpression.h" />
+    <ClInclude Include="source\fraze\ast\stmt\AssertStatement.h" />
+    <ClInclude Include="source\fraze\ast\stmt\BlockStatement.h" />
+    <ClInclude Include="source\fraze\ast\stmt\GotoStatement.h" />
+    <ClInclude Include="source\fraze\ast\stmt\ForStatement.h" />
+    <ClInclude Include="source\fraze\ast\stmt\IfStatement.h" />
+    <ClInclude Include="source\fraze\ast\stmt\VariableDefinitionStatement.h" />
+    <ClInclude Include="source\fraze\ast\stmt\ExpressionStatement.h" />
+    <ClInclude Include="source\fraze\ast\stmt\ExposeStatement.h" />
+    <ClInclude Include="source\fraze\ast\stmt\ReturnStatement.h" />
+    <ClInclude Include="source\fraze\ast\stmt\Statement.h" />
+    <ClInclude Include="source\fraze\ast\stmt\WhileStatement.h" />
+    <ClInclude Include="source\fraze\ast\type\Type.h" />
+    <ClInclude Include="source\fraze\ast\type\TypeSpecifier.h" />
+    <ClInclude Include="source\fraze\common\Exception.h" />
+    <ClInclude Include="source\fraze\common\Extensions.h" />
+    <ClInclude Include="source\fraze\common\ExternalFunction.h" />
+    <ClInclude Include="source\fraze\common\Object.h" />
+    <ClInclude Include="source\fraze\common\Platform.h" />
+    <ClInclude Include="source\fraze\common\Pointers.h" />
+    <ClInclude Include="source\fraze\common\Scope.h" />
+    <ClInclude Include="source\fraze\common\ScopeUtil.h" />
+    <ClInclude Include="source\fraze\common\SharedString.h" />
+    <ClInclude Include="source\fraze\common\SourceLocation.h" />
+    <ClInclude Include="source\fraze\common\Stack.h" />
+    <ClInclude Include="source\fraze\common\Utility.h" />
+    <ClInclude Include="source\fraze\compiler\Compiler.h" />
+    <ClInclude Include="source\fraze\compiler\CodeGenerator.h" />
+    <ClInclude Include="source\fraze\compiler\SemanticAnalyzer.h" />
+    <ClInclude Include="source\fraze\compiler\Lexer.h" />
+    <ClInclude Include="source\fraze\compiler\Parser.h" />
+    <ClInclude Include="source\fraze\compiler\NativeFunctions.h" />
+    <ClInclude Include="source\fraze\memory\Heap.h" />
+    <ClInclude Include="source\fraze\memory\ScopedAllocator.h" />
+    <ClInclude Include="source\fraze\program\Dispatcher.h" />
+    <ClInclude Include="source\fraze\program\OpCode.h" />
+    <ClInclude Include="source\fraze\program\Program.h" />
+    <ClInclude Include="source\fraze\program\TypeInfo.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="natvis\fraze.natvis" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="assets\fraze.list.fz" />
+    <None Include="assets\fraze.math.fz" />
+    <None Include="assets\fraze.system.fz" />
+    <None Include="assets\fraze.table.fz" />
+    <None Include="assets\fraze.task.fz" />
+    <None Include="assets\fraze.tests.fz" />
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>16.0</VCProjectVersion>
+    <ProjectGuid>{2C7FD2A6-DB7C-4CBA-895E-69BF4B449E41}</ProjectGuid>
+    <RootNamespace>compilertest</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ProjectName>Fraze</ProjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <IncludePath>source;.\third_party\utfcpp;.\third_party\boost\include;.\third_party\libpng\source;.\third_party\assimp\include;$(IncludePath)</IncludePath>
+    <EnableMicrosoftCodeAnalysis>false</EnableMicrosoftCodeAnalysis>
+    <IntDir>$(ProjectDir)obj\$(Platform)\$(Configuration)\</IntDir>
+    <OutDir>$(ProjectDir)bin\$(Platform)\$(Configuration)\</OutDir>
+    <LibraryPath>.\third_party\zlib\lib\$(PlatformName)\$(Configuration);.\third_party\libpng\lib\$(PlatformName)\$(Configuration);.\third_party\assimp\lib\$(PlatformName)\$(Configuration);$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <IncludePath>source;.\third_party\utfcpp;.\third_party\boost\include;.\third_party\libpng\source;.\third_party\assimp\include;$(IncludePath)</IncludePath>
+    <EnableMicrosoftCodeAnalysis>false</EnableMicrosoftCodeAnalysis>
+    <IntDir>$(ProjectDir)obj\$(Platform)\$(Configuration)\</IntDir>
+    <OutDir>$(ProjectDir)bin\$(Platform)\$(Configuration)\</OutDir>
+    <LibraryPath>.\third_party\zlib\lib\$(PlatformName)\$(Configuration);.\third_party\libpng\lib\$(PlatformName)\$(Configuration);.\third_party\assimp\lib\$(PlatformName)\$(Configuration);$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <IncludePath>include;source;..\third_party\utfcpp;$(IncludePath)</IncludePath>
+    <EnableMicrosoftCodeAnalysis>false</EnableMicrosoftCodeAnalysis>
+    <IntDir>$(ProjectDir)obj\$(Platform)\$(Configuration)\</IntDir>
+    <OutDir>$(ProjectDir)lib\$(Platform)\$(Configuration)\</OutDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <IncludePath>include;source;..\third_party\utfcpp;$(IncludePath)</IncludePath>
+    <EnableMicrosoftCodeAnalysis>false</EnableMicrosoftCodeAnalysis>
+    <IntDir>$(ProjectDir)obj\$(Platform)\$(Configuration)\</IntDir>
+    <OutDir>$(ProjectDir)lib\$(Platform)\$(Configuration)\</OutDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <SDLCheck>true</SDLCheck>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
+      <UseStandardPreprocessor>true</UseStandardPreprocessor>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <AdditionalDependencies>d3dcompiler.lib;D3D11.lib;dxguid.lib;png.lib;zlib.lib;assimp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <SDLCheck>true</SDLCheck>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
+      <UseStandardPreprocessor>true</UseStandardPreprocessor>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <AdditionalDependencies>d3dcompiler.lib;D3D11.lib;dxguid.lib;png.lib;zlib.lib;assimp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <UseStandardPreprocessor>true</UseStandardPreprocessor>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <FloatingPointModel>Fast</FloatingPointModel>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>d3dcompiler.lib;D3D11.lib;dxguid.lib;png.lib;zlib.lib;assimp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <UseStandardPreprocessor>true</UseStandardPreprocessor>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <FloatingPointModel>Fast</FloatingPointModel>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>d3dcompiler.lib;D3D11.lib;dxguid.lib;png.lib;zlib.lib;assimp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

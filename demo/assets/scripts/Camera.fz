@@ -1,0 +1,157 @@
+/*--------------------------------------------------------------*
+*  Copyright (c) 2025 Nicolas Jinchereau. All rights reserved.  *
+*---------------------------------------------------------------*/
+
+enum FrustumCorner
+{
+    NearTopLeft,
+    NearTopRight,
+    NearBottomLeft,
+    NearBottomRight,
+    FarTopLeft,
+    FarTopRight,
+    FarBottomLeft,
+    FarBottomRight,
+}
+
+enum FrustumPlane
+{
+    Left,
+    Right,
+    Top,
+    Bottom,
+    Near,
+    Far,
+}
+
+class Camera : IComponent
+{
+    private Node owner;
+    private Mat4 mtxProjection;
+    private Mat4 mtxViewProjection;
+    private IntRect viewport;
+    private num fov = 60.0;
+    private num nearPlane = 0.01;
+    private num farPlane = 1000.0;
+    private bool dirty = true;
+    
+    int mask = 0xFFFFFFFFFFFFFFFF;
+
+    void OnAttachedToScene(){}
+    void OnDetachFromScene(){}
+    void OnNodeActivated(){}
+    void OnNodeDeactivated(){}
+    void OnTransformChanged(){ dirty = true; }
+    void OnStructureChanged(){}
+
+    void SetOwner(Node node) {
+        owner = node;
+    }
+
+    Node GetOwner() {
+        return owner;
+    }
+
+    num Fov
+    {
+        get { return fov; }
+        set {
+            fov = value;
+            dirty = true;
+        }
+    }
+
+    num NearPlane
+    {
+        get { return nearPlane; }
+        set {
+            nearPlane = value;
+            dirty = true;
+        }
+    }
+
+    num FarPlane
+    {
+        get { return farPlane; }
+        set {
+            farPlane = value;
+            dirty = true;
+        }
+    }
+
+    Mat4 ProjectionMatrix
+    {
+        get {
+            UpdateView();
+            return mtxProjection;
+        }
+    }
+
+    Mat4 ViewProjectionMatrix
+    {
+        get {
+            UpdateView();
+            return mtxViewProjection;
+        }
+    }
+
+    void UpdateView()
+    {
+        var vp = Graphics.Current.Viewport;
+        
+        if(viewport != vp) {
+            dirty = true;
+            viewport = vp;
+        }
+
+        if(dirty)
+        {
+            num aspect = (viewport.w as num) / viewport.h;
+
+            mtxProjection = Mat4.Perspective(fov, aspect, nearPlane, farPlane);
+            mtxViewProjection = owner.LocalToWorldMatrix.Inverse * mtxProjection;
+
+            /*
+            num f = Math.Tan(Math.DegToRad * fov / 2.0);
+            num sx = f * aspect;
+            num sy = f;
+            num nearHalfWidth = sx * nearPlane;
+            num nearHalfHeight = sy * nearPlane;
+            num farHalfWidth = sx * farPlane;
+            num farHalfHeight = sy * farPlane;
+
+            Mat4 mtx = owner.LocalToWorldMatrix;
+
+            Vec3 nearCenter = new Vec3{ 0, 0, nearPlane };
+            Vec3 farCenter = new Vec3{ 0, 0, farPlane };
+
+            Vec3 nearTL = new Vec4{ nearCenter + Vec3.Up * nearHalfHeight + Vec3.Left * nearHalfWidth, 1 } * mtx;
+            Vec3 nearTR = new Vec4{ nearCenter + Vec3.Up * nearHalfHeight + Vec3.Right * nearHalfWidth, 1 } * mtx;
+            Vec3 nearBL = new Vec4{ nearCenter + Vec3.Down * nearHalfHeight + Vec3.Left * nearHalfWidth, 1 } * mtx;
+            Vec3 nearBR = new Vec4{ nearCenter + Vec3.Down * nearHalfHeight + Vec3.Right * nearHalfWidth, 1 } * mtx;
+            Vec3 farTL = new Vec4{ farCenter + Vec3.Up * farHalfHeight + Vec3.Left * farHalfWidth, 1 } * mtx;
+            Vec3 farTR = new Vec4{ farCenter + Vec3.Up * farHalfHeight + Vec3.Right * farHalfWidth, 1 } * mtx;
+            Vec3 farBL = new Vec4{ farCenter + Vec3.Down * farHalfHeight + Vec3.Left * farHalfWidth, 1 } * mtx;
+            Vec3 farBR = new Vec4{ farCenter + Vec3.Down * farHalfHeight + Vec3.Right * farHalfWidth, 1 } * mtx;
+
+            frustumCorners[FrustumCorner.NearTopLeft] = nearTL;
+            frustumCorners[FrustumCorner.NearTopRight] = nearTR;
+            frustumCorners[FrustumCorner.NearBottomLeft] = nearBL;
+            frustumCorners[FrustumCorner.NearBottomRight] = nearBR;
+            frustumCorners[FrustumCorner.FarTopLeft] = farTL;
+            frustumCorners[FrustumCorner.FarTopRight] = farTR;
+            frustumCorners[FrustumCorner.FarBottomLeft] = farBL;
+            frustumCorners[FrustumCorner.FarBottomRight] = farBR;
+
+            frustumPlanes[FrustumPlane.Left] = new Plane{ farTL, farBL, nearBL };
+            frustumPlanes[FrustumPlane.Right] = new Plane{ nearTR, nearBR, farBR };
+            frustumPlanes[FrustumPlane.Top] = new Plane{ farTL, nearTL, nearTR };
+            frustumPlanes[FrustumPlane.Bottom] = new Plane{ farBR, nearBR, nearBL };
+            frustumPlanes[FrustumPlane.Near] = new Plane{ nearTL, nearBL, nearBR };
+            frustumPlanes[FrustumPlane.Far] = new Plane{ farTR, farBR, farBL };
+            */
+
+            dirty = false;
+        }
+    }
+}

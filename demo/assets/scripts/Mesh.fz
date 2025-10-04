@@ -1,0 +1,50 @@
+/*--------------------------------------------------------------*
+*  Copyright (c) 2025 Nicolas Jinchereau. All rights reserved.  *
+*---------------------------------------------------------------*/
+
+class Bone
+{
+    string linkNodeName;
+    Mat4 meshBindMatrix;
+    Mat4 invBoneBindMatrix;
+}
+
+class Mesh
+{
+    private Vertex[] vertices;
+    private Buffer vertexBuffer;
+    private Buffer indexBuffer;
+    private DrawMode drawMode;
+
+    private Bone[] bones;
+    private IVec4[] boneIndices;
+    private Vec4[] boneWeights;
+
+    Vertex[] Vertices {
+        get { return vertices; }
+    }
+
+    Buffer VertexBuffer {
+        get { return vertexBuffer; }
+    }
+
+    Buffer IndexBuffer {
+        get { return indexBuffer; }
+    }
+
+    DrawMode Mode {
+        get { return drawMode; }
+    }
+
+    Bone[] Bones {
+        get { return bones; }
+    }
+
+    IVec4[] BoneIndices {
+        get { return boneIndices; }
+    }
+
+    Vec4[] BoneWeights {
+        get { return boneWeights; }
+    }
+}

@@ -1,0 +1,31 @@
+/*--------------------------------------------------------------*
+*  Copyright (c) 2025 Nicolas Jinchereau. All rights reserved.  *
+*---------------------------------------------------------------*/
+
+class Shader
+{
+    object nativeShader;
+    private extern object CreateNativeShader(object graphicsObj, string src, string vertexEntry, string pixelEntry);
+    private extern void SetUniformMat4(object shaderObj, string name, Mat4 value);
+    private extern void SetUniformTex(object shaderObj, string name, object textureObj);
+    extern Task<object> CreateNativeShaderAsync(object graphicsObj, string src, string vertexEntry, string pixelEntry);
+
+    this(Graphics graphics, string src, string vertexEntry, string pixelEntry)
+    {
+        nativeShader = CreateNativeShader(graphics.nativeGraphics, src, vertexEntry, pixelEntry);
+    }
+
+    void SetUniform(string name, Mat4 value) {
+        SetUniformMat4(nativeShader, name, value);
+    }
+
+    void SetUniform(string name, Texture value) {
+        SetUniformTex(nativeShader, name, value.nativeTexture);
+    }
+
+    static Task<Shader> CreateShaderAsync(Graphics graphics, string src, string vertexEntry, string pixelEntry)
+    {
+        object newNativeShader = await Shader.CreateNativeShaderAsync(graphics.nativeGraphics, src, vertexEntry, pixelEntry);
+        return new Shader{ newNativeShader };
+    }
+}

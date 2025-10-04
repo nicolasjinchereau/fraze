@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+    <Type Name="std::shared_ptr&lt;*&gt;">
+        <DisplayString>{_Ptr}</DisplayString>
+        <Expand>
+            <ExpandedItem Condition="_Ptr != 0">*_Ptr</ExpandedItem>
+        </Expand>
+    </Type>
+    <Type Name="fraze::stack&lt;*&gt;">
+        <DisplayString>{{size = {_top - _data + 1}}}</DisplayString>
+        <Expand>
+            <ArrayItems>
+                <Size>_top - _data + 1</Size>
+                <ValuePointer>_data</ValuePointer>
+            </ArrayItems>
+        </Expand>
+    </Type>
+</AutoVisualizer>

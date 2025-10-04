@@ -1,0 +1,145 @@
+/*--------------------------------------------------------------*
+*  Copyright (c) 2025 Nicolas Jinchereau. All rights reserved.  *
+*---------------------------------------------------------------*/
+
+class CameraController : IComponent, IScript, IWindowEventHandler
+{
+    private Node owner;
+    private Time time;
+    private Camera camera;
+
+    this(Camera cam)
+    {
+        time = Time.Now;
+        camera = cam;
+    }
+
+    void OnAttachedToScene(){}
+    void OnDetachFromScene(){}
+    void OnNodeActivated(){}
+    void OnNodeDeactivated(){}
+    void OnTransformChanged(){}
+    void OnStructureChanged(){}
+
+    void SetOwner(Node node) {
+        owner = node;
+    }
+
+    Node GetOwner() {
+        return owner;
+    }
+
+    int pointerID = -1;
+    IVec2 lastPointerPos;
+    bool wDown = false;
+    bool aDown = false;
+    bool sDown = false;
+    bool dDown = false;
+    bool qDown = false;
+    bool eDown = false;
+
+    num camX = 0;
+    num camY = 0;
+    Vec3 camVelocity = Vec3.Zero;
+    num camAccelleration = 1500.0;
+    num camMaxSpeed = 500.0;
+    num camDampening = 5.0;
+
+    void OnKeyDown(Window window, Keycode key)
+    {
+        if(key == Keycode.A)
+            aDown = true;
+        else if(key == Keycode.S)
+            sDown = true;
+        else if(key == Keycode.D)
+            dDown = true;
+        else if(key == Keycode.W)
+            wDown = true;
+        else if(key == Keycode.Q)
+            qDown = true;
+        else if(key == Keycode.E)
+            eDown = true;
+    }
+
+    void OnKeyUp(Window window, Keycode key)
+    {
+        if(key == Keycode.A)
+            aDown = false;
+        else if(key == Keycode.S)
+            sDown = false;
+        else if(key == Keycode.D)
+            dDown = false;
+        else if(key == Keycode.W)
+            wDown = false;
+        else if(key == Keycode.Q)
+            qDown = false;
+        else if(key == Keycode.E)
+            eDown = false;
+        else if(key == Keycode.Space)
+            Console.WriteLine(owner.Position.ToString());
+    }
+
+    void OnPointerDown(Window window, IVec2 pos, int id)
+    {
+        if(pointerID == -1)
+        {
+            pointerID = id;
+            lastPointerPos = pos;
+
+            camVelocity = Vec3.Zero;
+            var angles = owner.Rotation.EulerAngles;
+            camX = angles.x;
+            camY = angles.y;
+        }
+    }
+
+    void OnPointerMove(Window window, IVec2 pos, int id)
+    {
+        if(pointerID == id)
+        {
+            IVec2 delta = pos - lastPointerPos;
+            lastPointerPos = pos;
+
+            camX -= delta.y * 0.2;
+            camY += delta.x * 0.2;
+
+            owner.Rotation = Quat.FromAngles(camX, camY, 0);
+        }
+    }
+
+    void OnPointerUp(Window window, IVec2 pos, int id)
+    {
+        if(pointerID == id)
+            pointerID = -1;
+    }
+
+    void OnResize(Window window, IVec2 newSize)
+    {
+        camera.UpdateView();
+    }
+
+    void Update()
+    {
+        time.ApproachNow();
+        
+        if(pointerID == 0)
+        {
+            Vec3 dir = Vec3.Zero;
+            if(wDown) dir += owner.Forward;
+            if(sDown) dir -= owner.Forward;
+            if(aDown) dir -= owner.Right;
+            if(dDown) dir += owner.Right;
+            if(qDown) dir -= owner.Up;
+            if(eDown) dir += owner.Up;
+            dir.Normalize();
+
+            camVelocity += dir * time.Delta * camAccelleration;
+            camVelocity *= Math.Clamp(1.0 - camDampening * time.Delta, 0.0, 1.0);
+
+            if(camVelocity.Length > camMaxSpeed)
+                camVelocity = camVelocity.Normalized * camMaxSpeed;
+
+            owner.Position += camVelocity * time.Delta;
+        }
+    }
+}

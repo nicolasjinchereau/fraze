@@ -1,0 +1,9 @@
+**/.gitignore
+**/.vscode/**
+**/node_modules/**
+**/.git/**
+**/README.md
+**/CHANGELOG.md
+**/*.map
+**/tsconfig.json
+**/src/**

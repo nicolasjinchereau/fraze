@@ -1,0 +1,70 @@
+/*--------------------------------------------------------------*
+*  Copyright (c) 2025 Nicolas Jinchereau. All rights reserved.  *
+*---------------------------------------------------------------*/
+
+class Scene
+{
+    private Node rootNode;
+    private List<IScript> scripts = new List<IScript>{};
+    private List<Camera> cameras = new List<Camera>{};
+    private List<MeshRenderer> meshRenderers = new List<MeshRenderer>{};
+
+    Node RootNode
+    {
+        get
+        {
+            if(!rootNode)
+            {
+                rootNode = new Node{};
+                rootNode.ParentScene = this;
+            }
+
+            return rootNode;
+        }
+    }
+
+    void RegisterComponent(IComponent comp)
+    {
+        if(comp is IScript)
+            scripts.Add(comp as IScript);
+
+        if(comp is MeshRenderer)
+            meshRenderers.Add(comp as MeshRenderer);
+
+        if(comp is Camera)
+            cameras.Add(comp as Camera);
+    }
+
+    void UnregisterComponent(IComponent comp)
+    {
+        if(comp is IScript)
+            scripts.Restock(comp as IScript);
+
+        if(comp is MeshRenderer)
+            meshRenderers.Restock(comp as MeshRenderer);
+
+        if(comp is Camera)
+            cameras.Restock(comp as Camera);
+    }
+
+    void UpdateAndDraw(Graphics graphics)
+    {
+        for(int i = 0; i != scripts.Count; ++i)
+            scripts[i].Update();
+
+        for(int i = 0; i != cameras.Count; ++i)
+        {
+            var camera = cameras[i];
+
+            for(int j = 0; j != meshRenderers.Count; ++j)
+            {
+                var renderer = meshRenderers[j];
+                if((renderer.mask & camera.mask) != 0)
+                {
+                    graphics.SetDepthTest(renderer.depthTest);
+                    renderer.Draw(graphics, camera);
+                }
+            }
+        }
+    }
+}

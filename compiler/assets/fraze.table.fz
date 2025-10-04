@@ -1,0 +1,202 @@
+/*--------------------------------------------------------------*
+*  Copyright (c) 2025 Nicolas Jinchereau. All rights reserved.  *
+*---------------------------------------------------------------*/
+
+struct KeyValuePair<TKey, TValue>
+{
+    TKey key;
+    TValue value;
+}
+
+class Table<TKey, TValue>
+{
+    private static num LoadFactor = 0.75;
+    private static int MinCapacity = 7;
+
+    private List<KeyValuePair<TKey, TValue>>[] buckets;
+    private int count;
+
+    int Count {
+        get { return count; }
+    }
+
+    void operator[](TKey key, TValue value) {
+        Insert(key, value);
+    }
+
+    TValue operator[](TKey key)
+    {
+        assert(buckets != null);
+        int bucketIndex = GetBucketIndex(key, buckets.Count);
+        int itemIndex = GetItemIndex(bucketIndex, key);
+        
+        assert(itemIndex >= 0);
+        return buckets[bucketIndex][itemIndex].value;
+    }
+
+    bool Contains(TKey key)
+    {
+        if(buckets == null)
+            return false;
+
+        int bucketIndex = GetBucketIndex(key, buckets.Count);
+        return GetItemIndex(bucketIndex, key) >= 0;
+    }
+
+    void Insert(TKey key, TValue value)
+    {
+        EnsureCapacity();
+
+        int idx = GetBucketIndex(key, buckets.Count);
+
+        if(buckets[idx] == null)
+        {
+            buckets[idx] = new List<KeyValuePair<TKey, TValue>>{};
+        }
+
+        var bucket = buckets[idx];
+
+        for(int i = 0; i < bucket.Count; ++i)
+        {
+            if(bucket[i].key == key)
+            {
+                bucket[i] = new KeyValuePair<TKey, TValue>{key, value};
+                return;
+            }
+        }
+
+        bucket.Add(new KeyValuePair<TKey, TValue>{key, value});
+        ++count;
+    }
+
+    bool Remove(TKey key)
+    {
+        if(buckets == null)
+            return false;
+
+        int idx = GetBucketIndex(key, buckets.Count);
+        var bucket = buckets[idx];
+
+        if(bucket == null)
+            return false;
+
+        for(int i = 0; i < bucket.Count; ++i)
+        {
+            if(bucket[i].key == key)
+            {
+                bucket.RemoveAt(i);
+                --count;
+
+                if(bucket.Count == 0)
+                    buckets[idx] = null;
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    void Clear()
+    {
+        if(buckets == null)
+            return;
+
+        for(int i = 0; i < buckets.Count; ++i)
+            buckets[i] = null;
+
+        count = 0;
+    }
+
+    private void EnsureCapacity()
+    {
+        if(buckets == null)
+        {
+            int size = Math.GetPrime(MinCapacity);
+            buckets = new List<KeyValuePair<TKey, TValue>>[size];
+        }
+        else if(count + 1 > buckets.Count * LoadFactor)
+        {
+            int newSize = Math.GetPrime(buckets.Count * 2);
+            Rehash(newSize);
+        }
+    }
+
+    private void Rehash(int newSize)
+    {
+        var newBuckets = new List<KeyValuePair<TKey, TValue>>[newSize];
+
+        if(buckets != null)
+        {
+            for(int i = 0; i < buckets.Count; ++i)
+            {
+                var bucket = buckets[i];
+
+                if(bucket != null)
+                {
+                    for(int j = 0; j < bucket.Count; ++j)
+                    {
+                        var kv = bucket[j];
+
+                        int idx = GetBucketIndex(kv.key, newSize);
+                        if(newBuckets[idx] == null)
+                            newBuckets[idx] = new List<KeyValuePair<TKey, TValue>>{};
+
+                        newBuckets[idx].Add(kv);
+                    }
+                }
+            }
+        }
+
+        buckets = newBuckets;
+    }
+
+    private int GetItemIndex(int bucketIndex, TKey key)
+    {
+        assert(buckets != null);
+        assert(bucketIndex >= 0 && bucketIndex < buckets.Count);
+
+        var bucket = buckets[bucketIndex];
+        if(bucket != null)
+        {
+            for(int i = 0; i < bucket.Count; ++i)
+            {
+                var kv = bucket[i];
+                if(kv.key == key)
+                    return i;
+            }
+        }
+
+        return -1;
+    }
+
+    private int GetBucketIndex(TKey key, int size)
+    {
+        return (GetHashCode(key) & 0x7FFFFFFFFFFFFFFF) % size;
+    }
+}
+
+int GetHashCode(bool value)
+{
+    return value ? 1 : 0;
+}
+
+int GetHashCode(int value)
+{
+    return value & 0x7FFFFFFFFFFFFFFF;
+}
+
+int GetHashCode(num value)
+{
+    return Number.GetHashCode(value);
+}
+
+int GetHashCode(string value)
+{
+    return String.GetHashCode(value);
+}
+
+int GetHashCode(object value)
+{
+    return Object.GetHashCode(value);
+}

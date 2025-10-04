@@ -1,0 +1,9 @@
+/*--------------------------------------------------------------*
+*  Copyright (c) 2025 Nicolas Jinchereau. All rights reserved.  *
+*---------------------------------------------------------------*/
+
+class File
+{
+    extern string ReadAllText(string path);
+    extern Task<string> ReadAllTextAsync(string path);
+}

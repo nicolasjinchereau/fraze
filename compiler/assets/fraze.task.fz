@@ -1,0 +1,28 @@
+/*--------------------------------------------------------------*
+*  Copyright (c) 2025 Nicolas Jinchereau. All rights reserved.  *
+*---------------------------------------------------------------*/
+
+interface Awaiter
+{
+    void Resume();
+}
+
+interface Awaitable
+{
+    void SetAwaiter(Awaiter aw);
+    void ResumeAwaiter();
+}
+
+interface Task<T>
+{
+    bool IsDone();
+    T GetValue();
+}
+
+void OnAwaitableCompleted(Awaitable finishedTask)
+{
+    finishedTask.ResumeAwaiter();
+}
+
+extern Task<void> WaitAsync(num seconds);
+extern Task<void> YieldAsync();
