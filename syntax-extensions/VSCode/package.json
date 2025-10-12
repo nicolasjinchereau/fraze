@@ -20,7 +20,7 @@
         "extensions": [
           ".fz"
         ],
-        "configuration": "./language-configuration.json"
+        "configuration": "./syntax/fraze-language-configuration.json"
       }
     ],
     "grammars": [

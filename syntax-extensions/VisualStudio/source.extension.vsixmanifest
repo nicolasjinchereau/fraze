@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
     <Metadata>
-        <Identity Id="fraze-syntax.76312172-cced-411a-ad7a-86c70a3754d2" Version="1.0" Language="en-US" Publisher="nicol" />
+        <Identity Id="fraze-syntax.76312172-cced-411a-ad7a-86c70a3754d2" Version="1.0" Language="en-US" Publisher="Nicolas Jinchereau" />
         <DisplayName>fraze-syntax</DisplayName>
         <Description xml:space="preserve">Empty VSIX project.</Description>
         <Icon>Resources\Icon128x128.png</Icon>
@@ -17,6 +17,17 @@
         <Prerequisite Id="Microsoft.VisualStudio.Component.CoreEditor" Version="[15.0,)" DisplayName="Visual Studio core editor" />
     </Prerequisites>
     <Assets>
-        <Asset Type="Microsoft.VisualStudio.VsPackage" d:Source="File" Path="Syntax.pkgdef" />
+        <Asset Type="Microsoft.VisualStudio.VsPackage"
+               d:Source="File"
+               Path="Fraze.pkgdef" />
+        <Asset Type="Microsoft.VisualStudio.TextMate.Grammar"
+               d:Source="File"
+               Path="Syntax\fraze-syntax.json"
+               ContentType="source.fraze"
+               Extensions=".fz" />
+        <Asset Type="Microsoft.VisualStudio.TextMate.LanguageConfiguration"
+               d:Source="File"
+               Path="Syntax\fraze-language-configuration.json"
+               ContentType="source.fraze" />
     </Assets>
 </PackageManifest>

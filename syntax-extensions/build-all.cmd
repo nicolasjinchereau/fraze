@@ -1,6 +1,7 @@
 cd VSCode
 mkdir syntax
 copy ..\fraze-syntax.json syntax\fraze-syntax.json
+copy ..\fraze-language-configuration.json syntax\fraze-language-configuration.json
 call vsce package
 rmdir /s /q .\syntax
 move fraze-syntax-1.0.0.vsix ..\fraze-syntax-vscode.vsix
