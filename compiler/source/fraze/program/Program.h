@@ -238,6 +238,9 @@ private:
     void Execute_Goto(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip);
     void Execute_Return(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip);
     void Execute_Assert(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip);
+    void Execute_NullCheck(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip);
+    void Execute_BoundsCheck(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip);
+    void Execute_ObjectTypeCheck(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip);
     
     // static asserts to check handler index against OpCode values
     void VerifyHandlers();
@@ -333,6 +336,9 @@ private:
         &Program::Execute_Goto,
         &Program::Execute_Return,
         &Program::Execute_Assert,
+        &Program::Execute_NullCheck,
+        &Program::Execute_BoundsCheck,
+        &Program::Execute_ObjectTypeCheck,
     };
 
 };

@@ -24,3 +24,11 @@
 
 #define FRAZE_OPTIMIZATION_OFF __pragma(optimize("", off))
 #define FRAZE_OPTIMIZATION_ON __pragma(optimize("", on))
+
+#if defined(_DEBUG) || !defined(NDEBUG)
+#  define FRAZE_DEBUG 1
+#  define FRAZE_RELEASE 0
+#else
+#  define FRAZE_DEBUG 0
+#  define FRAZE_RELEASE 1
+#endif

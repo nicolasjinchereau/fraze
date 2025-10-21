@@ -94,6 +94,24 @@ Compiler& Compiler::DisableAssert()
     return *this;
 }
 
+Compiler& Compiler::DisableNullCheck()
+{
+    nullCheckEnabled = false;
+    return *this;
+}
+
+Compiler& Compiler::DisableBoundsCheck()
+{
+    boundsCheckEnabled = false;
+    return *this;
+}
+
+Compiler& Compiler::DisableTypeCheck()
+{
+    typeCheckEnabled = false;
+    return *this;
+}
+
 Compiler& Compiler::PrintParsedCode()
 {
     printParsedCode = true;

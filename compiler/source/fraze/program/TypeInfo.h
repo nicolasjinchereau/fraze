@@ -42,6 +42,16 @@ struct TypeInfo
     virtual EnumInfo* ToEnumInfo(){ return nullptr; }
     virtual ArrayInfo* ToArrayInfo(){ return nullptr; }
 
+    virtual const SectionInfo* ToSectionInfo() const { return nullptr; }
+    virtual const BasicTypeInfo* ToBasicTypeInfo() const { return nullptr; }
+    virtual const FieldInfo* ToFieldInfo() const { return nullptr; }
+    virtual const FunctionInfo* ToFunctionInfo() const { return nullptr; }
+    virtual const ClassInfo* ToClassInfo() const { return nullptr; }
+    virtual const InterfaceInfo* ToInterfaceInfo() const { return nullptr; }
+    virtual const StructInfo* ToStructInfo() const { return nullptr; }
+    virtual const EnumInfo* ToEnumInfo() const { return nullptr; }
+    virtual const ArrayInfo* ToArrayInfo() const { return nullptr; }
+
     virtual size_t GetSize() const { return 1; }
 };
 
@@ -51,12 +61,14 @@ struct SectionInfo : TypeInfo
     uint32_t codeEnd;
 
     virtual SectionInfo* ToSectionInfo() override { return this; }
+    virtual const SectionInfo* ToSectionInfo() const override { return this; }
 };
 
 struct BasicTypeInfo : TypeInfo
 {
     //WordType type;
     virtual BasicTypeInfo* ToBasicTypeInfo() override { return this; }
+    virtual const BasicTypeInfo* ToBasicTypeInfo() const override { return this; }
 };
 
 struct FieldInfo : TypeInfo
@@ -65,6 +77,7 @@ struct FieldInfo : TypeInfo
     size_t offset;
 
     virtual FieldInfo* ToFieldInfo() override { return this; }
+    virtual const FieldInfo* ToFieldInfo() const override { return this; }
 };
 
 struct FunctionInfo : TypeInfo
@@ -82,6 +95,7 @@ struct FunctionInfo : TypeInfo
     std::vector<std::pair<int, int>> params;
 
     virtual FunctionInfo* ToFunctionInfo() override { return this; }
+    virtual const FunctionInfo* ToFunctionInfo() const override { return this; }
 };
 
 struct ClassInfo : TypeInfo
@@ -90,19 +104,24 @@ struct ClassInfo : TypeInfo
     std::vector<size_t> interfaces;
     std::vector<std::vector<size_t>> implementations;
     std::vector<FieldInfo*> fields;
+
     virtual ClassInfo* ToClassInfo() override { return this; }
+    virtual const ClassInfo* ToClassInfo() const override { return this; }
 };
 
 struct InterfaceInfo : TypeInfo
 {
     virtual InterfaceInfo* ToInterfaceInfo() override { return this; }
+    virtual const InterfaceInfo* ToInterfaceInfo() const override { return this; }
 };
 
 struct StructInfo : TypeInfo
 {
     size_t size{};
     std::vector<FieldInfo*> fields;
+
     virtual StructInfo* ToStructInfo() override { return this; }
+    virtual const StructInfo* ToStructInfo() const override { return this; }
 
     virtual size_t GetSize() const override { return size; }
 };
@@ -112,6 +131,8 @@ struct EnumInfo : TypeInfo
     std::vector<std::pair<std::string, int64_t>> members;
 
     virtual EnumInfo* ToEnumInfo() override { return this; }
+    virtual const EnumInfo* ToEnumInfo() const override { return this; }
+
     virtual size_t GetSize() const override { return 1; }
 };
 
@@ -120,6 +141,7 @@ struct ArrayInfo : TypeInfo
     TypeInfo* elementType{};
 
     virtual ArrayInfo* ToArrayInfo() override { return this; }
+    virtual const ArrayInfo* ToArrayInfo() const override { return this; }
 
     size_t GetElementSize() const { return elementType->GetSize(); }
 };

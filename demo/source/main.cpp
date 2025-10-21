@@ -18,6 +18,10 @@ int main(int argc, char** argv)
 
         compiler.AddDirectory("assets/scripts");
         AddExternFunctions(compiler);
+        
+#if FRAZE_RELEASE
+        compiler.DisableAssert().DisableNullCheck().DisableBoundsCheck().DisableTypeCheck();
+#endif
 
         auto program = compiler.Compile();
 

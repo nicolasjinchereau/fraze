@@ -188,10 +188,20 @@ enum class OpCode : uint8_t
     // Pop ip
     Return,
 
-    // if stack[top - 1] is false, terminate with message at stack[top]
+    // if stack[top] is false, terminate with message at stack[top]
     Assert,
 
-    COUNT, // number of enum members
+    // if stack[top] is null, terminate with null reference error
+    NullCheck,
+
+    // if stack[top] is less than 0 or greater than stack[top - 1].Count, terminate with index range error
+    BoundsCheck,
+
+    // if the object at stack[top] is not of the word type at stack[top - 1], terminate with type error
+    ObjectTypeCheck,
+
+    // number of enum members
+    COUNT,
 };
 
 inline std::unordered_map<OpCode, std::string> OpCodeNames {
@@ -293,6 +303,9 @@ inline std::unordered_map<OpCode, std::string> OpCodeNames {
     { OpCode::Goto,            "Goto" },
     { OpCode::Return,          "Return" },
     { OpCode::Assert,          "Assert" },
+    { OpCode::NullCheck,       "NullCheck" },
+    { OpCode::BoundsCheck,     "BoundsCheck" },
+    { OpCode::ObjectTypeCheck, "ObjectTypeCheck" },
 };
 
 } // fraze

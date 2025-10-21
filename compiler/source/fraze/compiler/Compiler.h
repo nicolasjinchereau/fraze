@@ -40,6 +40,9 @@ class Compiler
     bool exportAST = false;
     bool exportBytecode = false;
     bool assertEnabled = true;
+    bool nullCheckEnabled = true;
+    bool boundsCheckEnabled = true;
+    bool typeCheckEnabled = true;
     std::string astOutputPath;
     std::string bytecodeOutputPath;
 
@@ -62,6 +65,9 @@ public:
     Compiler& AddFile(std::string_view file);
     Compiler& AddDirectory(std::string_view path);
     Compiler& DisableAssert();
+    Compiler& DisableNullCheck();
+    Compiler& DisableBoundsCheck();
+    Compiler& DisableTypeCheck();
     Compiler& PrintParsedCode();
     Compiler& ExportAST(std::string_view outputPath = "");
     Compiler& ExportBytecode(std::string_view outputPath = "");
@@ -83,6 +89,9 @@ public:
     sptr<IExternalFunction> GetFunction(std::string_view qualifiedName, std::string_view signature);
     IntrinsicFunction GetIntrinsic(std::string_view qualifiedName, std::string_view signature);
     bool IsAssertEnabled() const { return assertEnabled; }
+    bool IsNullCheckEnabled() const { return nullCheckEnabled; }
+    bool IsBoundsCheckEnabled() const { return boundsCheckEnabled; }
+    bool IsTypeCheckEnabled() const { return typeCheckEnabled; }
 };
 
 } // fraze

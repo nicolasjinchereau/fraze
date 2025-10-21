@@ -47,6 +47,9 @@ public:
     void PopExpression(const sptr<Expression>& node, const sptr<Expression>& source);
     void EmitConversion(sptr<Expression>& value, const sptr<TypeSpecifier>& resultType);
     bool IsValueExpression(const sptr<Expression> &expr);
+    void EmitNullCheck(const SourceLocation& loc);
+    void EmitBoundsCheck(const SourceLocation& loc);
+    void EmitObjectTypeCheck(const SourceLocation& loc, WordType wordType);
 
     /*****************************
     *            ROOT            *

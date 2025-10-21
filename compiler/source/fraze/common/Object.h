@@ -22,7 +22,7 @@ namespace fraze {
 enum class WordType
 {
     Void = -1,
-    Object,
+    Object, // 'null' literals or native classes which inherit from Object
     Boolean,
     Integer,
     Number,

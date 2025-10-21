@@ -334,6 +334,9 @@ void Program::VerifyHandlers()
     VERIFY_HANDLER_INDEX(Goto);
     VERIFY_HANDLER_INDEX(Return);
     VERIFY_HANDLER_INDEX(Assert);
+    VERIFY_HANDLER_INDEX(NullCheck);
+    VERIFY_HANDLER_INDEX(BoundsCheck);
+    VERIFY_HANDLER_INDEX(ObjectTypeCheck);
 }
 
 void Program::Execute_NoOp(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
@@ -479,7 +482,6 @@ void Program::Execute_PushField(const Operation& op, Word*& RESTRICT stackTop, S
 {
     stack_facade<Word> stack(stackTop);
     Class* object = stack.pull().GetClass();
-    ENFORCE_DBG(!!object, op.loc, "object reference is null");
 
     assert(op.arg2_u64 != 0);
 
@@ -493,7 +495,6 @@ void Program::Execute_PushFieldAddr(const Operation& op, Word*& RESTRICT stackTo
 {
     stack_facade<Word> stack(stackTop);
     Class* object = stack.pull().GetClass();
-    ENFORCE_DBG(!!object, op.loc, "object reference is null");
     stack.push( object->GetFieldRef(op.arg1_u64) );
     ++ip;
 }
@@ -502,7 +503,6 @@ void Program::Execute_PopField(const Operation& op, Word*& RESTRICT stackTop, St
 {
     stack_facade<Word> stack(stackTop);
     Class* object = stack.pull().GetClass();
-    ENFORCE_DBG(!!object, op.loc, "object reference is null");
 
     assert(op.arg2_u64 != 0);
     auto values = &stack.top() + 1 - op.arg2_u64;
@@ -513,7 +513,6 @@ void Program::Execute_PopField(const Operation& op, Word*& RESTRICT stackTop, St
 
 void Program::Execute_PushRefField(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
 {
-    ENFORCE_DBG(!!stackTop->reference, op.loc, "struct reference is null");
     *stackTop = stackTop->reference[op.arg1_u64];
     ++ip;
 }
@@ -521,9 +520,8 @@ void Program::Execute_PushRefField(const Operation& op, Word*& RESTRICT stackTop
 void Program::Execute_PushRefFieldN(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
-
     Word* reference = (top--)->reference;
-    ENFORCE_DBG(!!reference, op.loc, "struct reference is null");
+
     assert(op.arg2_u64 != 0);
     
     Word* src = reference + op.arg1_u64;
@@ -540,8 +538,6 @@ void Program::Execute_PushRefFieldAddr(const Operation& op, Word*& RESTRICT stac
 {
     stack_facade<Word> stack(stackTop);
     Reference reference = stack.pull().GetReference();
-    ENFORCE_DBG(!!reference, op.loc, "struct reference is null");
-
     stack.push( Word( &reference[op.arg1_u64] ) );
     ++ip;
 }
@@ -550,7 +546,6 @@ void Program::Execute_PopRefField(const Operation& op, Word*& RESTRICT stackTop,
 {
     stack_facade<Word> stack(stackTop);
     Reference reference = stack.pull().GetReference();
-    ENFORCE_DBG(!!reference, op.loc, "struct reference is null");
 
     assert(op.arg2_u64 != 0);
 
@@ -568,8 +563,6 @@ void Program::Execute_PushElement(const Operation& op, Word*& RESTRICT stackTop,
     Integer elementIndex = stack.pull().GetInteger();
     Array<>* arr = stack.pull().GetArray();
 
-    ENFORCE_DBG(!!arr, op.loc, "object reference is null");
-    ENFORCE_DBG(elementIndex >= 0 && elementIndex < (Integer)arr->GetCount(), op.loc, "array index out of bounds: {}", elementIndex);
     assert(op.arg1_u64 == arr->GetElementSize());
 
     auto wordIndex = elementIndex * arr->GetElementSize();
@@ -584,9 +577,6 @@ void Program::Execute_PushElementAddr(const Operation& op, Word*& RESTRICT stack
 
     Integer elementIndex = (top--)->integer;
     Array<>* arr = static_cast<Array<>*>((top--)->object);
-
-    ENFORCE_DBG(!!arr, op.loc, "object reference is null");
-    ENFORCE_DBG(elementIndex >= 0 && elementIndex < (Integer)arr->GetCount(), op.loc, "array index out of bounds: {}", elementIndex);
 
     auto wordIndex = elementIndex * arr->GetElementSize();
     *(++top) = Word( &arr->At(wordIndex) );
@@ -604,9 +594,7 @@ void Program::Execute_PopElement(const Operation& op, Word*& RESTRICT stackTop, 
     Integer elementIndex = (value - 1)->GetInteger();
     Array<>* arr = (value - 2)->GetArray();
 
-    ENFORCE_DBG(!!arr, op.loc, "object reference is null");
     assert(op.arg1_u64 == arr->GetElementSize());
-    ENFORCE_DBG(elementIndex >= 0 && elementIndex < (Integer)arr->GetCount(), op.loc, "array index out of bounds: {}", elementIndex);
 
     auto wordIndex = elementIndex * op.arg1_u64;
 
@@ -668,19 +656,17 @@ void Program::Execute_PushNull(const Operation& op, Word*& RESTRICT stackTop, St
 
 void Program::Execute_PushCount(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
 {
-    stack_facade<Word> stack(stackTop);
-    Array<>* arr = stack.pull().GetArray();
-    ENFORCE_DBG(!!arr, op.loc, "object reference is null");
-    stack.push( Integer(arr->GetCount()) );
+    Word* top = stackTop;
+    Array<>* arr = top->GetArray();
+    top->integer = arr->GetCount();
     ++ip;
 }
 
 void Program::Execute_PushSize(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
 {
-    stack_facade<Word> stack(stackTop);
-    Array<>* arr = stack.pull().GetArray();
-    ENFORCE_DBG(!!arr, op.loc, "object reference is null");
-    stack.push( Integer(arr->GetSize()) );
+    Word* top = stackTop;
+    Array<>* arr = top->GetArray();
+    top->integer = arr->GetSize();
     ++ip;
 }
 
@@ -852,64 +838,77 @@ void Program::Execute_StringEqual(const Operation& op, Word*& RESTRICT stackTop,
 
 void Program::Execute_IsInstance(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
 {
-    stack_facade<Word> stack(stackTop);
     auto targetTypeInfo = typeInfo[op.arg1_u64];
     assert(targetTypeInfo);
 
-    Object* value = stack.pull().GetObject();
+    Word* top = stackTop;
+    Object* value = top->object;
 
     bool isInstance = false;
 
-    WordType valueType = value->GetType();
-    if(valueType == WordType::Boolean)
+    if(value == nullptr)
     {
-        if(auto bt = targetTypeInfo->ToBasicTypeInfo(); bt && bt->qualifiedName == "bool")
+        if (auto bt = targetTypeInfo->ToBasicTypeInfo(); bt && bt->qualifiedName == "null")
             isInstance = true;
     }
-    else if(valueType == WordType::Integer)
+    else
     {
-        if(auto bt = targetTypeInfo->ToBasicTypeInfo(); bt && bt->qualifiedName == "int")
-            isInstance = true;
-    }
-    else if(valueType == WordType::Number)
-    {
-        if(auto bt = targetTypeInfo->ToBasicTypeInfo(); bt && bt->qualifiedName == "num")
-            isInstance = true;
-    }
-    else if(valueType == WordType::String)
-    {
-        if(auto bt = targetTypeInfo->ToBasicTypeInfo(); bt && bt->qualifiedName == "string")
-            isInstance = true;
-    }
-    else if(valueType == WordType::Array)
-    {
-        if(auto fun = targetTypeInfo->ToArrayInfo())
-            isInstance = true;
-    }
-    else if(valueType == WordType::Class)
-    {
-        auto valueClass = static_cast<Class*>(value);
-        auto valueClassInfo = valueClass->GetInfo();
+        WordType valueWordType = value->GetType();
 
-        if(auto targetClassInfo = targetTypeInfo->ToClassInfo())
+        if (valueWordType == WordType::Class)
         {
-            if(targetClassInfo->id == valueClassInfo->id)
-                isInstance = true;
-        }
-        else if(auto targetItfInfo = targetTypeInfo->ToInterfaceInfo())
-        {
-            for(auto& itf : valueClassInfo->interfaces)
+            auto valueTypeInfo = static_cast<Class*>(value)->GetInfo();
+
+            if(auto targetClassInfo = targetTypeInfo->ToClassInfo())
             {
-                if(itf == targetItfInfo->id)
-                {
+                if (valueTypeInfo->id == targetClassInfo->id)
                     isInstance = true;
-                    break;
+            }
+            else if (auto targetInterfaceInfo = targetTypeInfo->ToInterfaceInfo())
+            {
+                for (auto& itf : valueTypeInfo->interfaces)
+                {
+                    if (itf == targetInterfaceInfo->id)
+                    {
+                        isInstance = true;
+                        break;
+                    }
                 }
             }
         }
+        else if(valueWordType == WordType::Array)
+        {
+            auto valueTypeInfo = static_cast<Array<>*>(value)->GetInfo();
+
+            if (auto targetArrInfo = targetTypeInfo->ToArrayInfo())
+            {
+                if (valueTypeInfo->id == targetArrInfo->id)
+                    isInstance = true;
+            }
+        }
+        else if(valueWordType == WordType::String)
+        {
+            if (auto bt = targetTypeInfo->ToBasicTypeInfo(); bt && bt->qualifiedName == "string")
+                isInstance = true;
+        }
+        else if (valueWordType == WordType::Boolean) // boxed
+        {
+            if (auto bt = targetTypeInfo->ToBasicTypeInfo(); bt && bt->qualifiedName == "bool")
+                isInstance = true;
+        }
+        else if (valueWordType == WordType::Integer) // boxed
+        {
+            if (auto bt = targetTypeInfo->ToBasicTypeInfo(); bt && bt->qualifiedName == "int")
+                isInstance = true;
+        }
+        else if (valueWordType == WordType::Number) // boxed
+        {
+            if (auto bt = targetTypeInfo->ToBasicTypeInfo(); bt && bt->qualifiedName == "num")
+                isInstance = true;
+        }
     }
 
-    stack.push( Boolean(isInstance) );
+    top->storage = isInstance ? 1 : 0;
     ++ip;
 }
 
@@ -1114,31 +1113,29 @@ void Program::Execute_ConvBoolToStr(const Operation& op, Word*& RESTRICT stackTo
 
 void Program::Execute_ConvIntToStr(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
 {
-    stack_facade<Word> stack(stackTop);
-    Word& top = stack.top();
-    Integer value = top.GetInteger();
+    Word* top = stackTop;
+    Integer value = top->integer;
 
     std::array<char, 32> buffer;
     auto ret = std::to_chars(
         buffer.data(), buffer.data() + buffer.size(), value);
     assert(ret.ec == std::errc());
 
-    top.Set( String::New(heap, std::string_view(buffer.data(), ret.ptr)) );
+    top->object = String::New(heap, std::string_view(buffer.data(), ret.ptr));
     ++ip;
 }
 
 void Program::Execute_ConvNumToStr(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
 {
-    stack_facade<Word> stack(stackTop);
-    Word& top = stack.top();
-    Number value = top.GetNumber();
+    Word* top = stackTop;
+    Number value = top->number;
 
     std::array<char, 1080> buffer;
     auto ret = std::to_chars(
         buffer.data(), buffer.data() + buffer.size(), value, std::chars_format::fixed);
     assert(ret.ec == std::errc());
 
-    top.Set( String::New(heap, std::string_view(buffer.data(), ret.ptr)) );
+    top->object = String::New(heap, std::string_view(buffer.data(), ret.ptr));
     ++ip;
 }
 
@@ -1214,7 +1211,6 @@ void Program::Execute_ConvRefToStruct(const Operation& op, Word*& RESTRICT stack
 {
     stack_facade<Word> stack(stackTop);
     Reference reference = stack.pull().GetReference();
-    ENFORCE_DBG(!!reference, op.loc, "struct reference is null");
 
     assert(op.arg1_u64 != 0);
 
@@ -1226,31 +1222,27 @@ void Program::Execute_ConvRefToStruct(const Operation& op, Word*& RESTRICT stack
 
 void Program::Execute_Box(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
 {
-    stack_facade<Word> stack(stackTop);
-    Word& top = stack.top();
-    Box* box = Box::New(heap, top, (WordType)op.arg1_u64);
-    top.Set( box );
+    Word* top = stackTop;
+    Box* box = Box::New(heap, *top, (WordType)op.arg1_u64);
+    top->object = box;
     ++ip;
 }
 
 void Program::Execute_Unbox(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
 {
-    stack_facade<Word> stack(stackTop);
-    Word& top = stack.top();
-    Box* box = static_cast<Box*>(top.GetObject());
+    Word* top = stackTop;
+    Box* box = static_cast<Box*>(top->object);
+
     switch((WordType)op.arg1_u64)
     {
     case WordType::Boolean:
-        ENFORCE_DBG(box->GetType() == WordType::Boolean, op.loc, "Object is not of type 'bool'");
-        top.Set( box->GetValue().GetBoolean() );
+        top->storage = box->GetValue().storage;
         break;
     case WordType::Integer:
-        ENFORCE_DBG(box->GetType() == WordType::Integer, op.loc, "Object is not of type 'int'");
-        top.Set( box->GetValue().GetInteger() );
+        top->integer = box->GetValue().integer;
         break;
     case WordType::Number:
-        ENFORCE_DBG(box->GetType() == WordType::Number, op.loc, "Object is not of type 'num'");
-        top.Set( box->GetValue().GetNumber() );
+        top->number = box->GetValue().number;
         break;
     }
     ++ip;
@@ -1258,11 +1250,14 @@ void Program::Execute_Unbox(const Operation& op, Word*& RESTRICT stackTop, Stack
 
 void Program::Execute_StringConcat(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
 {
-    stack_facade<Word> stack(stackTop);
-    String* rhs = stack.pull().GetString();
-    String* lhs = stack.pull().GetString();
-    Word res = Word( String::New(heap, lhs->GetView(), rhs->GetView()) );
-    stack.push(res);
+    Word* top = stackTop;
+    // don't decrement top until after the allocation
+    String* rhs = (top)->GetString();
+    String* lhs = (top - 1)->GetString();
+    String* result = String::New(heap, lhs->GetView(), rhs->GetView());
+    --top;
+    top->object = result;
+    stackTop = top;
     ++ip;
 }
 
@@ -1289,28 +1284,25 @@ void Program::Execute_DupN(const Operation& op, Word*& RESTRICT stackTop, StackF
 
 void Program::Execute_Call(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
 {
-    stack_facade<Word> stack(stackTop);
     auto info = typeInfo[op.arg1_u64]->ToFunctionInfo();
     assert(info);
 
-    if(info->hasContext)
-    {
-        Object* obj = (stack.end() - info->paramSize - 1)->GetObject();
-        ENFORCE_DBG(!!obj, op.loc, "object reference is null");
-    }
-
-    stackFrames.push(StackFrame(stack.end(), info->returnSize, info->paramSize, info->hasContext));
+    Word* top = stackTop;
+    stackFrames.push(StackFrame(top + 1, info->returnSize, info->paramSize, info->hasContext));
     fp = &stackFrames.top();
-    stack.grow(info->localSize);
+    top += info->localSize;
+    stackTop = top;
     codePointers.push( ip );
     ip = info->codeStart;
 }
 
 void Program::Execute_CallExternal(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
 {
-    stack_facade<Word> stack(stackTop);
     auto info = typeInfo[op.arg1_u64]->ToFunctionInfo();
     assert(info);
+
+    Word* top = stackTop;
+    Word* stackEnd = top + 1;
 
     constexpr int MaxArgs = 32;
     std::array<int, MaxArgs> offsetBuffer;
@@ -1320,7 +1312,7 @@ void Program::Execute_CallExternal(const Operation& op, Word*& RESTRICT stackTop
 
     if(info->paramSize != 0)
     {
-        Word* begin = stack.end() - info->paramSize;
+        Word* begin = stackEnd - info->paramSize;
         Word* end = begin + info->paramSize;
         args = std::span<Word>(begin, end);
 
@@ -1331,12 +1323,12 @@ void Program::Execute_CallExternal(const Operation& op, Word*& RESTRICT stackTop
         offsets = std::span<int>(offsetBuffer.begin(), offsetBuffer.begin() + i);
     }
 
-    Word* returnStart = stack.end() - info->paramSize - 1 - info->returnSize;
+    Word* returnStart = stackEnd - info->paramSize - 1 - info->returnSize;
     Word* returnEnd = returnStart + info->returnSize;
     result = std::span<Word>(returnStart, returnEnd);
 
     info->externalFunction->Invoke(this, result, args, offsets);
-    stack.shrink(info->paramSize + 1);
+    stackTop = top - (info->paramSize + 1);
 
     ++ip;
 }
@@ -1355,23 +1347,24 @@ void Program::Execute_CallIntrinsic(const Operation& op, Word*& RESTRICT stackTo
 
 void Program::Execute_CallVirtual(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
 {
-    stack_facade<Word> stack(stackTop);
+    Word* top = stackTop;
+    Word* stackEnd = top + 1;
+
     uint64_t interfaceFuncID = op.arg1_u64;
     uint64_t interfaceType = op.arg2_u64;
 
     auto interfaceFuncInfo = typeInfo[interfaceFuncID]->ToFunctionInfo();
     assert(interfaceFuncInfo);
 
-    Class* obj = (stack.end() - interfaceFuncInfo->paramSize - 1)->GetClass();
-    ENFORCE_DBG(!!obj, op.loc, "object reference is null");
+    Class* obj = (stackEnd - interfaceFuncInfo->paramSize - 1)->GetClass();
     size_t actualFuncID = obj->GetFunctionID(interfaceType, interfaceFuncInfo->offset);
 
     auto info = typeInfo[actualFuncID]->ToFunctionInfo();
     assert(info);
 
-    stackFrames.push(StackFrame(stack.end(), info->returnSize, info->paramSize, info->hasContext));
+    stackFrames.push(StackFrame(stackEnd, info->returnSize, info->paramSize, info->hasContext));
     fp = &stackFrames.top();
-    stack.grow(info->localSize);
+    stackTop = top + info->localSize;
     codePointers.push( ip );
     ip = info->codeStart;
 }
@@ -1434,8 +1427,7 @@ void Program::Execute_Return(const Operation& op, Word*& RESTRICT stackTop, Stac
 
 void Program::Execute_Assert(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
 {
-    stack_facade<Word> stack(stackTop);
-    String* message = stack.pull().GetString();
+    String* message = (stackTop--)->GetString();
 
     std::string msgText;
 
@@ -1445,6 +1437,57 @@ void Program::Execute_Assert(const Operation& op, Word*& RESTRICT stackTop, Stac
         msgText = "assertion failed.";
 
     Throw(op.loc, "{}", msgText);
+    ++ip;
+}
+
+void Program::Execute_NullCheck(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+{
+    if(stackTop->storage == 0)
+    {
+        Throw(op.loc, "object reference is null");
+    }
+
+    ++ip;
+}
+
+void Program::Execute_BoundsCheck(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+{
+    Word* top = stackTop;
+
+    Array<>* arr = (top - 1)->GetArray();
+    Integer index = top->integer;
+    Integer count = static_cast<Integer>(arr->GetCount());
+
+    if(index < 0 || index >= count)
+    {
+        Throw(op.loc, "index out of range");
+    }
+
+    ++ip;
+}
+
+void Program::Execute_ObjectTypeCheck(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+{
+    Word* top = stackTop;
+    auto objectType = top->object->GetType();
+    auto targetType = static_cast<WordType>(op.arg1_u64);
+
+    if (objectType != targetType)
+    {
+        const char* type{};
+
+        if(targetType == WordType::Boolean)
+            type = "bool";
+        else if(targetType == WordType::Integer)
+            type = "int";
+        else if(targetType == WordType::Number)
+            type = "num";
+        
+        assert(type);
+
+        Throw(op.loc, "Object is not of type '{}'", type);
+    }
+
     ++ip;
 }
 
@@ -1619,6 +1662,8 @@ void Program::PrintOperation(size_t index, std::ostream& stream)
     case OpCode::ConvRefToStruct:
     case OpCode::StringConcat:
     case OpCode::Assert:
+    case OpCode::NullCheck:
+    case OpCode::BoundsCheck:
         stream << OpCodeNames[op.code];
         break;
 

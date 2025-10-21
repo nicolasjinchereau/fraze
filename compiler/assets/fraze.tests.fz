@@ -155,10 +155,9 @@ section ConversionTests
         assert(R5 is Test);
         assert(R5 as Test == L5);
 
-        // FIXME
-        //TestFunctor L6 = TestFunc;
-        //object R6 = L6;
-        //assert(R6 as TestFunctor == L6);
+        TestFunctor L6 = TestFunc;
+        object R6 = L6;
+        assert(R6 as TestFunctor == L6);
 
         // string concat
         string L7 = "a=" + true;
@@ -227,11 +226,10 @@ section ConversionTests
         string R23 = L23 as string;
         assert(R23 == T23);
 
-        // FIXME
-        //TestFunctor T24 = TestFunc;
-        //object L24 = T24;
-        //TestFunctor R24 = L24 as TestFunctor;
-        //assert(R24 == T24);
+        TestFunctor T24 = TestFunc;
+        object L24 = T24;
+        TestFunctor R24 = L24 as TestFunctor;
+        assert(R24 == T24);
 
         // explicit conversion to object
         int[] L25 = new int[1];
@@ -276,8 +274,8 @@ section ConversionTests
         assert("a" is string);
         assert(new Test{} is Test);
         TestFunctor T33 = TestFunc;
-        // FIXME
-        //assert(T33 is TestFunctor); 
+        assert(T33 is TestFunctor);
+        assert((T33 as object) is TestFunctor);
 
         assert((false as object) is bool);
         assert((1 as object) is int);
@@ -285,8 +283,19 @@ section ConversionTests
         assert((new int[1] as object) is int[]);
         assert(("a" as object) is string);
         assert((new Test{} as object) is Test);
-        // FIXME
-        //assert((T33 as object) is TestFunctor);
+        
+        // check * is null comparisons
+        object L34 = null;
+        assert(L34 is null);
+        assert(!(L34 is Test));
+
+        Test L35;
+        assert(L35 is null);
+        assert(L35 is Test == false);
+
+        Test L36 = new Test{};
+        assert(L36 is null == false);
+        assert(L36 is Test);
     }
 }
 
@@ -427,7 +436,7 @@ section TemplateTests
 
     class TemplateProperties<T>
     {
-        T _value;
+        private T _value;
 
         T Value {
             get { return _value; }
@@ -574,17 +583,50 @@ section FunctorTests
     {
     }
 
-    functor void TestFunctor();
+    class Test
+    {
+        int value1;
+        static int value2 = 567;
+
+        int Func1()
+        {
+            return value1;
+        }
+
+        static int Func2()
+        {
+            return value2;
+        }
+    }
+
+    functor void TestFunctor1();
+    functor int TestFunctor2();
 
     void Run()
     {
-        TestFunctor fun1 = TestFunc;
+        // free function pointer
+        TestFunctor1 fun1 = TestFunc;
         fun1();
+        
+        // member function pointer
+        Test test = new Test{};
+        test.value1 = 123;
+        TestFunctor2 fun2 = test.Func1;
+        assert(fun2() == test.value1);
 
-        TestFunctor fun2 = functor void() {
-            
+        // static member function pointer
+        TestFunctor2 fun3 = Test.Func2;
+        assert(fun3() == Test.value2);
+
+        // capture local variable by value
+        int value = 123;
+        
+        TestFunctor2 fun4 = functor int() {
+            int capturedValue = value;
+            return capturedValue;
         };
-        fun2();
+
+        assert(fun4() == value);
     }
 }
 

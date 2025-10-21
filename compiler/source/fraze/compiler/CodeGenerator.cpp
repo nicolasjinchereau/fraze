@@ -523,8 +523,12 @@ void CodeGenerator::PopExpression(const sptr<Expression>& node, const sptr<Expre
                     contextIdent->targetDef->ToParameterDefinition() ||
                     contextIdent->value == "this")
                 {
+                    auto sz = program->code.size();
                     VisitChild(ident->context);
+                    assert(program->code.size() > sz);
                     hasContext = true;
+
+                    EmitNullCheck(ident->context->loc);
 
                     if(ident->context->EvaluateType()->IsStruct())
                         isContextStruct = true;
@@ -534,12 +538,14 @@ void CodeGenerator::PopExpression(const sptr<Expression>& node, const sptr<Expre
             {
                 hasContext = true;
                 Emit(node->loc, OpCode::PushContext);
+                EmitNullCheck(node->loc);
             }
             else if(!varDef->isStatic && varDef->parent->ToStructDefinition())
             {
                 hasContext = true;
                 isContextStruct = true;
                 Emit(node->loc, OpCode::PushContext);
+                EmitNullCheck(node->loc);
             }
 
             if(hasContext)
@@ -588,9 +594,12 @@ void CodeGenerator::PopExpression(const sptr<Expression>& node, const sptr<Expre
 
         // should leave an Array on the stack which can be indexed
         VisitChild(ind->target);
+        EmitNullCheck(ind->target->loc);
 
-        // should leave a number on the stack by which the array can be indexed
+        // should leave an integer on the stack by which the array can be indexed
         VisitChild(ind->arg);
+
+        EmitBoundsCheck(ind->arg->loc);
 
         // push value sitting before array onto stack
         Emit(node->loc, OpCode::PushOffset, 2 + (size - 1), size);
@@ -617,65 +626,113 @@ void CodeGenerator::EmitConversion(sptr<Expression>& value, const sptr<TypeSpeci
     // convert in place
     if(resultType->IsObject())
     {
-        if(sourceType->IsBoolean())
+        if (sourceType->IsBoolean())
+        {
             Emit(value->loc, OpCode::Box, std::to_underlying(WordType::Boolean));
-        else if(sourceType->IsInteger())
+        }
+        else if (sourceType->IsInteger())
+        {
             Emit(value->loc, OpCode::Box, std::to_underlying(WordType::Integer));
-        else if(sourceType->IsNumber())
+        }
+        else if (sourceType->IsNumber())
+        {
             Emit(value->loc, OpCode::Box, std::to_underlying(WordType::Number));
+        }
         // array, class, functor, string are already objects
     }
     else if(resultType->IsBoolean())
     {
-        if(sourceType->IsObject())
+        if (sourceType->IsObject())
+        {
+            EmitNullCheck(value->loc);
+            EmitObjectTypeCheck(value->loc, WordType::Boolean);
             Emit(value->loc, OpCode::Unbox, std::to_underlying(WordType::Boolean));
+        }
     }
     else if(resultType->IsInteger())
     {
-        if(sourceType->IsObject())
+        if (sourceType->IsObject())
+        {
+            EmitNullCheck(value->loc);
+            EmitObjectTypeCheck(value->loc, WordType::Integer);
             Emit(value->loc, OpCode::Unbox, std::to_underlying(WordType::Integer));
-        else if(sourceType->IsNumber())
+        }
+        else if (sourceType->IsNumber())
+        {
             Emit(value->loc, OpCode::ConvNumToInt);
+        }
         // enum is already integer
     }
     else if(resultType->IsNumber())
     {
-        if(sourceType->IsObject())
+        if (sourceType->IsObject())
+        {
+            EmitNullCheck(value->loc);
+            EmitObjectTypeCheck(value->loc, WordType::Number);
             Emit(value->loc, OpCode::Unbox, std::to_underlying(WordType::Number));
-        if(sourceType->IsInteger())
+        }
+        if (sourceType->IsInteger())
+        {
             Emit(value->loc, OpCode::ConvIntToNum);
+        }
     }
     else if(resultType->IsString())
     {
-        if(sourceType->IsObject())
+        if (sourceType->IsObject())
+        {
+            EmitNullCheck(value->loc);
             Emit(value->loc, OpCode::ConvObjToType, typeInfo[resultType]->id);
-        else if(sourceType->IsBoolean())
+        }
+        else if (sourceType->IsBoolean())
+        {
             Emit(value->loc, OpCode::ConvBoolToStr);
-        else if(sourceType->IsInteger())
+        }
+        else if (sourceType->IsInteger())
+        {
             Emit(value->loc, OpCode::ConvIntToStr);
-        else if(sourceType->IsNumber())
+        }
+        else if (sourceType->IsNumber())
+        {
             Emit(value->loc, OpCode::ConvNumToStr);
-        else if(sourceType->IsEnum())
+        }
+        else if (sourceType->IsEnum())
+        {
             Emit(value->loc, OpCode::ConvEnumToStr, typeInfo[sourceType]->id);
+        }
     }
     else if(resultType->IsInterface())
     {
-        if(sourceType->IsObject())
+        if (sourceType->IsObject())
+        {
+            EmitNullCheck(value->loc);
             Emit(value->loc, OpCode::ConvObjToType, typeInfo[resultType]->id);
-        else if(sourceType->IsClass())
+        }
+        else if (sourceType->IsClass())
+        {
+            EmitNullCheck(value->loc);
             Emit(value->loc, OpCode::ConvObjToType, typeInfo[resultType]->id);
-        else if(sourceType->IsInterface())
+        }
+        else if (sourceType->IsInterface())
+        {
+            EmitNullCheck(value->loc);
             Emit(value->loc, OpCode::ConvObjToType, typeInfo[resultType]->id);
+        }
     }
     else if(resultType->IsClass())
     {
-        if(sourceType->IsObject() || sourceType->IsInterface())
+        if (sourceType->IsObject() || sourceType->IsInterface())
+        {
+            EmitNullCheck(value->loc);
             Emit(value->loc, OpCode::ConvObjToType, typeInfo[resultType]->id);
+        }
     }
     else if(resultType->IsArray())
     {
-        if(sourceType->IsObject())
+        if (sourceType->IsObject())
+        {
+            EmitNullCheck(value->loc);
             Emit(value->loc, OpCode::ConvObjToType, typeInfo[resultType]->id);
+        }
     }
 }
 
@@ -692,6 +749,30 @@ bool CodeGenerator::IsValueExpression(const sptr<Expression> &expr)
         ident->targetDef->ToVariableDefinition() ||
         ident->targetDef->ToParameterDefinition() ||
         ident->value == "this";
+}
+
+void CodeGenerator::EmitNullCheck(const SourceLocation& loc)
+{
+    if(Compiler::GetActiveCompiler()->IsNullCheckEnabled())
+    {
+        Emit(loc, OpCode::NullCheck);
+    }
+}
+
+void CodeGenerator::EmitBoundsCheck(const SourceLocation& loc)
+{
+    if (Compiler::GetActiveCompiler()->IsBoundsCheckEnabled())
+    {
+        Emit(loc, OpCode::BoundsCheck);
+    }
+}
+
+void CodeGenerator::EmitObjectTypeCheck(const SourceLocation& loc, WordType wordType)
+{
+    if (Compiler::GetActiveCompiler()->IsTypeCheckEnabled())
+    {
+        Emit(loc, OpCode::ObjectTypeCheck, static_cast<uint64_t>(wordType));
+    }
 }
 
 /*****************************
@@ -1211,16 +1292,21 @@ void CodeGenerator::Visit(const sptr<CallExpression>& node)
             auto sz = program->code.size();
             VisitChild(ident->context);
             assert(program->code.size() > sz);
+            
+            EmitNullCheck(ident->context->loc);
+
             didPushContext = true;
         }
         else if(!func->isStatic && func->parent->ToClassDefinition()) // ident is a class field
         {
             Emit(node->loc, OpCode::PushContext);
+            EmitNullCheck(node->loc);
             didPushContext = true;
         }
         else if(!func->isStatic && func->parent->ToStructDefinition()) // ident is a class field
         {
             Emit(node->loc, OpCode::PushContext);
+            EmitNullCheck(node->loc);
             didPushContext = true;
         }
         else
@@ -1391,8 +1477,12 @@ void CodeGenerator::Visit(const sptr<IdentifierExpression>& node)
                 ident->targetDef->ToParameterDefinition() ||
                 ident->value == "this")
             {
+                auto sz = program->code.size();
                 VisitChild(node->context);
+                assert(program->code.size() > sz);
                 hasContext = true;
+
+                EmitNullCheck(node->context->loc);
 
                 if(node->context->EvaluateType()->IsStruct())
                     isContextStruct = true;
@@ -1402,12 +1492,14 @@ void CodeGenerator::Visit(const sptr<IdentifierExpression>& node)
         {
             hasContext = true;
             Emit(node->loc, OpCode::PushContext);
+            EmitNullCheck(node->loc);
         }
         else if(!varDef->isStatic && varDef->parent->ToStructDefinition()) // ident is a class field
         {
             hasContext = true;
             isContextStruct = true;
             Emit(node->loc, OpCode::PushContext);
+            EmitNullCheck(node->loc);
         }
 
         if(hasContext)
@@ -1485,6 +1577,7 @@ void CodeGenerator::Visit(const sptr<IdentifierExpression>& node)
         {
             bool isContext = node->isContext;
             Emit(node->loc, OpCode::PushContext);
+            EmitNullCheck(node->loc);
         }
     }
     else if(auto structDef = node->targetDef->ToStructDefinition())
@@ -1492,7 +1585,8 @@ void CodeGenerator::Visit(const sptr<IdentifierExpression>& node)
         if(node->value == "this")
         {
             Emit(node->loc, OpCode::PushContext);
-            
+            EmitNullCheck(node->loc);
+
             if(!node->isContext)
                 Emit(node->loc, OpCode::ConvRefToStruct, structDef->size);
         }
@@ -1521,10 +1615,13 @@ void CodeGenerator::Visit(const sptr<IndexExpression>& node)
 
     // should leave an Array on the stack which can be indexed
     VisitChild(node->target);
+    EmitNullCheck(node->target->loc);
 
     // should leave an integer on the stack by which the array can be indexed
     VisitChild(node->arg);
-    
+
+    EmitBoundsCheck(node->arg->loc);
+
     if(pushSize > 0)
         Emit(node->loc, OpCode::PushElement, pushSize);
     else
@@ -1624,22 +1721,7 @@ void CodeGenerator::Visit(const sptr<IsExpression>& node)
     Type* valueType = node->value->EvaluateType();
     Type* targetType = node->typeSpec->GetType();
 
-    if(valueType->IsObject() && !targetType->IsObject())
-    {
-        VisitChild(node->value);
-        Emit(node->loc, OpCode::IsInstance, typeInfo[targetType]->id);
-    }
-    else if(valueType->IsInterface() && targetType->IsClass())
-    {
-        VisitChild(node->value);
-        Emit(node->loc, OpCode::IsInstance, typeInfo[targetType]->id);
-    }
-    else if(valueType->IsClass() && targetType->IsInterface())
-    {
-        VisitChild(node->value);
-        Emit(node->loc, OpCode::IsInstance, typeInfo[targetType]->id);
-    }
-    else if(valueType->IsInterface() && targetType->IsInterface())
+    if (valueType->IsNullable())
     {
         VisitChild(node->value);
         Emit(node->loc, OpCode::IsInstance, typeInfo[targetType]->id);
@@ -2094,6 +2176,7 @@ void CodeGenerator::Visit(const sptr<ReturnStatement>& node)
             auto valueField = node->context->targetDef->GetVariable("$value");
             VisitChild(node->expression);
             Emit(node->loc, OpCode::PushContext);
+            EmitNullCheck(node->loc);
             Emit(node->loc, OpCode::PopField, valueField->offset, valueField->size);
         }
 
@@ -2101,11 +2184,13 @@ void CodeGenerator::Visit(const sptr<ReturnStatement>& node)
         auto positionField = node->context->targetDef->GetVariable("$position");
         Emit(node->loc, OpCode::PushInteger, -1);
         Emit(node->loc, OpCode::PushContext);
+        EmitNullCheck(node->loc);
         Emit(node->loc, OpCode::PopField, positionField->offset, 1);
 
         // this.ResumeAwaiter();
         Emit(node->loc, OpCode::Reserve, resumeAwaiterFuncInfo->returnSize);
         Emit(node->loc, OpCode::PushContext);
+        EmitNullCheck(node->loc);
         Emit(node->loc, OpCode::CallVirtual, resumeAwaiterFuncID, awaitableInterfaceID);
 
         // done!
