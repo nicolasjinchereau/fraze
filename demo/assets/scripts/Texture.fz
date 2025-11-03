@@ -26,18 +26,22 @@ enum TextureFilterMode
 
 class Texture
 {
-    object nativeTexture;
+    private object nativeTexture;
     private extern object CreateNativeTexture(object graphicsObj, string path);
-    extern Task<object> CreateNativeTextureAsync(object graphicsObj, string path);
+    private extern Task<object> CreateNativeTextureAsync(object graphicsObj, string path);
 
     this(Graphics graphics, string path)
     {
-        nativeTexture = CreateNativeTexture(graphics.nativeGraphics, path);
+        nativeTexture = CreateNativeTexture(graphics.NativeGraphics, path);
     }
 
     static Task<Texture> CreateTextureAsync(Graphics graphics, string path)
     {
-        object nativeTex = await Texture.CreateNativeTextureAsync(graphics.nativeGraphics, path);
+        object nativeTex = await Texture.CreateNativeTextureAsync(graphics.NativeGraphics, path);
         return new Texture{ nativeTex };
+    }
+
+    object NativeTexture {
+        get { return nativeTexture; }
     }
 }

@@ -85,7 +85,7 @@ struct IntRect
 
 class Graphics
 {
-    object nativeGraphics;
+    private object nativeGraphics;
     private extern object CreateNativeGraphics();
     private extern void SetRenderTarget(object graphicsObj, object windowObj);
     private extern void SetShader(object graphicsObj, object shaderObj);
@@ -114,29 +114,33 @@ class Graphics
 
     static Graphics Current = null;
 
+    object NativeGraphics {
+		get { return nativeGraphics; }
+	}
+
     this() {
         nativeGraphics = CreateNativeGraphics();
     }
 
     void SetRenderTarget(Window window) {
-        SetRenderTarget(nativeGraphics, window.nativeWindow);
+        SetRenderTarget(nativeGraphics, window.NativeWindow);
     }
 
     void SetShader(Shader shader)
     {
-        SetShader(nativeGraphics, shader.nativeShader);
+        SetShader(nativeGraphics, shader.NativeShader);
         currentShader = shader;  // prevent GC
     }
 
     void SetVertexBuffer(Buffer buffer)
     {
-        SetVertexBuffer(nativeGraphics, buffer.nativeBuffer);
+        SetVertexBuffer(nativeGraphics, buffer.NativeBuffer);
         currentBuffer = buffer;  // prevent GC
     }
 
     void SetIndexBuffer(Buffer buffer)
     {
-        SetIndexBuffer(nativeGraphics, buffer.nativeBuffer);
+        SetIndexBuffer(nativeGraphics, buffer.NativeBuffer);
         currentBuffer = buffer;  // prevent GC
     }
 

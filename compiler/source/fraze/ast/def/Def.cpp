@@ -13,6 +13,7 @@
 #include <fraze/ast/def/StructDefinition.h>
 #include <fraze/ast/def/VariableDefinition.h>
 #include <fraze/ast/stmt/VariableDefinitionStatement.h>
+#include <print>
 
 namespace fraze {
 
@@ -38,8 +39,26 @@ bool Definition::IsAccessibleFrom(const Scope* scope) const
 {
     assert(parent->scope);
 
-    const Scope* scopeWhereUsed = scope;
     const Scope* scopeWhereDefined = parent->scope.get();
+    const Scope* scopeWhereUsed = scope;
+    
+    if(auto func = scopeWhereUsed->owner->ToFunctionDefinition(); func && func->isCoroutine)
+    {
+        if(auto classDef = func->parent->ToClassDefinition())
+        {
+            if(classDef->originalClassType)
+            {
+                auto originalClass = classDef->originalClassType->type->GetDefinition()->ToClassDefinition();
+
+                for(const Scope* s = originalClass->scope.get(); s != nullptr; s = s->parent)
+                {
+                    if(s == scopeWhereDefined)
+                        return true;
+                }
+            }
+
+        }
+    }
 
     for(const Scope* s = scopeWhereUsed; s != nullptr; s = s->parent)
     {
@@ -96,6 +115,7 @@ sptr<ASTNode> ClassDefinition::Clone(ScopeStack& scopes, const sptr<TypeSpecifie
     copy->isCoroutineState = isCoroutineState;
     copy->isFunctor = isFunctor;
     copy->size = size;
+    copy->originalClassType = originalClassType ? originalClassType->Clone(scopes, nullptr)->ToTypeSpecifier() : decltype(originalClassType){};
 
     scopes.Push(copy->scope.get());
 

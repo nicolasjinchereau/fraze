@@ -20,6 +20,7 @@ class ClassDefinition : public TemplateDefinition
 {
 public:
     std::vector<sptr<TypeSpecifier>> interfaces;
+    sptr<TypeSpecifier> originalClassType;
     bool isCoroutineState = false;
     bool isFunctor = false;
     Type* type{};

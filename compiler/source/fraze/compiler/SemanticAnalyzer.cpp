@@ -1999,6 +1999,11 @@ void SemanticAnalyzer::Visit(const sptr<IdentifierExpression>& node)
 
         ENFORCE(!!targetDef, node->loc, "unknown identifier: {}", node->value);
         
+        if(auto targetParentClassDef = targetDef->parent->ToClassDefinition())
+        {
+            VisitChild(targetParentClassDef->originalClassType);
+        }
+
         bool canAccess = targetDef->IsAccessibleFrom(node->scope);
         ENFORCE(canAccess, node->loc, "access denied: {}", targetDef->qualifiedName);
 

@@ -5,8 +5,9 @@
 #include <Texture.h>
 #include <Graphics.h>
 #include <fraze/common/Pointers.h>
-#include <fraze/program/Program.h>
 #include <fraze/program/Dispatcher.h>
+#include <fraze/program/Program.h>
+#include <WorkerThread.h>
 #include <fstream>
 #include <future>
 #include <png.h>
@@ -172,17 +173,17 @@ void Texture::CreateTextureAsync(Program* program, Class& task, Graphics* graphi
     std::string pathStr { path };
 
     sptr<Dispatcher> dispatcher = Dispatcher::GetCurrent();
-
-    std::thread([=]{
+    
+    WorkerThread::GetInstance().InvokeAsync([=]{
         Texture* texture = new Texture(graphics, pathStr);
 
-        dispatcher->InvokeAsync([=]{
+        dispatcher->InvokeAsync([=] {
             taskPtr->SetField("$position", Integer(-1));
             taskPtr->SetField("$value", texture);
             program->Invoke("OnAwaitableCompleted", taskPtr);
             program->UnpinMemory(taskPtr);
         });
-    }).detach();
+    });
 }
 
 void Texture::UpdateSamplerState()

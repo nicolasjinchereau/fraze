@@ -2,6 +2,7 @@
 *  Copyright (c) 2025 Nicolas Jinchereau. All rights reserved.  *
 *---------------------------------------------------------------*/
 
+#pragma once
 #include <fraze/common/Pointers.h>
 #include <algorithm>
 #include <atomic>

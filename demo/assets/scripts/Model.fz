@@ -79,19 +79,19 @@ class Model
 {
     private extern object ImportModel(object graphicsObj, string path);
     private extern object CreateSphereMesh(object graphicsObj, num radius, int segments, int rings, bool invert);
-    extern Task<object> ImportModelObjectAsync(object graphicsObj, string path);
+    private extern Task<object> ImportModelObjectAsync(object graphicsObj, string path);
     
     private ModelNode rootNode;
     private AnimationClip[] clips;
 
     static Model ImportModel(Graphics graphics, string path)
     {
-        return ImportModel(graphics.nativeGraphics, path) as Model;
+        return ImportModel(graphics.NativeGraphics, path) as Model;
     }
 
     static Task<Model> ImportModelAsync(Graphics graphics, string path)
     {
-        object modelObj = await Model.ImportModelObjectAsync(graphics.nativeGraphics, path);
+        object modelObj = await Model.ImportModelObjectAsync(graphics.NativeGraphics, path);
         return modelObj as Model;
     }
 
@@ -134,6 +134,6 @@ class Model
 
     static Mesh CreateSphereMesh(Graphics graphics, num radius, int segments, int rings, bool invert)
     {
-        return CreateSphereMesh(graphics.nativeGraphics, radius, segments, rings, invert) as Mesh;
+        return CreateSphereMesh(graphics.NativeGraphics, radius, segments, rings, invert) as Mesh;
     }
 }

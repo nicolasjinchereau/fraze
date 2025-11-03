@@ -8,6 +8,7 @@
 #include <fraze/memory/ScopedAllocator.h>
 #include <fraze/program/Program.h>
 #include <fraze/program/Dispatcher.h>
+#include <WorkerThread.h>
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
@@ -390,7 +391,7 @@ void ModelImporter::ImportModelAsync(Program* program, Class& task, Graphics* gr
 
     sptr<Dispatcher> dispatcher = Dispatcher::GetCurrent();
 
-    std::thread([=]{
+    WorkerThread::GetInstance().InvokeAsync([=]{
         Class* model = ModelImporter::ImportModel(program, graphics, path);
 
         dispatcher->InvokeAsync([=]{
@@ -399,7 +400,7 @@ void ModelImporter::ImportModelAsync(Program* program, Class& task, Graphics* gr
             program->Invoke("OnAwaitableCompleted", taskPtr);
             program->UnpinMemory(taskPtr);
         });
-    }).detach();
+    });
 }
 
 constexpr float Pi = 3.141592654f;

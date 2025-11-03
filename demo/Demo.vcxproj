@@ -28,6 +28,7 @@
     <ClCompile Include="source\Shader.cpp" />
     <ClCompile Include="source\Texture.cpp" />
     <ClCompile Include="source\Window.cpp" />
+    <ClCompile Include="source\WorkerThread.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="source\ExternFunctions.h" />
@@ -40,6 +41,7 @@
     <ClInclude Include="source\Types.h" />
     <ClInclude Include="source\Window.h" />
     <ClInclude Include="source\WindowsPlatform.h" />
+    <ClInclude Include="source\WorkerThread.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="assets\models\character.fbx" />

@@ -11,37 +11,37 @@ struct Transform
 
 class Node
 {
-    private Vec3             _localPos = Vec3.Zero;
-    private Quat             _localRot = Quat.Identity;
-    private Vec3             _localScale = Vec3.One;
-    private Vec3             _worldPos = Vec3.Zero;
-    private Quat             _worldRot = Quat.Identity;
-    private Vec3             _worldScale = Vec3.One;
-    private bool             _dirty = true;
-    private bool             _active = true;
-    private List<Node>       _children = new List<Node>{};
-    private List<IComponent> _components = new List<IComponent>{};
-    private Node             _parent;
-    private Scene            _scene;
-    private string           _name;
+    private Vec3 localPos = Vec3.Zero;
+    private Quat localRot = Quat.Identity;
+    private Vec3 localScale = Vec3.One;
+    private Vec3 worldPos = Vec3.Zero;
+    private Quat worldRot = Quat.Identity;
+    private Vec3 worldScale = Vec3.One;
+    private bool dirty = true;
+    private bool active = true;
+    private List<Node> children = new List<Node>{};
+    private List<IComponent> components = new List<IComponent>{};
+    private Node parent;
+    private Scene scene;
+    private string name;
 
     bool IsActive
     {
-        get { return _active; }
+        get { return active; }
         set
         {
-            if(_active != value)
+            if(active != value)
             {
-                _active = value;
-                if(_active)
+                active = value;
+                if(active)
                 {
-                    for(int i = 0; i != _components.Count; ++i)
-                        _components[i].OnNodeActivated();
+                    for(int i = 0; i != components.Count; ++i)
+                        components[i].OnNodeActivated();
                 }
                 else
                 {
-                    for(int i = 0; i != _components.Count; ++i)
-                        _components[i].OnNodeDeactivated();
+                    for(int i = 0; i != components.Count; ++i)
+                        components[i].OnNodeDeactivated();
                 }
             }
         }
@@ -49,65 +49,65 @@ class Node
 
     bool IsBranchActive
     {
-        get { return _active && (_parent == null || _parent.IsBranchActive); }
+        get { return active && (parent == null || parent.IsBranchActive); }
     }
 
     string Name
     {
-        get { return _name; }
-        set { _name = value; }
+        get { return name; }
+        set { name = value; }
     }
 
     void SetDirty()
     {
-        if(!_dirty)
+        if(!dirty)
         {
-            _dirty = true;
+            dirty = true;
 
-            for(int i = 0; i != _components.Count; ++i)
-                _components[i].OnTransformChanged();
+            for(int i = 0; i != components.Count; ++i)
+                components[i].OnTransformChanged();
 
-            for(int i = 0; i != _children.Count; ++i)
-                _children[i].SetDirty();
+            for(int i = 0; i != children.Count; ++i)
+                children[i].SetDirty();
         }
     }
 
     void UpdateWorldTransform()
     {
-        if(_dirty)
+        if(dirty)
         {
-            if(_parent)
+            if(parent)
             {
-                _parent.UpdateWorldTransform();
+                parent.UpdateWorldTransform();
 
-                Vec3 worldPos = _localPos;
-                Quat worldRot = _localRot;
-                Vec3 worldScale = _localScale;
+                Vec3 wpos = localPos;
+                Quat wrot = localRot;
+                Vec3 wscale = localScale;
 
-                Vec3 parentScale = _parent._worldScale;
-                Quat parentRot = _parent._worldRot;
-                Vec3 parentPos = _parent._worldPos;
+                Vec3 parentScale = parent.worldScale;
+                Quat parentRot = parent.worldRot;
+                Vec3 parentPos = parent.worldPos;
 
-                worldPos = worldPos.Multiply(parentScale);
-                worldPos *= parentRot;
-                worldPos += parentPos;
+                wpos = wpos.Multiply(parentScale);
+                wpos *= parentRot;
+                wpos += parentPos;
 
-                worldRot *= parentRot;
+                wrot *= parentRot;
 
-                worldScale = worldScale.Multiply(parentScale);
+                wscale = wscale.Multiply(parentScale);
 
-                _worldPos = worldPos;
-                _worldRot = worldRot;
-                _worldScale = worldScale;
+                worldPos = wpos;
+                worldRot = wrot;
+                worldScale = wscale;
             }
             else
             {
-                _worldPos = _localPos;
-                _worldRot = _localRot;
-                _worldScale = _localScale;
+                worldPos = localPos;
+                worldRot = localRot;
+                worldScale = localScale;
             }
 
-            _dirty = false;
+            dirty = false;
         }
     }
 
@@ -118,37 +118,37 @@ class Node
 
     void SetLocalTransform(Vec3 pos, Quat rot, Vec3 scale)
     {
-        _localPos = pos;
-        _localRot = rot;
-        _localScale = scale;
+        localPos = pos;
+        localRot = rot;
+        localScale = scale;
         SetDirty();
     }
 
     void SetGlobalTransform(Vec3 pos, Quat rot, Vec3 scale)
     {
-        if(_parent)
+        if(parent)
         {
-            Vec3 parentInvScale = Vec3.One.Divide(_parent.Scale);
-            Quat parentInvRot = _parent.Rotation.Inverse;
+            Vec3 parentInvScale = Vec3.One.Divide(parent.Scale);
+            Quat parentInvRot = parent.Rotation.Inverse;
 
             // position
-            Vec3 localPos = pos;
-            localPos -= _parent.Position;
-            localPos *= parentInvRot;
-            localPos = localPos.Multiply(parentInvScale);
-            _localPos = localPos;
+            Vec3 lpos = pos;
+            lpos -= parent.Position;
+            lpos *= parentInvRot;
+            lpos = lpos.Multiply(parentInvScale);
+            localPos = lpos;
 
             // rotation
-            _localRot = rot * parentInvRot;
+            localRot = rot * parentInvRot;
 
             // scale
-            _localScale = scale.Multiply(parentInvScale);
+            localScale = scale.Multiply(parentInvScale);
         }
         else
         {
-            _localPos = pos;
-            _localRot = rot;
-            _localScale = scale;
+            localPos = pos;
+            localRot = rot;
+            localScale = scale;
         }
 
         SetDirty();
@@ -156,44 +156,44 @@ class Node
 
     Vec3 WorldToLocalPos(Vec3 pos)
     {
-        Vec3 localPos = pos;
+        Vec3 lpos = pos;
 
-        if(_parent)
+        if(parent)
         {
-            localPos -= _parent.Position;
-            localPos *= _parent.Rotation.Inverse;
-            localPos = localPos.Divide(_parent.Scale);
+            lpos -= parent.Position;
+            lpos *= parent.Rotation.Inverse;
+            lpos = lpos.Divide(parent.Scale);
         }
 
-        return localPos;
+        return lpos;
     }
 
     Vec3 LocalPosition
     {
-        get { return _localPos; }
+        get { return localPos; }
         set
         {
-            _localPos = value;
+            localPos = value;
             SetDirty();
         }
     }
 
     Vec3 LocalScale
     {
-        get { return _localScale; }
+        get { return localScale; }
         set
         {
-            _localScale = value;
+            localScale = value;
             SetDirty();
         }
     }
 
     Quat LocalRotation
     {
-        get { return _localRot; }
+        get { return localRot; }
         set
         {
-            _localRot = value;
+            localRot = value;
             SetDirty();
         }
     }
@@ -203,11 +203,11 @@ class Node
         get
         {
             UpdateWorldTransform();
-            return _worldPos;
+            return worldPos;
         }
         set
         {
-            _localPos = WorldToLocalPos(value);
+            localPos = WorldToLocalPos(value);
             SetDirty();
         }
     }
@@ -217,11 +217,11 @@ class Node
         get
         {
             UpdateWorldTransform();
-            return _worldScale;
+            return worldScale;
         }
         set
         {
-            _localScale = _parent != null ? value.Divide(_parent.Scale) : value;
+            localScale = parent != null ? value.Divide(parent.Scale) : value;
             SetDirty();
         }
     }
@@ -231,17 +231,17 @@ class Node
         get
         {
             UpdateWorldTransform();
-            return _worldRot;
+            return worldRot;
         }
         set
         {
-            _localRot = _parent != null ? value * _parent.Rotation.Inverse : value;
+            localRot = parent != null ? value * parent.Rotation.Inverse : value;
             SetDirty();
         }
     }
     
     List<IComponent> Components {
-        get { return _components; }
+        get { return components; }
     }
 
     Vec3 Left { get { return Vec3.Left * Rotation; } }
@@ -312,18 +312,18 @@ class Node
     }
 
     Node Parent {
-        get { return _parent; }
+        get { return parent; }
         set { SetParent(value, true); }
     }
 
     Scene ParentScene
     {
-        get { return _scene; }
+        get { return scene; }
         set
         {
-            if(_scene != value)
+            if(scene != value)
             {
-                if(_scene)
+                if(scene)
                     DetachFromScene();
 
                 if(value != null)
@@ -333,7 +333,7 @@ class Node
     }
 
     List<Node> Children {
-        get { return _children; }
+        get { return children; }
     }
 
     void AddChild(Node child) {
@@ -354,9 +354,9 @@ class Node
 
     void ClearChildren()
     {
-        while(_children.Count != 0)
+        while(children.Count != 0)
         {
-            Node child = _children[_children.Count - 1];
+            Node child = children[children.Count - 1];
             child.Parent = null;
         }
     }
@@ -367,22 +367,22 @@ class Node
 
         while(node != null)
         {
-            for(int i = 0; i != _components.Count; ++i)
-                _components[i].OnStructureChanged();
+            for(int i = 0; i != components.Count; ++i)
+                components[i].OnStructureChanged();
 
-            node = node._parent;
+            node = node.parent;
         }
     }
 
     void SetParent(Node newParent, bool preserveWorldTransform)
     {
-        Node oldParent = _parent;
+        Node oldParent = parent;
 
         if(newParent == oldParent)
             return;
 
-        Scene scene = ParentScene;
-        if(scene)
+        Scene oldParentScene = ParentScene;
+        if(oldParentScene)
             DetachFromScene();
 
         if(oldParent)
@@ -392,20 +392,20 @@ class Node
                 Vec3 parentScale = oldParent.Scale;
                 Quat parentRot = oldParent.Rotation;
 
-                _localPos = _localPos.Multiply(parentScale);
-                _localPos *= parentRot;
-                _localPos += oldParent.Position;
+                localPos = localPos.Multiply(parentScale);
+                localPos *= parentRot;
+                localPos += oldParent.Position;
 
-                _localRot = _localRot * parentRot;
+                localRot = localRot * parentRot;
 
-                _localScale = _localScale.Multiply(parentScale);
+                localScale = localScale.Multiply(parentScale);
             }
 
-            oldParent._children.Remove(this);
+            oldParent.children.Remove(this);
             oldParent.SignalStructureChanged();
         }
 
-        _parent = newParent;
+        parent = newParent;
 
         if(newParent)
         {
@@ -414,60 +414,60 @@ class Node
                 Quat invParentRot = newParent.Rotation.Inverse;
                 Vec3 invParentScale = Vec3.One.Divide(newParent.Scale);
 
-                _localPos -= newParent.Position;
-                _localPos *= invParentRot;
-                _localPos = _localPos.Multiply(invParentScale);
+                localPos -= newParent.Position;
+                localPos *= invParentRot;
+                localPos = localPos.Multiply(invParentScale);
 
-                _localRot = _localRot * invParentRot;
+                localRot = localRot * invParentRot;
 
-                _localScale = _localScale.Multiply(invParentScale);
+                localScale = localScale.Multiply(invParentScale);
             }
 
-            newParent._children.Add(this);
+            newParent.children.Add(this);
 
-            Scene scene = newParent.ParentScene;
-            if(scene)
-                AttachToScene(scene);
+            Scene newParentScene = newParent.ParentScene;
+            if(newParentScene)
+                AttachToScene(newParentScene);
         }
 
         SetDirty();
         SignalStructureChanged();
     }
 
-    void AttachToScene(Scene scene)
+    void AttachToScene(Scene newScene)
     {
-        _scene = scene;
+        scene = newScene;
 
-        if(_scene)
+        if(scene)
         {
-            for(int i = 0; i != _components.Count; ++i)
+            for(int i = 0; i != components.Count; ++i)
             {
-                var c = _components[i];
-                _scene.RegisterComponent(c);
+                var c = components[i];
+                scene.RegisterComponent(c);
                 c.OnAttachedToScene();
             }
         }
 
-        for(int i = 0; i != _children.Count; ++i)
-            _children[i].AttachToScene(_scene);
+        for(int i = 0; i != children.Count; ++i)
+            children[i].AttachToScene(scene);
     }
 
     void DetachFromScene()
     {
-        if(_scene)
+        if(scene)
         {
-            for(int i = 0; i != _components.Count; ++i)
+            for(int i = 0; i != components.Count; ++i)
             {
-                var c = _components[i];
+                var c = components[i];
                 c.OnDetachFromScene();
-                _scene.UnregisterComponent(c);
+                scene.UnregisterComponent(c);
             }
         }
 
-        _scene = null;
+        scene = null;
 
-        for(int i = 0; i != _children.Count; ++i)
-            _children[i].DetachFromScene();
+        for(int i = 0; i != children.Count; ++i)
+            children[i].DetachFromScene();
     }
 
     IComponent AddComponent(IComponent comp)
@@ -481,10 +481,10 @@ class Node
                 oldOwner.RemoveComponent(comp);
 
             comp.SetOwner(newOwner);
-            _components.Add(comp);
+            components.Add(comp);
 
-            if(_scene) {
-                _scene.RegisterComponent(comp);
+            if(scene) {
+                scene.RegisterComponent(comp);
                 comp.OnAttachedToScene();
             }
 
@@ -500,26 +500,26 @@ class Node
 
         if(owner == this)
         {
-            if(_scene) {
+            if(scene) {
                 comp.OnDetachFromScene();
-                _scene.UnregisterComponent(comp);
+                scene.UnregisterComponent(comp);
             }
             
-            _components.Remove(comp);
+            components.Remove(comp);
             comp.SetOwner(null);
 
             SignalStructureChanged();
         }
     }
 
-    Node FindByName(string name)
+    Node FindByName(string nodeName)
     {
-        if(_name == name)
+        if(name == nodeName)
             return this;
 
-        for(int i = 0; i != _children.Count; ++i)
+        for(int i = 0; i != children.Count; ++i)
         {
-            Node n = _children[i].FindByName(name);
+            Node n = children[i].FindByName(nodeName);
             if(n != null)
                 return n;
         }
@@ -529,17 +529,17 @@ class Node
 
     private void GetAllComponents(List<IComponent> components, IPredicate pred)
     {
-        for(int i = 0; i != _components.Count; ++i)
+        for(int i = 0; i != components.Count; ++i)
         {
-            var comp = _components[i];
+            var comp = components[i];
 
             if(pred.IsMatch(comp))
                 components.Add(comp);
         }
         
-        for(int i = 0; i != _children.Count; ++i)
+        for(int i = 0; i != children.Count; ++i)
         {
-            _children[i].GetAllComponents(components, pred);
+            children[i].GetAllComponents(components, pred);
         }
     }
 
@@ -552,17 +552,17 @@ class Node
 
     IComponent GetComponent(IPredicate pred)
     {
-        for(int i = 0; i != _components.Count; ++i)
+        for(int i = 0; i != components.Count; ++i)
         {
-            var comp = _components[i];
+            var comp = components[i];
 
             if(pred.IsMatch(comp))
                 return comp;
         }
 
-        for(int i = 0; i != _children.Count; ++i)
+        for(int i = 0; i != children.Count; ++i)
         {
-            var comp = _children[i].GetComponent(pred);
+            var comp = children[i].GetComponent(pred);
             if(comp != null)
                 return comp;
         }

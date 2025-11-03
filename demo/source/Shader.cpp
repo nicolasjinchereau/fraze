@@ -8,6 +8,7 @@
 #include <Texture.h>
 #include <fraze/program/Program.h>
 #include <fraze/program/Dispatcher.h>
+#include <WorkerThread.h>
 
 namespace fraze {
 
@@ -32,7 +33,7 @@ void Shader::CreateShaderAsync(Program* program, Class& task, Graphics* graphics
 
     sptr<Dispatcher> dispatcher = Dispatcher::GetCurrent();
 
-    std::thread([=]{
+    WorkerThread::GetInstance().InvokeAsync([=] {
         Shader* shader = new Shader(graphics, sourceStr, vertexEntryStr, pixelEntryStr);
 
         dispatcher->InvokeAsync([=]{
@@ -41,7 +42,7 @@ void Shader::CreateShaderAsync(Program* program, Class& task, Graphics* graphics
             program->Invoke("OnAwaitableCompleted", taskPtr);
             program->UnpinMemory(taskPtr);
         });
-    }).detach();
+    });
 }
 
 WordType Shader::GetType() const {

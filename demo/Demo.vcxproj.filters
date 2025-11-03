@@ -47,6 +47,9 @@
     <ClCompile Include="source\File.cpp">
       <Filter>source</Filter>
     </ClCompile>
+    <ClCompile Include="source\WorkerThread.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="source\Buffer.h">
@@ -77,6 +80,9 @@
       <Filter>source</Filter>
     </ClInclude>
     <ClInclude Include="source\File.h">
+      <Filter>source</Filter>
+    </ClInclude>
+    <ClInclude Include="source\WorkerThread.h">
       <Filter>source</Filter>
     </ClInclude>
   </ItemGroup>

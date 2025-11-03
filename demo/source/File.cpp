@@ -11,6 +11,8 @@
 #include <fraze/memory/ScopedAllocator.h>
 #include <fraze/program/Program.h>
 #include <fraze/program/Dispatcher.h>
+#include <WindowsPlatform.h>
+#include <WorkerThread.h>
 
 namespace fraze {
 
@@ -46,7 +48,7 @@ void File::ReadAllTextAsync(Program* program, Class& task, const String& path)
 
     sptr<Dispatcher> dispatcher = Dispatcher::GetCurrent();
 
-    std::thread([=]{
+    WorkerThread::GetInstance().InvokeAsync([=]{
         std::ifstream file(pathStr, std::ios::binary);
         if(!file)
             Throw("Failed to open file: {}", pathStr);
@@ -69,7 +71,7 @@ void File::ReadAllTextAsync(Program* program, Class& task, const String& path)
             program->Invoke("OnAwaitableCompleted", taskPtr);
             program->UnpinMemory(taskPtr);
         });
-    }).detach();
+    });
 }
 
 } // fraze

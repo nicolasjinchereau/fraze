@@ -339,12 +339,12 @@ void Program::VerifyHandlers()
     VERIFY_HANDLER_INDEX(ObjectTypeCheck);
 }
 
-void Program::Execute_NoOp(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_NoOp(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     ++ip;
 }
 
-void Program::Execute_PushLiteral(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_PushLiteral(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     *(++stackTop) = *(data.data() + op.arg1_u64);
     ++ip;
@@ -404,7 +404,7 @@ void Program::Execute_PopLocalN(const Operation& op, Word*& RESTRICT stackTop, S
     ++ip;
 }
 
-void Program::Execute_PushGlobal(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_PushGlobal(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     assert(op.arg2_u64 != 0);
 
@@ -416,23 +416,24 @@ void Program::Execute_PushGlobal(const Operation& op, Word*& RESTRICT stackTop, 
     ++ip;
 }
 
-void Program::Execute_PushGlobalAddr(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_PushGlobalAddr(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     *(++stackTop) = &this->stack[ op.arg1_u64 ];
     ++ip;
 }
 
-void Program::Execute_PopGlobal(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_PopGlobal(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
-    stack_facade<Word> stack(stackTop);
     assert(op.arg2_u64 != 0);
-    auto global = &this->stack[ op.arg1_u64 ];
-    auto value = &stack.top() + 1 - op.arg2_u64;
+
+    Word* top = stackTop;
+    Word* global = &this->stack[ op.arg1_u64 ];
+    Word* value = top + 1 - op.arg2_u64;
 
     for(size_t i = 0; i != op.arg2_u64; ++i)
         global[i] = value[i];
 
-    stack.shrink(op.arg2_u64);
+    stackTop = top - op.arg2_u64;
     ++ip;
 }
 
@@ -465,59 +466,60 @@ void Program::Execute_PushArgumentAddr(const Operation& op, Word*& RESTRICT stac
 
 void Program::Execute_PopArgument(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
 {
-    stack_facade<Word> stack(stackTop);
     assert(op.arg2_u64 != 0);
+
+    Word* top = stackTop;
     auto arg = fp->start - fp->paramCount + op.arg1_u64;
-    auto value = &stack.top() + 1 - op.arg2_u64;
+    auto value = top + 1 - op.arg2_u64;
 
     for(size_t i = 0; i != op.arg2_u64; ++i)
         arg[i] = value[i];
 
-    stack.shrink(op.arg2_u64);
-
+    stackTop = top - op.arg2_u64;
     ++ip;
 }
 
-void Program::Execute_PushField(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_PushField(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
-    stack_facade<Word> stack(stackTop);
-    Class* object = stack.pull().GetClass();
-
     assert(op.arg2_u64 != 0);
+
+    Word* top = stackTop;
+    Class* object = static_cast<Class*>((top--)->object);
 
     for(auto& field : object->GetFields(op.arg1_u64, op.arg2_u64))
-        stack.push( field );
+        *(++top) = field;
 
+    stackTop = top;
     ++ip;
 }
 
-void Program::Execute_PushFieldAddr(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_PushFieldAddr(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
-    stack_facade<Word> stack(stackTop);
-    Class* object = stack.pull().GetClass();
-    stack.push( object->GetFieldRef(op.arg1_u64) );
+    Word* top = stackTop;
+    Class* object = static_cast<Class*>(top->object);
+    *top = object->GetFieldRef(op.arg1_u64);
     ++ip;
 }
 
-void Program::Execute_PopField(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_PopField(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
-    stack_facade<Word> stack(stackTop);
-    Class* object = stack.pull().GetClass();
-
     assert(op.arg2_u64 != 0);
-    auto values = &stack.top() + 1 - op.arg2_u64;
+
+    Word* top = stackTop;
+    Class* object = static_cast<Class*>((top--)->object);
+    auto values = top + 1 - op.arg2_u64;
     object->SetFields(op.arg1_u64, { values, values + op.arg2_u64 });
-    stack.shrink(op.arg2_u64);
+    stackTop = top - op.arg2_u64;
     ++ip;
 }
 
-void Program::Execute_PushRefField(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_PushRefField(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     *stackTop = stackTop->reference[op.arg1_u64];
     ++ip;
 }
 
-void Program::Execute_PushRefFieldN(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_PushRefFieldN(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
     Word* reference = (top--)->reference;
@@ -534,44 +536,54 @@ void Program::Execute_PushRefFieldN(const Operation& op, Word*& RESTRICT stackTo
     ++ip;
 }
 
-void Program::Execute_PushRefFieldAddr(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_PushRefFieldAddr(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
-    stack_facade<Word> stack(stackTop);
-    Reference reference = stack.pull().GetReference();
-    stack.push( Word( &reference[op.arg1_u64] ) );
+    Word* top = stackTop;
+    Reference reference = top->reference;
+    top->reference = &reference[op.arg1_u64];
     ++ip;
 }
 
-void Program::Execute_PopRefField(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_PopRefField(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
-    stack_facade<Word> stack(stackTop);
-    Reference reference = stack.pull().GetReference();
-
     assert(op.arg2_u64 != 0);
 
-    auto values = stack.end() - op.arg2_u64;
+    Word* top = stackTop;
+    Reference reference = (top--)->reference;
+
+    auto values = top + 1 - op.arg2_u64;
     for(size_t i = 0; i != op.arg2_u64; ++i)
         reference[op.arg1_u64 + i] = values[i];
 
-    stack.shrink(op.arg2_u64);
+    stackTop = top - op.arg2_u64;
     ++ip;
 }
 
-void Program::Execute_PushElement(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_PushElement(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
-    stack_facade<Word> stack(stackTop);
-    Integer elementIndex = stack.pull().GetInteger();
-    Array<>* arr = stack.pull().GetArray();
+    Word* top = stackTop;
+    
+    Integer elementIndex = (top--)->integer;
+    Array<>* arr = static_cast<Array<>*>((top--)->object);
 
     assert(op.arg1_u64 == arr->GetElementSize());
 
     auto wordIndex = elementIndex * arr->GetElementSize();
-    stack.push(&arr->At(wordIndex), op.arg1_u64);
+
+    Word* src = &arr->At(wordIndex);
+    Word* dest = top + 1;
+
+    std::size_t count = op.arg1_u64;
+
+    for(std::size_t i = 0; i != count; ++i)
+        dest[i] = src[i];
+
+    stackTop = top + count;
 
     ++ip;
 }
 
-void Program::Execute_PushElementAddr(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_PushElementAddr(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
 
@@ -585,13 +597,14 @@ void Program::Execute_PushElementAddr(const Operation& op, Word*& RESTRICT stack
     ++ip;
 }
 
-void Program::Execute_PopElement(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_PopElement(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
-    stack_facade<Word> stack(stackTop);
     assert(op.arg1_u64 != 0);
 
-    Word* value = &stack.top() + 1 - op.arg1_u64;
-    Integer elementIndex = (value - 1)->GetInteger();
+    Word* top = stackTop;
+
+    Word* value = top + 1 - op.arg1_u64;
+    Integer elementIndex = (value - 1)->integer;
     Array<>* arr = (value - 2)->GetArray();
 
     assert(op.arg1_u64 == arr->GetElementSize());
@@ -601,60 +614,61 @@ void Program::Execute_PopElement(const Operation& op, Word*& RESTRICT stackTop, 
     for(size_t i = 0; i != op.arg1_u64; ++i)
         arr->At(wordIndex + i) = value[i];
 
-    stack.shrink(op.arg1_u64 + 2);
+    stackTop = top - (op.arg1_u64 + 2) ;
 
     ++ip;
 }
 
-void Program::Execute_PushOffset(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_PushOffset(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
-    stack_facade<Word> stack(stackTop);
-    auto valueRef = stack.end() - 1 - op.arg1_u64;
+    Word* top = stackTop;
+    auto valueRef = top - op.arg1_u64;
 
     if(op.arg2_u64 != 0)
     {
         for(size_t i = 0; i != op.arg2_u64; ++i)
-            stack.push( valueRef[i] );
+            *(++top) = valueRef[i];
     }
     else // push a reference to the var at offset
     {
-        stack.push( Word( valueRef ) );
+        *(++top) = valueRef;
     }
 
+    stackTop = top;
     ++ip;
 }
 
-void Program::Execute_PopOffset(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_PopOffset(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     *(stackTop - op.arg1_u64) = *(stackTop--);
     ++ip;
 }
 
-void Program::Execute_PushBoolean(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_PushBoolean(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     (++stackTop)->storage = static_cast<uint64_t>(op.arg1_i64 != 0);
     ++ip;
 }
 
-void Program::Execute_PushInteger(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_PushInteger(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     (++stackTop)->integer = op.arg1_i64;
     ++ip;
 }
 
-void Program::Execute_PushNumber(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_PushNumber(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     (++stackTop)->number = op.arg1_f64;
     ++ip;
 }
 
-void Program::Execute_PushNull(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_PushNull(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     (++stackTop)->object = nullptr;
     ++ip;
 }
 
-void Program::Execute_PushCount(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_PushCount(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
     Array<>* arr = top->GetArray();
@@ -662,7 +676,7 @@ void Program::Execute_PushCount(const Operation& op, Word*& RESTRICT stackTop, S
     ++ip;
 }
 
-void Program::Execute_PushSize(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_PushSize(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
     Array<>* arr = top->GetArray();
@@ -670,41 +684,40 @@ void Program::Execute_PushSize(const Operation& op, Word*& RESTRICT stackTop, St
     ++ip;
 }
 
-void Program::Execute_Pop(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_Pop(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     stackTop -= op.arg1_u64;
     ++ip;
 }
 
-void Program::Execute_Reserve(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_Reserve(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     stackTop += op.arg1_u64;
     ++ip;
 }
 
-// TODO: check if this leaves "length" on the stack unnecessarily
-void Program::Execute_NewArray(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_NewArray(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
-    stack_facade<Word> stack(stackTop);
-    auto* arrayInfo = typeInfo[op.arg1_u64]->ToArrayInfo();
-    Integer length = stack.top().GetInteger();
+    Word* top = stackTop;
 
-    auto structInfo = arrayInfo->elementType->ToStructInfo();
+    ArrayInfo* arrayInfo = typeInfo[op.arg1_u64]->ToArrayInfo();
+    StructInfo* structInfo = arrayInfo->elementType->ToStructInfo();
     size_t elementSize = structInfo ? structInfo->size : size_t(1);
 
-    Array<>* arr = Array<>::New(heap, arrayInfo, length * elementSize);
+    Integer length = top->integer;
+    top->object = Array<>::New(heap, arrayInfo, length * elementSize);
 
-    stack.push(Word(arr));
     ++ip;
 }
 
-void Program::Execute_NewClass(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_NewClass(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
-    stack_facade<Word> stack(stackTop);
+    Word* top = stackTop;
     auto* classInfo = typeInfo[op.arg1_u64]->ToClassInfo();
     Class* instance = Class::New(heap, classInfo->ToClassInfo());
 
-    Word* firstArg = stack.end() - classInfo->size;
+    Word* end = top + 1;
+    Word* firstArg = end - classInfo->size;
 
     for(size_t i = 0; i != classInfo->size; ++i)
     {
@@ -712,13 +725,14 @@ void Program::Execute_NewClass(const Operation& op, Word*& RESTRICT stackTop, St
         instance->SetField(i, arg);
     }
     
-    stack.shrink(classInfo->size);
-    stack.push({ instance });
+    top -= classInfo->size;
+    (++top)->object = instance;
+    stackTop = top;
 
     ++ip;
 }
 
-void Program::Execute_LogicalOr(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_LogicalOr(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
     Boolean rhs = static_cast<Boolean>((top--)->storage);
@@ -728,7 +742,7 @@ void Program::Execute_LogicalOr(const Operation& op, Word*& RESTRICT stackTop, S
     ++ip;
 }
 
-void Program::Execute_LogicalAnd(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_LogicalAnd(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
     Boolean rhs = static_cast<Boolean>((top--)->storage);
@@ -738,7 +752,7 @@ void Program::Execute_LogicalAnd(const Operation& op, Word*& RESTRICT stackTop, 
     ++ip;
 }
 
-void Program::Execute_BitOr(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_BitOr(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
     Integer rhs = (top--)->integer;
@@ -748,7 +762,7 @@ void Program::Execute_BitOr(const Operation& op, Word*& RESTRICT stackTop, Stack
     ++ip;
 }
 
-void Program::Execute_BitXor(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_BitXor(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
     Integer rhs = (top--)->integer;
@@ -758,7 +772,7 @@ void Program::Execute_BitXor(const Operation& op, Word*& RESTRICT stackTop, Stac
     ++ip;
 }
 
-void Program::Execute_BitAnd(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_BitAnd(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
     Integer rhs = (top--)->integer;
@@ -768,14 +782,14 @@ void Program::Execute_BitAnd(const Operation& op, Word*& RESTRICT stackTop, Stac
     ++ip;
 }
 
-void Program::Execute_BitNot(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_BitNot(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
     top->integer = ~top->integer;
     ++ip;
 }
 
-void Program::Execute_LeftShift(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_LeftShift(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
     Integer rhs = (top--)->integer;
@@ -785,7 +799,7 @@ void Program::Execute_LeftShift(const Operation& op, Word*& RESTRICT stackTop, S
     ++ip;
 }
 
-void Program::Execute_RightShift(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_RightShift(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
     Integer rhs = (top--)->integer;
@@ -795,7 +809,7 @@ void Program::Execute_RightShift(const Operation& op, Word*& RESTRICT stackTop, 
     ++ip;
 }
 
-void Program::Execute_Equal(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_Equal(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     assert(op.arg1_u64 == 0);
     Word* top = stackTop;
@@ -806,7 +820,7 @@ void Program::Execute_Equal(const Operation& op, Word*& RESTRICT stackTop, Stack
     ++ip;
 }
 
-void Program::Execute_EqualN(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_EqualN(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     assert(op.arg1_u64 == 1);
 
@@ -826,17 +840,18 @@ void Program::Execute_EqualN(const Operation& op, Word*& RESTRICT stackTop, Stac
     ++ip;
 }
 
-void Program::Execute_StringEqual(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_StringEqual(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
-    stack_facade<Word> stack(stackTop);
-    String* rhs = stack.pull().GetString();
-    String* lhs = stack.pull().GetString();
+    Word* top = stackTop;
+    String* rhs = static_cast<String*>((top--)->object);
+    String* lhs = static_cast<String*>(top->object); // skip decrement
     Word res = Word( lhs == rhs || (lhs && rhs && lhs->GetView() == rhs->GetView()) );
-    stack.push(res);
+    *top = res; // skip increment
+    stackTop = top;
     ++ip;
 }
 
-void Program::Execute_IsInstance(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_IsInstance(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     auto targetTypeInfo = typeInfo[op.arg1_u64];
     assert(targetTypeInfo);
@@ -912,7 +927,7 @@ void Program::Execute_IsInstance(const Operation& op, Word*& RESTRICT stackTop, 
     ++ip;
 }
 
-void Program::Execute_LessInt(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_LessInt(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
     Integer rhs = (top--)->integer;
@@ -922,7 +937,7 @@ void Program::Execute_LessInt(const Operation& op, Word*& RESTRICT stackTop, Sta
     ++ip;
 }
 
-void Program::Execute_LessNum(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_LessNum(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
     Number rhs = (top--)->number;
@@ -932,7 +947,7 @@ void Program::Execute_LessNum(const Operation& op, Word*& RESTRICT stackTop, Sta
     ++ip;
 }
 
-void Program::Execute_LessEqualInt(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_LessEqualInt(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
     Integer rhs = (top--)->integer;
@@ -942,7 +957,7 @@ void Program::Execute_LessEqualInt(const Operation& op, Word*& RESTRICT stackTop
     ++ip;
 }
 
-void Program::Execute_LessEqualNum(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_LessEqualNum(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
     Number rhs = (top--)->number;
@@ -952,7 +967,7 @@ void Program::Execute_LessEqualNum(const Operation& op, Word*& RESTRICT stackTop
     ++ip;
 }
 
-void Program::Execute_GreaterInt(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_GreaterInt(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
     Integer rhs = (top--)->integer;
@@ -962,7 +977,7 @@ void Program::Execute_GreaterInt(const Operation& op, Word*& RESTRICT stackTop, 
     ++ip;
 }
 
-void Program::Execute_GreaterNum(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_GreaterNum(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
     Number rhs = (top--)->number;
@@ -972,7 +987,7 @@ void Program::Execute_GreaterNum(const Operation& op, Word*& RESTRICT stackTop, 
     ++ip;
 }
 
-void Program::Execute_GreaterEqualInt(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_GreaterEqualInt(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
     Integer rhs = (top--)->integer;
@@ -982,7 +997,7 @@ void Program::Execute_GreaterEqualInt(const Operation& op, Word*& RESTRICT stack
     ++ip;
 }
 
-void Program::Execute_GreaterEqualNum(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_GreaterEqualNum(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
     Number rhs = (top--)->number;
@@ -992,7 +1007,7 @@ void Program::Execute_GreaterEqualNum(const Operation& op, Word*& RESTRICT stack
     ++ip;
 }
 
-void Program::Execute_AddInt(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_AddInt(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
     Integer rhs = (top--)->integer;
@@ -1002,7 +1017,7 @@ void Program::Execute_AddInt(const Operation& op, Word*& RESTRICT stackTop, Stac
     ++ip;
 }
 
-void Program::Execute_AddNum(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_AddNum(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
     Number rhs = (top--)->number;
@@ -1012,7 +1027,7 @@ void Program::Execute_AddNum(const Operation& op, Word*& RESTRICT stackTop, Stac
     ++ip;
 }
 
-void Program::Execute_SubInt(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_SubInt(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
     Integer rhs = (top--)->integer;
@@ -1022,7 +1037,7 @@ void Program::Execute_SubInt(const Operation& op, Word*& RESTRICT stackTop, Stac
     ++ip;
 }
 
-void Program::Execute_SubNum(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_SubNum(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
     Number rhs = (top--)->number;
@@ -1032,7 +1047,7 @@ void Program::Execute_SubNum(const Operation& op, Word*& RESTRICT stackTop, Stac
     ++ip;
 }
 
-void Program::Execute_MulInt(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_MulInt(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
     Integer rhs = (top--)->integer;
@@ -1042,7 +1057,7 @@ void Program::Execute_MulInt(const Operation& op, Word*& RESTRICT stackTop, Stac
     ++ip;
 }
 
-void Program::Execute_MulNum(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_MulNum(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
     Number rhs = (top--)->number;
@@ -1052,7 +1067,7 @@ void Program::Execute_MulNum(const Operation& op, Word*& RESTRICT stackTop, Stac
     ++ip;
 }
 
-void Program::Execute_DivInt(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_DivInt(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
     Integer rhs = (top--)->integer;
@@ -1062,7 +1077,7 @@ void Program::Execute_DivInt(const Operation& op, Word*& RESTRICT stackTop, Stac
     ++ip;
 }
 
-void Program::Execute_DivNum(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_DivNum(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
     Number rhs = (top--)->number;
@@ -1072,7 +1087,7 @@ void Program::Execute_DivNum(const Operation& op, Word*& RESTRICT stackTop, Stac
     ++ip;
 }
 
-void Program::Execute_ModInt(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_ModInt(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
     Integer rhs = (top--)->integer;
@@ -1082,7 +1097,7 @@ void Program::Execute_ModInt(const Operation& op, Word*& RESTRICT stackTop, Stac
     ++ip;
 }
 
-void Program::Execute_ModNum(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_ModNum(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
     Number rhs = (top--)->number;
@@ -1092,26 +1107,26 @@ void Program::Execute_ModNum(const Operation& op, Word*& RESTRICT stackTop, Stac
     ++ip;
 }
 
-void Program::Execute_ConvIntToNum(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_ConvIntToNum(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     stackTop->number = static_cast<Number>(stackTop->integer);
     ++ip;
 }
 
-void Program::Execute_ConvNumToInt(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_ConvNumToInt(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     stackTop->integer = static_cast<Integer>(stackTop->number);
     ++ip;
 }
 
-void Program::Execute_ConvBoolToStr(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_ConvBoolToStr(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     bool value = static_cast<bool>(stackTop->storage);
     stackTop->object = String::New(heap, value ? "true" : "false");
     ++ip;
 }
 
-void Program::Execute_ConvIntToStr(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_ConvIntToStr(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
     Integer value = top->integer;
@@ -1125,7 +1140,7 @@ void Program::Execute_ConvIntToStr(const Operation& op, Word*& RESTRICT stackTop
     ++ip;
 }
 
-void Program::Execute_ConvNumToStr(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_ConvNumToStr(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
     Number value = top->number;
@@ -1139,23 +1154,23 @@ void Program::Execute_ConvNumToStr(const Operation& op, Word*& RESTRICT stackTop
     ++ip;
 }
 
-void Program::Execute_ConvEnumToStr(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_ConvEnumToStr(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
-    stack_facade<Word> stack(stackTop);
-    Word& top = stack.top();
-    Integer value = top.GetInteger();
+    Word* top = stackTop;
+    Integer value = top->integer;
     auto* enumInfo = typeInfo[op.arg1_u64]->ToEnumInfo();
     auto it = std::ranges::find_if(enumInfo->members, [&](auto m){ return m.second == value; });
     assert(it != enumInfo->members.end());
-    top.Set( String::New(heap, it->first) );
+    top->object = String::New(heap, it->first);
     ++ip;
 }
 
-void Program::Execute_ConvObjToType(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_ConvObjToType(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
-    stack_facade<Word> stack(stackTop);
-    Word& top = stack.top();
-    Object* obj = top.GetObject();
+    // for object to reference type conversions, we just need to
+    // check if the object is of the target type; if not, set to null
+    Word* top = stackTop;
+    Object* obj = top->object;
     auto& targetInfo = typeInfo[op.arg1_u64];
 
     switch(obj->GetType())
@@ -1167,7 +1182,7 @@ void Program::Execute_ConvObjToType(const Operation& op, Word*& RESTRICT stackTo
         if(auto targetClassInfo = targetInfo->ToClassInfo())
         {
             if(valueClassInfo->id != targetClassInfo->id)
-                top.Set(nullptr);
+                top->object = nullptr;
         }
         else if(auto targetItfInfo = targetInfo->ToInterfaceInfo())
         {
@@ -1183,44 +1198,45 @@ void Program::Execute_ConvObjToType(const Operation& op, Word*& RESTRICT stackTo
             }
 
             if(!match)
-                top.Set(nullptr);
+                top->object = nullptr;
         }
         break;
     }
     case WordType::Array:
         if(((Array<>*)obj)->GetInfo()->id != targetInfo->id)
         {
-            top.Set(nullptr);
+            top->object = nullptr;
         }
         break;
     case WordType::String:
         if(targetInfo->ToBasicTypeInfo() == nullptr || targetInfo->qualifiedName != "string")
         {
-            top.Set(nullptr);
+            top->object = nullptr;
         }
         break;
     default:
-        top.Set(nullptr);
+        top->object = nullptr;
         break;
     }
 
     ++ip;
 }
 
-void Program::Execute_ConvRefToStruct(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_ConvRefToStruct(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
-    stack_facade<Word> stack(stackTop);
-    Reference reference = stack.pull().GetReference();
+    Word* top = stackTop;
+    Reference reference = (top--)->reference;
 
     assert(op.arg1_u64 != 0);
 
     for(size_t i = 0; i != op.arg1_u64; ++i)
-        stack.push( reference[i] );
+        *(++top) = reference[i];
 
+    stackTop = top;
     ++ip;
 }
 
-void Program::Execute_Box(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_Box(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
     Box* box = Box::New(heap, *top, (WordType)op.arg1_u64);
@@ -1228,7 +1244,7 @@ void Program::Execute_Box(const Operation& op, Word*& RESTRICT stackTop, StackFr
     ++ip;
 }
 
-void Program::Execute_Unbox(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_Unbox(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
     Box* box = static_cast<Box*>(top->object);
@@ -1248,7 +1264,7 @@ void Program::Execute_Unbox(const Operation& op, Word*& RESTRICT stackTop, Stack
     ++ip;
 }
 
-void Program::Execute_StringConcat(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_StringConcat(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
     // don't decrement top until after the allocation
@@ -1261,7 +1277,7 @@ void Program::Execute_StringConcat(const Operation& op, Word*& RESTRICT stackTop
     ++ip;
 }
 
-void Program::Execute_Dup(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_Dup(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
     *(++top) = *top;
@@ -1269,7 +1285,7 @@ void Program::Execute_Dup(const Operation& op, Word*& RESTRICT stackTop, StackFr
     ++ip;
 }
 
-void Program::Execute_DupN(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_DupN(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
     Word* src = top + 1 - op.arg1_u64;
@@ -1296,7 +1312,7 @@ void Program::Execute_Call(const Operation& op, Word*& RESTRICT stackTop, StackF
     ip = info->codeStart;
 }
 
-void Program::Execute_CallExternal(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_CallExternal(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     auto info = typeInfo[op.arg1_u64]->ToFunctionInfo();
     assert(info);
@@ -1369,12 +1385,12 @@ void Program::Execute_CallVirtual(const Operation& op, Word*& RESTRICT stackTop,
     ip = info->codeStart;
 }
 
-void Program::Execute_Jump(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_Jump(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     ip = op.arg1_u64;
 }
 
-void Program::Execute_JumpIf(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_JumpIf(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Boolean value = static_cast<Boolean>((stackTop--)->storage);
     if(value)
@@ -1383,7 +1399,7 @@ void Program::Execute_JumpIf(const Operation& op, Word*& RESTRICT stackTop, Stac
         ++ip;
 }
 
-void Program::Execute_JumpIfNot(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_JumpIfNot(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Boolean value = static_cast<Boolean>((stackTop--)->storage);
     if(!value)
@@ -1392,22 +1408,23 @@ void Program::Execute_JumpIfNot(const Operation& op, Word*& RESTRICT stackTop, S
         ++ip;
 }
 
-void Program::Execute_Goto(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_Goto(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     ip = (stackTop--)->integer;
 }
 
 void Program::Execute_Return(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
 {
-    stack_facade<Word> stack(stackTop);
+    Word* top = stackTop;
+    Word* end = top + 1;
 
     // stack size after popping locals, args, and context, but leaving return value storage
     Word* prevStackTop = fp->start - fp->paramCount - 1;
     size_t shrinkAmount = stackTop - prevStackTop + 1;
 
     Word* returnStorageStart = prevStackTop - fp->returnSize;
-    Word* returnValueStart = stack.end() - fp->returnSize;
-    Word* returnValueEnd = stack.end();
+    Word* returnValueStart = end - fp->returnSize;
+    Word* returnValueEnd = end;
 
     while(returnValueStart != returnValueEnd)
     {
@@ -1415,7 +1432,7 @@ void Program::Execute_Return(const Operation& op, Word*& RESTRICT stackTop, Stac
     }
 
     // pop locals, args and context
-    stack.shrink(shrinkAmount);
+    stackTop = top - shrinkAmount;
 
     stackFrames.pop();
     fp = !stackFrames.empty() ? &stackFrames.top() : nullptr;
@@ -1425,7 +1442,7 @@ void Program::Execute_Return(const Operation& op, Word*& RESTRICT stackTop, Stac
         ++ip;
 }
 
-void Program::Execute_Assert(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_Assert(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     String* message = (stackTop--)->GetString();
 
@@ -1440,7 +1457,7 @@ void Program::Execute_Assert(const Operation& op, Word*& RESTRICT stackTop, Stac
     ++ip;
 }
 
-void Program::Execute_NullCheck(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_NullCheck(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     if(stackTop->storage == 0)
     {
@@ -1450,7 +1467,7 @@ void Program::Execute_NullCheck(const Operation& op, Word*& RESTRICT stackTop, S
     ++ip;
 }
 
-void Program::Execute_BoundsCheck(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_BoundsCheck(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
 
@@ -1466,7 +1483,7 @@ void Program::Execute_BoundsCheck(const Operation& op, Word*& RESTRICT stackTop,
     ++ip;
 }
 
-void Program::Execute_ObjectTypeCheck(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_ObjectTypeCheck(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
     auto objectType = top->object->GetType();
@@ -1554,9 +1571,9 @@ std::string Program::GetLiteralValue(uint64_t index)
     case WordType::Boolean:
         return value.GetBoolean() ? "true" : "false";
     case WordType::Integer:
-        return std::to_string(value.GetInteger());
+        return std::to_string(value.integer);
     case WordType::Number:
-        return std::to_string(value.GetNumber());
+        return std::to_string(value.number);
     case WordType::String:
         return "\"" + std::string(value.GetString()->GetView()) + "\"";
     default:

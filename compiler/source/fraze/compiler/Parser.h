@@ -1175,16 +1175,16 @@ return $ret;
 
         auto yieldTypeName = yieldType->GetTypeName();
         auto yieldTypeIsVoid = yieldType->IsVoid();
-        std::string owningClassName;
+        std::string instanceTypeName;
         std::string paramList;
+
+        auto enclosingClass = func->parent->ToClassDefinition();
 
         if(!isExternal)
         {
-            if(!func->isStatic)
+            if(enclosingClass && !func->isStatic)
             {
-                if(auto owningClass = func->enclosingScope->owner->ToClassDefinition()) {
-                    owningClassName = owningClass->name;
-                }
+                instanceTypeName = enclosingClass->name;
             }
 
             // params
@@ -1250,8 +1250,8 @@ class ${}_Task
             !isExternal ? "" : comment, //  {}, Awaiter
             !yieldTypeIsVoid ? "" : comment, //  {}{} $value;
             yieldTypeName, // ...
-            !owningClassName.empty() ? "" : comment, //  {}{} $this;
-            !owningClassName.empty() ? owningClassName : "void", // ...
+            !instanceTypeName.empty() ? "" : comment, //  {}{} $this;
+            !instanceTypeName.empty() ? instanceTypeName : "void", // ...
             paramList, //  {}
             !isExternal ? "" : comment, //  {}if($position != 0) goto $position;
             yieldTypeName, //  {} GetValue()
@@ -1264,6 +1264,11 @@ class ${}_Task
 
         auto taskObject = scopeOfParse->FindDefinition(taskObjectName)->ToClassDefinition();
         taskObject->isCoroutineState = true;
+        
+        if(enclosingClass)
+        {
+            taskObject->originalClassType = spnew<TypeSpecifier>(enclosingClass->loc, enclosingClass->enclosingScope, enclosingClass->name);
+        }
         
         if(isExternal)
         {

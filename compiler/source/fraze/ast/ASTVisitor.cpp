@@ -24,6 +24,8 @@ void ASTVisitor::Visit(const sptr<BasicTypeDefinition>& node)
 
 void ASTVisitor::Visit(const sptr<ClassDefinition>& node)
 {
+    VisitChild(node->originalClassType);
+
     for (auto& itr : node->interfaces)
         VisitChild(itr);
 

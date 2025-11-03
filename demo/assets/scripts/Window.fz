@@ -56,7 +56,7 @@ interface IWindowEventHandler
 
 class Window
 {
-    object nativeWindow;
+    private object nativeWindow;
     private extern object CreateNativeWindow(object window, string title, int x, int y, int width, int height);
     private extern void Show(object windowObj);
     private extern void Hide(object windowObj);
@@ -94,6 +94,10 @@ class Window
 
     int Height {
         get { return GetHeight(nativeWindow); }
+    }
+
+    object NativeWindow {
+        get { return nativeWindow; }
     }
 
     void AddEventHandler(IWindowEventHandler handler) {

@@ -4,15 +4,15 @@
 
 class Shader
 {
-    object nativeShader;
+    private object nativeShader;
     private extern object CreateNativeShader(object graphicsObj, string src, string vertexEntry, string pixelEntry);
     private extern void SetUniformMat4(object shaderObj, string name, Mat4 value);
     private extern void SetUniformTex(object shaderObj, string name, object textureObj);
-    extern Task<object> CreateNativeShaderAsync(object graphicsObj, string src, string vertexEntry, string pixelEntry);
+    private extern Task<object> CreateNativeShaderAsync(object graphicsObj, string src, string vertexEntry, string pixelEntry);
 
     this(Graphics graphics, string src, string vertexEntry, string pixelEntry)
     {
-        nativeShader = CreateNativeShader(graphics.nativeGraphics, src, vertexEntry, pixelEntry);
+        nativeShader = CreateNativeShader(graphics.NativeGraphics, src, vertexEntry, pixelEntry);
     }
 
     void SetUniform(string name, Mat4 value) {
@@ -20,12 +20,16 @@ class Shader
     }
 
     void SetUniform(string name, Texture value) {
-        SetUniformTex(nativeShader, name, value.nativeTexture);
+        SetUniformTex(nativeShader, name, value.NativeTexture);
     }
 
     static Task<Shader> CreateShaderAsync(Graphics graphics, string src, string vertexEntry, string pixelEntry)
     {
-        object newNativeShader = await Shader.CreateNativeShaderAsync(graphics.nativeGraphics, src, vertexEntry, pixelEntry);
+        object newNativeShader = await Shader.CreateNativeShaderAsync(graphics.NativeGraphics, src, vertexEntry, pixelEntry);
         return new Shader{ newNativeShader };
+    }
+
+    object NativeShader {
+        get { return nativeShader; }
     }
 }

@@ -42,7 +42,7 @@ struct Vertex
 
 class Buffer
 {
-    object nativeBuffer;
+    private object nativeBuffer;
     private extern object CreateNativeBufferWithSize(object graphicsObj, BufferType type, BufferUsage usage, BufferCPUAccess cpuAccess, int size);
     private extern object CreateNativeBufferFromData(object graphicsObj, BufferType type, BufferUsage usage, BufferCPUAccess cpuAccess, void[] data);
 	private extern void SetData(object bufferObj, void[] dataArray);
@@ -50,11 +50,11 @@ class Buffer
 	private extern int GetStride(object bufferObj);
     
 	this(Graphics graphics, BufferType type, BufferUsage usage, BufferCPUAccess cpuAccess, int size) {
-        nativeBuffer = CreateNativeBufferWithSize(graphics.nativeGraphics, type, usage, cpuAccess, size);
+        nativeBuffer = CreateNativeBufferWithSize(graphics.NativeGraphics, type, usage, cpuAccess, size);
     }
 	
 	this(Graphics graphics, BufferType type, BufferUsage usage, BufferCPUAccess cpuAccess, void[] data) {
-        nativeBuffer = CreateNativeBufferFromData(graphics.nativeGraphics, type, usage, cpuAccess, data);
+        nativeBuffer = CreateNativeBufferFromData(graphics.NativeGraphics, type, usage, cpuAccess, data);
     }
 
 	void SetData(void[] data) {
@@ -67,5 +67,9 @@ class Buffer
 
 	int Stride {
 		get { return GetStride(nativeBuffer); }
+	}
+
+	object NativeBuffer {
+		get { return nativeBuffer; }
 	}
 }
