@@ -130,12 +130,6 @@ Word Program::InvokeImpl(const std::string& qualifiedFuncName, const std::span<W
     stack.grow(funcInfo->localSize);
     codePointers.push(DONE_INSTR);
 
-#if FRAZE_CODE_PROFILING
-    using namespace std::chrono;
-    std::array<uint64_t, static_cast<size_t>(OpCode::COUNT)> opcodeTotalNanos{};
-    std::array<uint64_t, static_cast<size_t>(OpCode::COUNT)> opcodeTotalCount{};
-#endif // FRAZE_CODE_PROFILING
-
     Operation* ops = code.data();
     Word*& stackTop = stack.top_ptr();
     StackFrame* fp = &stackFrames.top();
@@ -152,30 +146,41 @@ Word Program::InvokeImpl(const std::string& qualifiedFuncName, const std::span<W
         std::cout << std::endl;
 #endif
 
-#if FRAZE_CODE_PROFILING
-        auto start = high_resolution_clock::now();
-#endif // FRAZE_CODE_PROFILING
-            
 #if FRAZE_HEAP_DEBUG
         heap.SetLocation(&op.loc);
 #endif
+            
+#if FRAZE_CODE_PROFILING
+        auto start = std::chrono::high_resolution_clock::now();
+#endif // FRAZE_CODE_PROFILING
 
         Execute( op, stackTop, fp, ip );
+
+#if FRAZE_CODE_PROFILING
+        auto end = std::chrono::high_resolution_clock::now();
+        auto codeIndex = static_cast<int>(op.code);
+        opcodeTotalNanos[codeIndex] += duration_cast<std::chrono::nanoseconds>(end - start).count();
+        opcodeTotalCount[codeIndex] += 1;
+#endif // FRAZE_CODE_PROFILING
 
 #if FRAZE_HEAP_DEBUG
         heap.SetLocation(nullptr);
 #endif
-
-#if FRAZE_CODE_PROFILING
-        auto end = high_resolution_clock::now();
-
-        auto codeIndex = static_cast<int>(op.code);
-        opcodeTotalNanos[codeIndex] += duration_cast<nanoseconds>(end - start).count();
-        opcodeTotalCount[codeIndex] += 1;
-#endif // FRAZE_CODE_PROFILING
     }
 
+    assert(codePointers.size() == numCodePointers);
+    assert(stackFrames.size() == numStackFrames);
+    assert(stack.size() == (stackSize + funcInfo->returnSize)); // stackSize + (return value)
+
+    Word result = stack.top();
+    stack.pop();
+    
+    return result;
+}
+
 #if FRAZE_CODE_PROFILING
+void Program::DumpCodeProfile(std::ostream& stream)
+{
     struct InstructionStats
     {
         OpCode code;
@@ -212,7 +217,7 @@ Word Program::InvokeImpl(const std::string& qualifiedFuncName, const std::span<W
         return a.totalNanos > b.totalNanos;
     });
 
-    std::cout
+    stream
         << std::left << std::setw(20) << "Code"
         << std::left << std::setw(16) << "Total Count"
         << std::left << std::setw(20) << "Fraction of Time"
@@ -221,24 +226,17 @@ Word Program::InvokeImpl(const std::string& qualifiedFuncName, const std::span<W
 
     for(auto& item : counts)
     {
-        std::cout
+        stream
             << std::left << std::setw(20) << OpCodeNames[item.code]
             << std::left << std::setw(16) << item.totalCount
             << std::left << std::setw(20) << std::fixed << std::setprecision(8) << item.percentOfTotalTime
             << std::left << std::fixed << std::setprecision(3) << item.nanosPerCall
             << std::endl;
     }
-#endif // FRAZE_CODE_PROFILING
 
-    assert(codePointers.size() == numCodePointers);
-    assert(stackFrames.size() == numStackFrames);
-    assert(stack.size() == (stackSize + funcInfo->returnSize)); // stackSize + (return value)
-
-    Word result = stack.top();
-    stack.pop();
-    
-    return result;
+    stream << std::endl;
 }
+#endif // FRAZE_CODE_PROFILING
 
 void Program::VerifyHandlers()
 {
@@ -1304,7 +1302,7 @@ void Program::Execute_Call(const Operation& op, Word*& RESTRICT stackTop, StackF
     assert(info);
 
     Word* top = stackTop;
-    stackFrames.push(StackFrame(top + 1, info->returnSize, info->paramSize, info->hasContext));
+    stackFrames.push(StackFrame(top + 1, info->returnSize, info->paramSize));
     fp = &stackFrames.top();
     top += info->localSize;
     stackTop = top;
@@ -1321,42 +1319,39 @@ void Program::Execute_CallExternal(const Operation& op, Word*& RESTRICT stackTop
     Word* stackEnd = top + 1;
 
     constexpr int MaxArgs = 32;
-    std::array<int, MaxArgs> offsetBuffer;
+    std::array<Word*, MaxArgs> wordBuffer;
     std::span<Word> result;
-    std::span<Word> args;
-    std::span<int> offsets;
+    std::span<Word*> args;
 
     if(info->paramSize != 0)
     {
         Word* begin = stackEnd - info->paramSize;
-        Word* end = begin + info->paramSize;
-        args = std::span<Word>(begin, end);
-
+        
         int i = 0;
         for(auto& param : info->params)
-            offsetBuffer[i++] = param.first;
+            wordBuffer[i++] = begin + param.first;
 
-        offsets = std::span<int>(offsetBuffer.begin(), offsetBuffer.begin() + i);
+        args = std::span<Word*>(wordBuffer.begin(), wordBuffer.begin() + i);
     }
 
     Word* returnStart = stackEnd - info->paramSize - 1 - info->returnSize;
     Word* returnEnd = returnStart + info->returnSize;
     result = std::span<Word>(returnStart, returnEnd);
 
-    info->externalFunction->Invoke(this, result, args, offsets);
+    info->externalFunction->Invoke(this, result, args);
     stackTop = top - (info->paramSize + 1);
 
     ++ip;
 }
 
-void Program::Execute_CallIntrinsic(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
+void Program::Execute_CallIntrinsic(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     // op.arg1_u32a: type id;
     // op.arg1_u32b: intrinsic id;
     // op.arg2_u32a: return size;
     // op.arg2_u32b: params size;
 
-    StackFrame stackFrame(stackTop + 1, op.arg2_u32a, op.arg2_u32b, false);
+    StackFrame stackFrame(stackTop + 1, op.arg2_u32a, op.arg2_u32b);
     intrinsics[op.arg1_u32b](op, stackTop, &stackFrame);
     ++ip;
 }
@@ -1378,7 +1373,7 @@ void Program::Execute_CallVirtual(const Operation& op, Word*& RESTRICT stackTop,
     auto info = typeInfo[actualFuncID]->ToFunctionInfo();
     assert(info);
 
-    stackFrames.push(StackFrame(stackEnd, info->returnSize, info->paramSize, info->hasContext));
+    stackFrames.push(StackFrame(stackEnd, info->returnSize, info->paramSize));
     fp = &stackFrames.top();
     stackTop = top + info->localSize;
     codePointers.push( ip );

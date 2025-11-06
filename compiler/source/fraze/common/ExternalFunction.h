@@ -44,7 +44,7 @@ class IExternalFunction
 {
 public:
     virtual ~IExternalFunction(){}
-    virtual void Invoke(Program* program, std::span<Word> ret, std::span<Word> args, std::span<int> offsets) = 0;
+    virtual void Invoke(Program* program, std::span<Word> ret, std::span<Word*> args) = 0;
     virtual std::span<WordType> GetParamTypes() = 0;
     virtual WordType GetReturnType() = 0;
     virtual size_t GetParamCount() const = 0;
@@ -62,14 +62,14 @@ public:
     ExternalFunction(const std::string& qualifiedName, Ret(*func)(Args...))
         : qualifiedName(qualifiedName), func(func){}
 
-    virtual void Invoke(Program* program, std::span<Word> result, std::span<Word> args, std::span<int> offsets) override {
-        assert(GetParamCount() == offsets.size());
+    virtual void Invoke(Program* program, std::span<Word> result, std::span<Word*> args) override {
+        assert(GetParamCount() == args.size());
 
         if constexpr(!std::is_void_v<Ret>) {
             assert((sizeof(Ret) / sizeof(Word)) == result.size());
         }
 
-        InvokeImpl(program, result, args, offsets, std::make_index_sequence<ParamCount>());
+        InvokeImpl(program, result, args, std::make_index_sequence<ParamCount>());
     }
 
     virtual std::span<WordType> GetParamTypes() override {
@@ -90,26 +90,26 @@ public:
 
 private:
     template<size_t... Is>
-    void InvokeImpl(Program* program, std::span<Word> result, std::span<Word> args, std::span<int> offsets, std::index_sequence<Is...>)
+    void InvokeImpl(Program* program, std::span<Word> result, std::span<Word*> args, std::index_sequence<Is...>)
     {
         if constexpr(std::is_void_v<Ret>)
         {
             if constexpr(FirstArgIsProgram<Args...>)
-                func( program, args[offsets[Is]].Get<std::remove_cvref_t<std::tuple_element_t<Is, ObjectArgs>>>()... );
+                func( program, args[Is]->Get<std::remove_cvref_t<std::tuple_element_t<Is, ObjectArgs>>>()... );
             else
-                func( args[offsets[Is]].Get<std::remove_cvref_t<std::tuple_element_t<Is, ObjectArgs>>>()... );
+                func( args[Is]->Get<std::remove_cvref_t<std::tuple_element_t<Is, ObjectArgs>>>()... );
         }
         else
         {
             if constexpr(FirstArgIsProgram<Args...>)
             {
                 Ret* returnAddress = reinterpret_cast<Ret*>(result.data());
-                *returnAddress = func( program, args[offsets[Is]].Get<std::remove_cvref_t<std::tuple_element_t<Is, ObjectArgs>>>()... );
+                *returnAddress = func( program, args[Is]->Get<std::remove_cvref_t<std::tuple_element_t<Is, ObjectArgs>>>()... );
             }
             else
             {
                 Ret* returnAddress = reinterpret_cast<Ret*>(result.data());
-                *returnAddress = func( args[offsets[Is]].Get<std::remove_cvref_t<std::tuple_element_t<Is, ObjectArgs>>>()... );
+                *returnAddress = func( args[Is]->Get<std::remove_cvref_t<std::tuple_element_t<Is, ObjectArgs>>>()... );
             }
         }
     }

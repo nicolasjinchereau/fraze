@@ -35,6 +35,10 @@ int main(int argc, char** argv)
         });
 
         dispatcher->Run(true);
+
+#if FRAZE_CODE_PROFILING
+        program->DumpCodeProfile(std::cout);
+#endif // FRAZE_CODE_PROFILING
     }
     catch(const std::exception& ex)
     {

@@ -8,6 +8,7 @@
 #include <cassert>
 #include <chrono>
 #include <cstddef>
+#include <ostream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -96,7 +97,6 @@ struct StackFrame
     Word* start{};
     uint32_t returnSize = 1;
     uint32_t paramCount = 0;
-    bool hasContext = false;
 
     bool operator==(const StackFrame&) const = default;
     bool operator!=(const StackFrame&) const = default;
@@ -113,6 +113,11 @@ class Program
 
     bool initialized = false;
     void Initialize();
+
+#if FRAZE_CODE_PROFILING
+    std::array<uint64_t, static_cast<size_t>(OpCode::COUNT)> opcodeTotalNanos{};
+    std::array<uint64_t, static_cast<size_t>(OpCode::COUNT)> opcodeTotalCount{};
+#endif // FRAZE_CODE_PROFILING
 
     friend ScopedAllocator;
 public:
@@ -143,6 +148,10 @@ public:
     void Print(bool printData, bool printCode);
     void PrintOperation(size_t index, std::ostream& stream);
     std::string GetLiteralValue(uint64_t index);
+
+#if FRAZE_CODE_PROFILING
+    void DumpCodeProfile(std::ostream& stream);
+#endif // FRAZE_CODE_PROFILING
 
 private:
     Word InvokeImpl(const std::string& qualifiedFuncName, const std::span<Word>& args);
