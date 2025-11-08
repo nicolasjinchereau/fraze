@@ -2112,6 +2112,7 @@ class ${}_Task
 
     sptr<Expression> ParseIndexExpr(const sptr<Expression>& target)
     {
+        target->isContext = true;
         auto expr = spnew<IndexExpression>(token.loc, scopes.GetCurrent(), target);
 
         Consume(TokenType::LeftBracket);

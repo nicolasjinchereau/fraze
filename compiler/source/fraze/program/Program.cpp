@@ -121,10 +121,11 @@ Word Program::InvokeImpl(const std::string& qualifiedFuncName, const std::span<W
     size_t stackSize = stack.size();
 
     stack.grow(funcInfo->returnSize); // return storage
-    stack.push(Word(nullptr)); // context
 
-    for(auto& arg : args)
+    for(auto& arg : std::views::reverse(args))
         stack.push(arg);
+
+    stack.push(Word(nullptr)); // context
 
     stackFrames.push(StackFrame(stack.end(), funcInfo->returnSize, funcInfo->paramSize));
     stack.grow(funcInfo->localSize);
@@ -351,7 +352,7 @@ void Program::Execute_PushLiteral(const Operation& op, Word*& RESTRICT stackTop,
 void Program::Execute_PushContext(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
-    *(++top) = *(fp->start - fp->paramCount - 1);
+    *(++top) = *(fp->start - 1);
     stackTop = top;
     ++ip;
 }
@@ -438,7 +439,7 @@ void Program::Execute_PopGlobal(const Operation& op, Word*& RESTRICT stackTop, S
 void Program::Execute_PushArgument(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
 {
     assert(op.arg2_u64 == 0);
-    *(++stackTop) = *(fp->start - fp->paramCount + op.arg1_u64);
+    *(++stackTop) = *(fp->start - 2 - op.arg1_u64);
     ++ip;
 }
 
@@ -446,7 +447,7 @@ void Program::Execute_PushArgumentN(const Operation& op, Word*& RESTRICT stackTo
 {
     assert(op.arg2_u64 != 0);
 
-    Word* src = fp->start - fp->paramCount + op.arg1_u64;
+    Word* src = fp->start - 2 - op.arg1_u64 - (op.arg2_u64 - 1);
     Word* dest = stackTop + 1;
 
     for(std::size_t i = 0; i != op.arg2_u64; ++i)
@@ -458,7 +459,7 @@ void Program::Execute_PushArgumentN(const Operation& op, Word*& RESTRICT stackTo
 
 void Program::Execute_PushArgumentAddr(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT fp, size_t& RESTRICT ip)
 {
-    *(++stackTop) = fp->start - fp->paramCount + op.arg1_u64;
+    *(++stackTop) = fp->start - 2 - op.arg1_u64 - (op.arg2_u64 - 1);
     ++ip;
 }
 
@@ -467,7 +468,7 @@ void Program::Execute_PopArgument(const Operation& op, Word*& RESTRICT stackTop,
     assert(op.arg2_u64 != 0);
 
     Word* top = stackTop;
-    auto arg = fp->start - fp->paramCount + op.arg1_u64;
+    auto arg = fp->start - 2 - op.arg1_u64 - (op.arg2_u64 - 1);
     auto value = top + 1 - op.arg2_u64;
 
     for(size_t i = 0; i != op.arg2_u64; ++i)
@@ -1265,12 +1266,13 @@ void Program::Execute_Unbox(const Operation& op, Word*& RESTRICT stackTop, Stack
 void Program::Execute_StringConcat(const Operation& op, Word*& RESTRICT stackTop, StackFrame*& RESTRICT _, size_t& RESTRICT ip)
 {
     Word* top = stackTop;
-    // don't decrement top until after the allocation
-    String* rhs = (top)->GetString();
-    String* lhs = (top - 1)->GetString();
-    String* result = String::New(heap, lhs->GetView(), rhs->GetView());
-    --top;
-    top->object = result;
+
+    String* rhs = (top--)->GetString();
+    String* lhs = (top--)->GetString();
+    std::string_view lhsView = lhs->GetView();
+    std::string_view rhsView = rhs->GetView();
+    String* result = String::New(heap, lhsView, rhsView);
+    (++top)->object = result;
     stackTop = top;
     ++ip;
 }
@@ -1315,31 +1317,29 @@ void Program::Execute_CallExternal(const Operation& op, Word*& RESTRICT stackTop
     auto info = typeInfo[op.arg1_u64]->ToFunctionInfo();
     assert(info);
 
-    Word* top = stackTop;
-    Word* stackEnd = top + 1;
+    Word* top = stackTop; // context pointer
+    Word* stackEnd = top + 1; // first local
 
     constexpr int MaxArgs = 32;
-    std::array<Word*, MaxArgs> wordBuffer;
+    std::array<Word*, MaxArgs> argPointerBuffer;
+    std::span<Word*> argPointers;
     std::span<Word> result;
-    std::span<Word*> args;
 
     if(info->paramSize != 0)
     {
-        Word* begin = stackEnd - info->paramSize;
-        
         int i = 0;
         for(auto& param : info->params)
-            wordBuffer[i++] = begin + param.first;
+            argPointerBuffer[i++] = stackEnd - 2 - param.first - (param.second - 1);
 
-        args = std::span<Word*>(wordBuffer.begin(), wordBuffer.begin() + i);
+        argPointers = std::span<Word*>(argPointerBuffer.begin(), argPointerBuffer.begin() + i);
     }
 
-    Word* returnStart = stackEnd - info->paramSize - 1 - info->returnSize;
+    Word* returnStart = stackEnd - 1 - info->paramSize - info->returnSize;
     Word* returnEnd = returnStart + info->returnSize;
     result = std::span<Word>(returnStart, returnEnd);
 
-    info->externalFunction->Invoke(this, result, args);
-    stackTop = top - (info->paramSize + 1);
+    info->externalFunction->Invoke(this, result, argPointers);
+    stackTop = top - 1 - info->paramSize;
 
     ++ip;
 }
@@ -1367,7 +1367,7 @@ void Program::Execute_CallVirtual(const Operation& op, Word*& RESTRICT stackTop,
     auto interfaceFuncInfo = typeInfo[interfaceFuncID]->ToFunctionInfo();
     assert(interfaceFuncInfo);
 
-    Class* obj = (stackEnd - interfaceFuncInfo->paramSize - 1)->GetClass();
+    Class* obj = top->GetClass();
     size_t actualFuncID = obj->GetFunctionID(interfaceType, interfaceFuncInfo->offset);
 
     auto info = typeInfo[actualFuncID]->ToFunctionInfo();
@@ -1414,10 +1414,9 @@ void Program::Execute_Return(const Operation& op, Word*& RESTRICT stackTop, Stac
     Word* end = top + 1;
 
     // stack size after popping locals, args, and context, but leaving return value storage
-    Word* prevStackTop = fp->start - fp->paramCount - 1;
-    size_t shrinkAmount = stackTop - prevStackTop + 1;
+    Word* prevStackTop = fp->start - 1 - fp->paramCount - 1;
 
-    Word* returnStorageStart = prevStackTop - fp->returnSize;
+    Word* returnStorageStart = prevStackTop + 1 - fp->returnSize;
     Word* returnValueStart = end - fp->returnSize;
     Word* returnValueEnd = end;
 
@@ -1426,8 +1425,8 @@ void Program::Execute_Return(const Operation& op, Word*& RESTRICT stackTop, Stac
         *(returnStorageStart++) = *(returnValueStart++);
     }
 
-    // pop locals, args and context
-    stackTop = top - shrinkAmount;
+    // pop locals, context and args
+    stackTop = prevStackTop;
 
     stackFrames.pop();
     fp = !stackFrames.empty() ? &stackFrames.top() : nullptr;

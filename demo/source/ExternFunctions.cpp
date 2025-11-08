@@ -372,135 +372,134 @@ void Intrinsic_Mat4Add(const Operation& op, Word*& RESTRICT stackTop, StackFrame
 {
     Word* top = stackTop;
 
-    Mat4& right = *reinterpret_cast<Mat4*>(top + 1 - 16);
-    Mat4& left = *(&right - 1);
-    Mat4* result = reinterpret_cast<Mat4*>(fp->start - fp->paramCount - 1 - fp->returnSize);
+    Mat4& arg0 = *reinterpret_cast<Mat4*>(fp->start - 1 - 16);
+    Mat4& arg1 = *reinterpret_cast<Mat4*>(fp->start - 1 - 32);
+    Mat4* result = reinterpret_cast<Mat4*>(fp->start - 1 - fp->paramCount - fp->returnSize);
 
-    result->m11 = left.m11 + right.m11;
-    result->m12 = left.m12 + right.m12;
-    result->m13 = left.m13 + right.m13;
-    result->m14 = left.m14 + right.m14;
-    result->m21 = left.m21 + right.m21;
-    result->m22 = left.m22 + right.m22;
-    result->m23 = left.m23 + right.m23;
-    result->m24 = left.m24 + right.m24;
-    result->m31 = left.m31 + right.m31;
-    result->m32 = left.m32 + right.m32;
-    result->m33 = left.m33 + right.m33;
-    result->m34 = left.m34 + right.m34;
-    result->m41 = left.m41 + right.m41;
-    result->m42 = left.m42 + right.m42;
-    result->m43 = left.m43 + right.m43;
-    result->m44 = left.m44 + right.m44;
+    result->m11 = arg0.m11 + arg1.m11;
+    result->m12 = arg0.m12 + arg1.m12;
+    result->m13 = arg0.m13 + arg1.m13;
+    result->m14 = arg0.m14 + arg1.m14;
+    result->m21 = arg0.m21 + arg1.m21;
+    result->m22 = arg0.m22 + arg1.m22;
+    result->m23 = arg0.m23 + arg1.m23;
+    result->m24 = arg0.m24 + arg1.m24;
+    result->m31 = arg0.m31 + arg1.m31;
+    result->m32 = arg0.m32 + arg1.m32;
+    result->m33 = arg0.m33 + arg1.m33;
+    result->m34 = arg0.m34 + arg1.m34;
+    result->m41 = arg0.m41 + arg1.m41;
+    result->m42 = arg0.m42 + arg1.m42;
+    result->m43 = arg0.m43 + arg1.m43;
+    result->m44 = arg0.m44 + arg1.m44;
 
-    stackTop = (fp->start - fp->paramCount - 1) - 1;
+    stackTop = (fp->start - 1 - fp->paramCount) - 1;
 }
 
 void Intrinsic_Mat4Sub(const Operation& op, Word*& RESTRICT stackTop, StackFrame* RESTRICT fp)
 {
     Word* top = stackTop;
 
-    Mat4& right = *reinterpret_cast<Mat4*>(top + 1 - 16);
-    Mat4& left = *(&right - 1);
-    Mat4* result = reinterpret_cast<Mat4*>(fp->start - fp->paramCount - 1 - fp->returnSize);
+    Mat4& arg0 = *reinterpret_cast<Mat4*>(fp->start - 1 - 16);
+    Mat4& arg1 = *reinterpret_cast<Mat4*>(fp->start - 1 - 32);
+    Mat4* result = reinterpret_cast<Mat4*>(fp->start - 1 - fp->paramCount - fp->returnSize);
 
-    result->m11 = left.m11 - right.m11;
-    result->m12 = left.m12 - right.m12;
-    result->m13 = left.m13 - right.m13;
-    result->m14 = left.m14 - right.m14;
-    result->m21 = left.m21 - right.m21;
-    result->m22 = left.m22 - right.m22;
-    result->m23 = left.m23 - right.m23;
-    result->m24 = left.m24 - right.m24;
-    result->m31 = left.m31 - right.m31;
-    result->m32 = left.m32 - right.m32;
-    result->m33 = left.m33 - right.m33;
-    result->m34 = left.m34 - right.m34;
-    result->m41 = left.m41 - right.m41;
-    result->m42 = left.m42 - right.m42;
-    result->m43 = left.m43 - right.m43;
-    result->m44 = left.m44 - right.m44;
+    result->m11 = arg0.m11 - arg1.m11;
+    result->m12 = arg0.m12 - arg1.m12;
+    result->m13 = arg0.m13 - arg1.m13;
+    result->m14 = arg0.m14 - arg1.m14;
+    result->m21 = arg0.m21 - arg1.m21;
+    result->m22 = arg0.m22 - arg1.m22;
+    result->m23 = arg0.m23 - arg1.m23;
+    result->m24 = arg0.m24 - arg1.m24;
+    result->m31 = arg0.m31 - arg1.m31;
+    result->m32 = arg0.m32 - arg1.m32;
+    result->m33 = arg0.m33 - arg1.m33;
+    result->m34 = arg0.m34 - arg1.m34;
+    result->m41 = arg0.m41 - arg1.m41;
+    result->m42 = arg0.m42 - arg1.m42;
+    result->m43 = arg0.m43 - arg1.m43;
+    result->m44 = arg0.m44 - arg1.m44;
 
-    stackTop = (fp->start - fp->paramCount - 1) - 1;
+    stackTop = (fp->start - 1 - fp->paramCount) - 1;
 }
-
 
 void Intrinsic_Mat4Mul(const Operation& op, Word*& RESTRICT stackTop, StackFrame* RESTRICT fp)
 {
     Word* top = stackTop;
 
-    Mat4& right = *reinterpret_cast<Mat4*>(top + 1 - 16);
-    Mat4& left = *(&right - 1);
-    Mat4* result = reinterpret_cast<Mat4*>(fp->start - fp->paramCount - 1 - fp->returnSize);
+    Mat4& arg0 = *reinterpret_cast<Mat4*>(fp->start - 1 - 16);
+    Mat4& arg1 = *reinterpret_cast<Mat4*>(fp->start - 1 - 32);
+    Mat4* result = reinterpret_cast<Mat4*>(fp->start - 1 - fp->paramCount - fp->returnSize);
 
-    result->m11 = left.m11 * right.m11 + left.m12 * right.m21 + left.m13 * right.m31 + left.m14 * right.m41;
-    result->m12 = left.m11 * right.m12 + left.m12 * right.m22 + left.m13 * right.m32 + left.m14 * right.m42;
-    result->m13 = left.m11 * right.m13 + left.m12 * right.m23 + left.m13 * right.m33 + left.m14 * right.m43;
-    result->m14 = left.m11 * right.m14 + left.m12 * right.m24 + left.m13 * right.m34 + left.m14 * right.m44;
+    result->m11 = arg0.m11 * arg1.m11 + arg0.m12 * arg1.m21 + arg0.m13 * arg1.m31 + arg0.m14 * arg1.m41;
+    result->m12 = arg0.m11 * arg1.m12 + arg0.m12 * arg1.m22 + arg0.m13 * arg1.m32 + arg0.m14 * arg1.m42;
+    result->m13 = arg0.m11 * arg1.m13 + arg0.m12 * arg1.m23 + arg0.m13 * arg1.m33 + arg0.m14 * arg1.m43;
+    result->m14 = arg0.m11 * arg1.m14 + arg0.m12 * arg1.m24 + arg0.m13 * arg1.m34 + arg0.m14 * arg1.m44;
 
-    result->m21 = left.m21 * right.m11 + left.m22 * right.m21 + left.m23 * right.m31 + left.m24 * right.m41;
-    result->m22 = left.m21 * right.m12 + left.m22 * right.m22 + left.m23 * right.m32 + left.m24 * right.m42;
-    result->m23 = left.m21 * right.m13 + left.m22 * right.m23 + left.m23 * right.m33 + left.m24 * right.m43;
-    result->m24 = left.m21 * right.m14 + left.m22 * right.m24 + left.m23 * right.m34 + left.m24 * right.m44;
+    result->m21 = arg0.m21 * arg1.m11 + arg0.m22 * arg1.m21 + arg0.m23 * arg1.m31 + arg0.m24 * arg1.m41;
+    result->m22 = arg0.m21 * arg1.m12 + arg0.m22 * arg1.m22 + arg0.m23 * arg1.m32 + arg0.m24 * arg1.m42;
+    result->m23 = arg0.m21 * arg1.m13 + arg0.m22 * arg1.m23 + arg0.m23 * arg1.m33 + arg0.m24 * arg1.m43;
+    result->m24 = arg0.m21 * arg1.m14 + arg0.m22 * arg1.m24 + arg0.m23 * arg1.m34 + arg0.m24 * arg1.m44;
 
-    result->m31 = left.m31 * right.m11 + left.m32 * right.m21 + left.m33 * right.m31 + left.m34 * right.m41;
-    result->m32 = left.m31 * right.m12 + left.m32 * right.m22 + left.m33 * right.m32 + left.m34 * right.m42;
-    result->m33 = left.m31 * right.m13 + left.m32 * right.m23 + left.m33 * right.m33 + left.m34 * right.m43;
-    result->m34 = left.m31 * right.m14 + left.m32 * right.m24 + left.m33 * right.m34 + left.m34 * right.m44;
+    result->m31 = arg0.m31 * arg1.m11 + arg0.m32 * arg1.m21 + arg0.m33 * arg1.m31 + arg0.m34 * arg1.m41;
+    result->m32 = arg0.m31 * arg1.m12 + arg0.m32 * arg1.m22 + arg0.m33 * arg1.m32 + arg0.m34 * arg1.m42;
+    result->m33 = arg0.m31 * arg1.m13 + arg0.m32 * arg1.m23 + arg0.m33 * arg1.m33 + arg0.m34 * arg1.m43;
+    result->m34 = arg0.m31 * arg1.m14 + arg0.m32 * arg1.m24 + arg0.m33 * arg1.m34 + arg0.m34 * arg1.m44;
 
-    result->m41 = left.m41 * right.m11 + left.m42 * right.m21 + left.m43 * right.m31 + left.m44 * right.m41;
-    result->m42 = left.m41 * right.m12 + left.m42 * right.m22 + left.m43 * right.m32 + left.m44 * right.m42;
-    result->m43 = left.m41 * right.m13 + left.m42 * right.m23 + left.m43 * right.m33 + left.m44 * right.m43;
-    result->m44 = left.m41 * right.m14 + left.m42 * right.m24 + left.m43 * right.m34 + left.m44 * right.m44;
+    result->m41 = arg0.m41 * arg1.m11 + arg0.m42 * arg1.m21 + arg0.m43 * arg1.m31 + arg0.m44 * arg1.m41;
+    result->m42 = arg0.m41 * arg1.m12 + arg0.m42 * arg1.m22 + arg0.m43 * arg1.m32 + arg0.m44 * arg1.m42;
+    result->m43 = arg0.m41 * arg1.m13 + arg0.m42 * arg1.m23 + arg0.m43 * arg1.m33 + arg0.m44 * arg1.m43;
+    result->m44 = arg0.m41 * arg1.m14 + arg0.m42 * arg1.m24 + arg0.m43 * arg1.m34 + arg0.m44 * arg1.m44;
 
-    stackTop = (fp->start - fp->paramCount - 1) - 1;
+    stackTop = (fp->start - 1 - fp->paramCount) - 1;
 }
 
 void Intrinsic_Mat4NumMul(const Operation& op, Word*& RESTRICT stackTop, StackFrame* RESTRICT fp)
 {
     Word* top = stackTop;
 
-    Mat4& left = *reinterpret_cast<Mat4*>(fp->start - fp->paramCount);
-    Number& right = *reinterpret_cast<Number*>(fp->start - fp->paramCount + 16);
-    Mat4* result = reinterpret_cast<Mat4*>(fp->start - fp->paramCount - 1 - fp->returnSize);
+    Mat4& arg0 = *reinterpret_cast<Mat4*>(fp->start - 1 - 16);
+    Number& arg1 = *reinterpret_cast<Number*>(fp->start - 1 - 16 - 1);
+    Mat4* result = reinterpret_cast<Mat4*>(fp->start - 1 - fp->paramCount - fp->returnSize);
+    
+    result->m11 = arg0.m11 * arg1;
+    result->m12 = arg0.m12 * arg1;
+    result->m13 = arg0.m13 * arg1;
+    result->m14 = arg0.m14 * arg1;
 
-    result->m11 = left.m11 * right;
-    result->m12 = left.m12 * right;
-    result->m13 = left.m13 * right;
-    result->m14 = left.m14 * right;
+    result->m21 = arg0.m21 * arg1;
+    result->m22 = arg0.m22 * arg1;
+    result->m23 = arg0.m23 * arg1;
+    result->m24 = arg0.m24 * arg1;
 
-    result->m21 = left.m21 * right;
-    result->m22 = left.m22 * right;
-    result->m23 = left.m23 * right;
-    result->m24 = left.m24 * right;
+    result->m31 = arg0.m31 * arg1;
+    result->m32 = arg0.m32 * arg1;
+    result->m33 = arg0.m33 * arg1;
+    result->m34 = arg0.m34 * arg1;
 
-    result->m31 = left.m31 * right;
-    result->m32 = left.m32 * right;
-    result->m33 = left.m33 * right;
-    result->m34 = left.m34 * right;
+    result->m41 = arg0.m41 * arg1;
+    result->m42 = arg0.m42 * arg1;
+    result->m43 = arg0.m43 * arg1;
+    result->m44 = arg0.m44 * arg1;
 
-    result->m41 = left.m41 * right;
-    result->m42 = left.m42 * right;
-    result->m43 = left.m43 * right;
-    result->m44 = left.m44 * right;
-
-    stackTop = (fp->start - fp->paramCount - 1) - 1;
+    stackTop = (fp->start - 1 - fp->paramCount) - 1;
 }
 
 void Intrinsic_Vec4Mat4Mul(const Operation& op, Word*& RESTRICT stackTop, StackFrame* RESTRICT fp)
 {
     Word* top = stackTop;
+    
+    Vec4& arg0 = *reinterpret_cast<Vec4*>(fp->start - 1 - 4);
+    Mat4& arg1 = *reinterpret_cast<Mat4*>(fp->start - 1 - 4 - 16);
+    Vec4* result = reinterpret_cast<Vec4*>(fp->start - 1 - fp->paramCount - fp->returnSize);
 
-    Mat4& right = *reinterpret_cast<Mat4*>(top + 1 - 16);
-    Vec4& left = *reinterpret_cast<Vec4*>(top + 1 - 16 - 4);
-    Vec4* result = reinterpret_cast<Vec4*>(fp->start - fp->paramCount - 1 - fp->returnSize);
+    result->x = arg0.x * arg1.m11 + arg0.y * arg1.m21 + arg0.z * arg1.m31 + arg0.w * arg1.m41;
+    result->y = arg0.x * arg1.m12 + arg0.y * arg1.m22 + arg0.z * arg1.m32 + arg0.w * arg1.m42;
+    result->z = arg0.x * arg1.m13 + arg0.y * arg1.m23 + arg0.z * arg1.m33 + arg0.w * arg1.m43;
+    result->w = arg0.x * arg1.m14 + arg0.y * arg1.m24 + arg0.z * arg1.m34 + arg0.w * arg1.m44;
 
-    result->x = left.x * right.m11 + left.y * right.m21 + left.z * right.m31 + left.w * right.m41;
-    result->y = left.x * right.m12 + left.y * right.m22 + left.z * right.m32 + left.w * right.m42;
-    result->z = left.x * right.m13 + left.y * right.m23 + left.z * right.m33 + left.w * right.m43;
-    result->w = left.x * right.m14 + left.y * right.m24 + left.z * right.m34 + left.w * right.m44;
-
-    stackTop = (fp->start - fp->paramCount - 1) - 1;
+    stackTop = (fp->start - 1 - fp->paramCount) - 1;
 }
 
 } // fraze

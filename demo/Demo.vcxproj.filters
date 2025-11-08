@@ -159,6 +159,9 @@
     <None Include="assets\scripts\Spinner.fz">
       <Filter>assets\scripts</Filter>
     </None>
+    <None Include="assets\scripts\Tests.fz">
+      <Filter>assets\scripts</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Image Include="assets\textures\character.png">

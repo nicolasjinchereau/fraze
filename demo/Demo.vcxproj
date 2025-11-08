@@ -63,6 +63,7 @@
     <None Include="assets\scripts\Scene.fz" />
     <None Include="assets\scripts\Shader.fz" />
     <None Include="assets\scripts\Spinner.fz" />
+    <None Include="assets\scripts\Tests.fz" />
     <None Include="assets\scripts\Texture.fz" />
     <None Include="assets\scripts\Time.fz" />
     <None Include="assets\scripts\Window.fz" />

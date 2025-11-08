@@ -80,7 +80,11 @@ private:
 extern bool ENFORCE_BreakOnError;
 
 #ifdef _MSC_VER
-#  define DEBUG_BREAK() __debugbreak()
+#  define DEBUG_BREAK()           \
+    do {                          \
+        if(ENFORCE_BreakOnError)  \
+            __debugbreak();       \
+    } while(false)
 #else
 #  define DEBUG_BREAK()
 #endif
@@ -89,16 +93,17 @@ extern bool ENFORCE_BreakOnError;
 do {                                                                        \
     if(!(cond))                                                             \
     {                                                                       \
-        if(ENFORCE_BreakOnError)                                            \
-            DEBUG_BREAK();                                                  \
+        DEBUG_BREAK();                                                      \
         throw Exception(std::format(fmt __VA_OPT__(,) __VA_ARGS__), (loc)); \
     }                                                                       \
 } while(false)
 
 #ifndef NDEBUG
 #  define ENFORCE_DBG ENFORCE
+#  define DEBUG_BREAK_DBG DEBUG_BREAK
 #else
 #  define ENFORCE_DBG
+#  define DEBUG_BREAK_DBG
 #endif
 
 template<class... Args>
@@ -107,6 +112,7 @@ inline void Throw(
     const std::format_string<Args...> fmt,
     Args&&... args)
 {
+    DEBUG_BREAK_DBG();
     throw Exception(std::format(fmt, std::forward<Args>(args)...), loc);
 }
 
@@ -115,6 +121,7 @@ inline void Throw(
     const std::format_string<Args...> fmt,
     Args&&... args)
 {
+    DEBUG_BREAK_DBG();
     throw Exception(std::format(fmt, std::forward<Args>(args)...), SourceLocation());
 }
 

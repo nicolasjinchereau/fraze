@@ -1276,8 +1276,16 @@ void CodeGenerator::Visit(const sptr<CallExpression>& node)
         auto func = ident->targetDef->ToFunctionDefinition();
         auto funcInfo = typeInfo[func->type]->ToFunctionInfo();
 
+        // return storage
         Emit(node->loc, OpCode::Reserve, funcInfo->returnSize);
 
+        // args (reverse order)
+        for(auto& arg : std::views::reverse(node->arguments))
+        {
+            VisitChild(arg);
+        }
+
+        // context pointer
         size_t interfaceID = size_t(-1);
         bool didPushContext = false;
 
@@ -1315,14 +1323,8 @@ void CodeGenerator::Visit(const sptr<CallExpression>& node)
         }
 
         assert(didPushContext || func->isStatic);
-
-        // push args
-        for(auto& arg : node->arguments)
-        {
-            // emit data and emit Push(literal)
-            VisitChild(arg);
-        }
-        
+       
+        // call
         if(interfaceID != size_t(-1))
         {
             Emit(node->loc, OpCode::CallVirtual, funcInfo->id, interfaceID);
@@ -1362,17 +1364,18 @@ void CodeGenerator::Visit(const sptr<CallExpression>& node)
         auto invokeFuncInfo = typeInfo[invokeFunc->type]->ToFunctionInfo();
         auto interfaceTypeInfo = typeInfo[functorInterface->type]->ToInterfaceInfo();
         
+        // return storage
         Emit(node->loc, OpCode::Reserve, invokeFuncInfo->returnSize);
 
-        // push functor object
-        VisitChild(node->target);
-
-        // push args
-        for(auto& arg : node->arguments)
+        // args (reverse order)
+        for(auto& arg : std::views::reverse(node->arguments))
         {
             // emit data and emit Push(literal)
             VisitChild(arg);
         }
+
+        // context pointer (functor object)
+        VisitChild(node->target);
 
         // call invoke function for this functor type
         Emit(node->loc, OpCode::CallVirtual, invokeFuncInfo->id, interfaceTypeInfo->id);
@@ -1383,17 +1386,18 @@ void CodeGenerator::Visit(const sptr<CallExpression>& node)
         auto invokeFunc = functorClass->GetFunction("invoke");
         auto invokeFuncInfo = typeInfo[invokeFunc->type]->ToFunctionInfo();
 
+        // return storage
         Emit(node->loc, OpCode::Reserve, invokeFuncInfo->returnSize);
 
-        // push functor object
-        VisitChild(node->target);
-
-        // push args
-        for(auto& arg : node->arguments)
+        // args (reverse order)
+        for(auto& arg : std::views::reverse(node->arguments))
         {
             // emit data and emit Push(literal)
             VisitChild(arg);
         }
+
+        // context pointer (functor object)
+        VisitChild(node->target);
 
         // call invoke function for this functor type
         Emit(node->loc, OpCode::Call, invokeFuncInfo->id);
@@ -1560,7 +1564,7 @@ void CodeGenerator::Visit(const sptr<IdentifierExpression>& node)
     {
         if(pushSize == 0)
         {
-            Emit(node->loc, OpCode::PushArgumentAddr, paramDef->offset);
+            Emit(node->loc, OpCode::PushArgumentAddr, paramDef->offset, paramDef->size);
         }
         else if(pushSize == 1)
         {
@@ -1683,9 +1687,9 @@ void CodeGenerator::Visit(const sptr<AwaitExpression>& node)
     auto setAwaiterFuncInfo = typeInfo[setAwaiterType]->ToFunctionInfo();
     auto setAwaiterFuncID = setAwaiterFuncInfo->id;
     Emit(node->loc, OpCode::Reserve, setAwaiterFuncInfo->returnSize);
+    Emit(node->loc, OpCode::PushContext); // push parent frame task as arg
     Emit(node->loc, OpCode::PushContext);
     Emit(node->loc, OpCode::PushField, awaited->offset, 1);
-    Emit(node->loc, OpCode::PushContext); // push parent frame task as arg
     Emit(node->loc, OpCode::CallVirtual, setAwaiterFuncID, awaitableInterfaceID);
 
     // store the resume location in $position and return

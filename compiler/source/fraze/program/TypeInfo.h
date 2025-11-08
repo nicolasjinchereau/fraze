@@ -92,7 +92,7 @@ struct FunctionInfo : TypeInfo
     int intrinsicID;
     bool hasContext;
     bool isExternal;
-    std::vector<std::pair<int, int>> params;
+    std::vector<std::pair<int, int>> params; // offset, size
 
     virtual FunctionInfo* ToFunctionInfo() override { return this; }
     virtual const FunctionInfo* ToFunctionInfo() const override { return this; }

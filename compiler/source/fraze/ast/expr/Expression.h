@@ -15,7 +15,7 @@ class Expression : public ASTNode
 {
 public:
     Scope* scope{}; // scope enclosing this expression
-    bool isContext = false;
+    bool isContext = false; // used to detect when a struct should be pushed by reference
 
     Expression(const SourceLocation& loc, Scope* scope)
         : ASTNode(loc), scope(scope)

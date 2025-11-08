@@ -1,0 +1,376 @@
+/*--------------------------------------------------------------*
+*  Copyright (c) 2025 Nicolas Jinchereau. All rights reserved.  *
+*---------------------------------------------------------------*/
+
+section MathTests
+{
+    bool AlmostEqual(num a, num b)
+    {
+        return Math.Abs(a - b) <= 1e-12;
+    }
+
+    void RunVec2Tests()
+    {
+        Vec2 v0 = Vec2.Zero;
+        Vec2 v1 = Vec2.One;
+        Vec2 v2 = Vec2.Right;
+        Vec2 v3 = Vec2.Left;
+        Vec2 v4 = Vec2.Up;
+        Vec2 v5 = Vec2.Down;
+        assert(v0.x == 0 && v0.y == 0);
+        assert(v1.x == 1 && v1.y == 1);
+        assert(v2.x == 1 && v2.y == 0);
+        assert(v3.x == -1 && v3.y == 0);
+        assert(v4.x == 0 && v4.y == 1);
+        assert(v5.x == 0 && v5.y == -1);
+
+        Vec2 v6 = new Vec2{ 1, 2 };
+        Vec2 v7 = new Vec2{ 4, 5 };
+        assert(v6.x == 1 && v6.y == 2);
+        assert(v7.x == 4 && v7.y == 5);
+
+        Vec2 v8 = v6 + v7;
+        assert(v8.x == 5 && v8.y == 7);
+
+        Vec2 v9 = v7 - v6;
+        assert(v9.x == 3 && v9.y == 3);
+
+        Vec2 v10a = v6 * 2;
+        Vec2 v10b = 2 * v6;
+        assert(v10a.x == 2 && v10a.y == 4);
+        assert(v10b.x == 2 && v10b.y == 4);
+
+        Vec2 v11 = v10a / 2;
+        assert(v11.x == 1 && v11.y == 2);
+        
+        num n0 = v6 * v7;
+        assert(n0 == 14);
+    }
+
+    void RunVec3Tests()
+    {
+        Vec3 z = Vec3.Zero;
+        Vec3 o = Vec3.One;
+        Vec3 r = Vec3.Right;
+        Vec3 l = Vec3.Left;
+        Vec3 u = Vec3.Up;
+        Vec3 d = Vec3.Down;
+
+        assert(z.x == 0 && z.y == 0 && z.z == 0);
+        assert(o.x == 1 && o.y == 1 && o.z == 1);
+        assert(r.x == 1 && r.y == 0 && r.z == 0);
+        assert(l.x == -1 && l.y == 0 && l.z == 0);
+        assert(u.x == 0 && u.y == 1 && u.z == 0);
+        assert(d.x == 0 && d.y == -1 && d.z == 0);
+
+        Vec3 a = new Vec3{ 2, 3, 4 };
+        Vec3 b = new Vec3{ -1, 5, 2 };
+
+        Vec3 add = a + b;
+        assert(add.x == 1 && add.y == 8 && add.z == 6);
+
+        Vec3 sub = a - b;
+        assert(sub.x == 3 && sub.y == -2 && sub.z == 2);
+
+        Vec3 neg = -a;
+        assert(neg.x == -2 && neg.y == -3 && neg.z == -4);
+
+        Vec3 SMa = a * 2;
+        Vec3 SMb = 2 * a;
+        assert(SMa.x == 4 && SMa.y == 6 && SMa.z == 8);
+        assert(SMb.x == 4 && SMb.y == 6 && SMb.z == 8);
+
+        Vec3 sd = a / 2;
+        assert(sd.x == 1 && sd.y == 1.5 && sd.z == 2);
+
+        num dot = a * b;
+        assert(dot == (2 * -1 + 3 * 5 + 4 * 2)); // -2 + 15 + 8 = 21
+
+        Vec3 cr = a.Cross(b);
+        assert(cr.x == (3 * 2 - 4 * 5));   // 6 - 20 = -14
+        assert(cr.y == (4 * -1 - 2 * 2));  // -4 - 4 = -8
+        assert(cr.z == (2 * 5 - 3 * -1));  // 10 + 3 = 13
+
+        num len2 = a.LengthSq;
+        assert(len2 == 2 * 2 + 3 * 3 + 4 * 4); // 29
+
+        num len = a.Length;
+        assert(AlmostEqual(len * len, len2));
+
+        Vec3 n = a.Normalized;
+        assert(AlmostEqual(n.Length, 1));
+
+        Vec3 cpy = a;
+        cpy.Normalize();
+        assert(AlmostEqual(cpy.Length, 1));
+    }
+
+    void RunVec4Tests()
+    {
+        Vec4 z = Vec4.Zero;
+        Vec4 o = Vec4.One;
+        Vec4 r = Vec4.Right;
+        Vec4 l = Vec4.Left;
+        Vec4 u = Vec4.Up;
+        Vec4 d = Vec4.Down;
+        Vec4 f = Vec4.Future;
+        Vec4 p = Vec4.Past;
+        assert(z.x == 0 && z.y == 0 && z.z == 0 && z.w == 0);
+        assert(o.x == 1 && o.y == 1 && o.z == 1 && o.w == 1);
+        assert(r.x == 1 && r.y == 0 && r.z == 0 && r.w == 0);
+        assert(l.x == -1 && l.y == 0 && l.z == 0 && l.w == 0);
+        assert(u.x == 0 && u.y == 1 && u.z == 0 && u.w == 0);
+        assert(d.x == 0 && d.y == -1 && d.z == 0 && d.w == 0);
+        assert(f.x == 0 && f.y == 0 && f.z == 0 && f.w == 1);
+        assert(p.x == 0 && p.y == 0 && p.z == 0 && p.w == -1);
+
+        Vec4 a = new Vec4{ 1, 2, 3, 4 };
+        Vec4 b = new Vec4{ -2, 0.5, 1, -1 };
+
+        assert(a[0] == 1);
+        assert(a[1] == 2);
+        assert(a[2] == 3);
+        assert(a[3] == 4);
+
+        Vec4 add = a + b;
+        assert(AlmostEqual(add.x, -1) && AlmostEqual(add.y, 2.5) && AlmostEqual(add.z, 4) && AlmostEqual(add.w, 3));
+
+        Vec4 sub = a - b;
+        assert(AlmostEqual(sub.x, 3) && AlmostEqual(sub.y, 1.5) && AlmostEqual(sub.z, 2) && AlmostEqual(sub.w, 5));
+
+        Vec4 SMa = a * 2;
+        Vec4 SMb = 2 * a;
+        assert(SMa.x == 2 && SMa.y == 4 && SMa.z == 6 && SMa.w == 8);
+        assert(SMb.x == 2 && SMb.y == 4 && SMb.z == 6 && SMb.w == 8);
+
+        num dot = a.Dot(b);
+        assert(AlmostEqual(dot, 1 * -2 + 2 * 0.5 + 3 * 1 + 4 * -1)); // -2 + 1 + 3 - 4 = -2
+
+        Vec4 n = a.Normalized;
+        assert(AlmostEqual(n.Length, 1));
+
+        Mat4 I = Mat4.Identity;
+        Vec4 vI = a * I;
+        assert(AlmostEqual(vI.x, a.x) && AlmostEqual(vI.y, a.y) && AlmostEqual(vI.z, a.z) && AlmostEqual(vI.w, a.w));
+
+        // translation should affect w=1 vectors
+        Mat4 T = Mat4.Translation(10, -2, 3);
+        Vec4 pt = new Vec4{ 1, 2, 3, 1 };
+        Vec4 tp = pt * T;
+        assert(AlmostEqual(tp.x, 11) && AlmostEqual(tp.y, 0) && AlmostEqual(tp.z, 6) && AlmostEqual(tp.w, 1));
+    }
+
+    void RunIVec2Tests()
+    {
+        IVec2 a = new IVec2{ 5, 7 };
+        IVec2 b = new IVec2{ 2, -3 };
+        IVec2 c = a - b;
+        assert(c.x == 3 && c.y == 10);
+    }
+
+    void RunIVec4Tests()
+    {
+        IVec4 v = new IVec4{ 4, 3, 2, 1 };
+        assert(v[0] == 4);
+        assert(v[1] == 3);
+        assert(v[2] == 2);
+        assert(v[3] == 1);
+    }
+
+    void RunMat3Tests()
+    {
+        Mat3 Z = Mat3.Zero;
+        Mat3 I = Mat3.Identity;
+        assert(Z.m11 == 0 && Z.m12 == 0 && Z.m13 == 0);
+        assert(Z.m21 == 0 && Z.m22 == 0 && Z.m23 == 0);
+        assert(Z.m31 == 0 && Z.m32 == 0 && Z.m33 == 0);
+        assert(I.m11 == 1 && I.m12 == 0 && I.m13 == 0);
+        assert(I.m21 == 0 && I.m22 == 1 && I.m23 == 0);
+        assert(I.m31 == 0 && I.m32 == 0 && I.m33 == 1);
+
+        Mat3 II = I * I;
+        assert(II == I);
+        
+        Mat3 IT = I.Transposed;
+        assert(IT == I);
+
+        Mat3 IInv = I.Inverse;
+        assert(IInv == I);
+
+        Mat3 Sm = I * 2;
+        assert(Sm.m11 == 2 && Sm.m22 == 2 && Sm.m33 == 2);
+
+        Mat3 Sd = Sm / 2;
+        assert(Sd.m11 == 1 && Sd.m22 == 1 && Sd.m33 == 1);
+
+        Mat3 R0 = Mat3.Rotation(0, 0, 0);
+        assert(R0.m11 == 1 && R0.m22 == 1 && R0.m33 == 1);
+
+        Mat3 m0 = new Mat3{
+            1, 2, 3,
+            0, 1, 4,
+            5, 6, 0
+        };
+
+        Mat3 m1 = new Mat3{
+            -2, 1, 0,
+            3, 0, 5,
+            4, -1, 2
+        };
+        
+        Mat3 m2 = m0 + m1;
+        assert(m2.m11 == -1 && m2.m12 == 3 && m2.m13 == 3);
+        assert(m2.m21 == 3  && m2.m22 == 1 && m2.m23 == 9);
+        assert(m2.m31 == 9  && m2.m32 == 5 && m2.m33 == 2);
+
+        Mat3 m3 = m0 * m1;
+        assert(m3.m11 == (1 * -2 + 2 * 3 + 3 * 4));
+        assert(m3.m12 == (1 * 1 + 2 * 0 + 3 * -1));
+        assert(m3.m13 == (1 * 0 + 2 * 5 + 3 * 2));
+        assert(m3.m21 == (0 * -2 + 1 * 3 + 4 * 4));
+        assert(m3.m22 == (0 * 1 + 1 * 0 + 4 * -1));
+        assert(m3.m23 == (0 * 0 + 1 * 5 + 4 * 2));
+        assert(m3.m31 == (5 * -2 + 6 * 3 + 0 * 4));
+        assert(m3.m32 == (5 * 1 + 6 * 0 + 0 * -1));
+        assert(m3.m33 == (5 * 0 + 6 * 5 + 0 * 2));
+
+        Mat3 m4 = new Mat3{
+            -2,  1,  0,
+             3,  0,  5,
+             4, -1,  2
+        };
+        assert(m1 == m4);
+
+        Mat3 m5 = new Mat3{
+            -2,  3,  4,
+             1,  0, -1,
+             0,  5,  2 
+        };
+        assert(m4.Transposed == m5);
+    }
+
+    void RunMat4Tests()
+    {
+        Mat4 Z = Mat4.Zero;
+        Mat4 I = Mat4.Identity;
+        assert(Z.m11 == 0 && Z.m12 == 0 && Z.m13 == 0 && Z.m14 == 0);
+        assert(Z.m21 == 0 && Z.m22 == 0 && Z.m23 == 0 && Z.m24 == 0);
+        assert(Z.m31 == 0 && Z.m32 == 0 && Z.m33 == 0 && Z.m34 == 0);
+        assert(Z.m31 == 0 && Z.m32 == 0 && Z.m33 == 0 && Z.m44 == 0);
+        assert(I.m11 == 1 && I.m12 == 0 && I.m13 == 0 && I.m14 == 0);
+        assert(I.m21 == 0 && I.m22 == 1 && I.m23 == 0 && I.m24 == 0);
+        assert(I.m31 == 0 && I.m32 == 0 && I.m33 == 1 && I.m34 == 0);
+        assert(I.m41 == 0 && I.m42 == 0 && I.m43 == 0 && I.m44 == 1);
+
+        Mat4 II = I * I;
+        assert(II == I);
+        
+        Mat4 IT = I.Transposed;
+        assert(IT == I);
+
+        Mat4 IInv = I.Inverse;
+        assert(IInv == I);
+
+        Mat4 Sm = I * 2;
+        assert(Sm.m11 == 2 && Sm.m22 == 2 && Sm.m33 == 2 && Sm.m44 == 2);
+
+        Mat4 Sd = Sm / 2;
+        assert(Sd.m11 == 1 && Sd.m22 == 1 && Sd.m33 == 1 && Sd.m44 == 1);
+
+        Mat4 R0 = Mat4.Rotation(0, 0, 0);
+        assert(R0.m11 == 1 && R0.m22 == 1 && R0.m33 == 1 && R0.m44 == 1);
+
+        Mat4 m0 = new Mat4{
+             1,  6,  3,  6,
+             0,  1,  4,  7,
+             5,  6,  0, -4,
+            -3,  7,  0,  1,
+        };
+
+        Mat4 m1 = new Mat4{
+            -2,  1,  0,  3,
+             3,  0,  5, -2,
+             4, -1,  2,  1,
+             0,  2, -3,  4
+        };
+        
+        Mat4 m2 = m0 + m1;
+        assert(m2.m11 == -1 && m2.m12 == 7 && m2.m13 == 3 && m2.m14 == 9);
+        assert(m2.m21 == 3  && m2.m22 == 1 && m2.m23 == 9 && m2.m24 == 5);
+        assert(m2.m31 == 9  && m2.m32 == 5 && m2.m33 == 2 && m2.m34 == -3);
+        assert(m2.m41 == -3 && m2.m42 == 9 && m2.m43 == -3 && m2.m44 == 5);
+
+        Mat4 m3 = m0 * m1;
+        assert(m3.m11 == (1 * -2 + 6 * 3 + 3 * 4 + 6 * 0));
+        assert(m3.m12 == (1 * 1 + 6 * 0 + 3 * -1 + 6 * 2));
+        assert(m3.m13 == (1 * 0 + 6 * 5 + 3 * 2 + 6 * -3));
+        assert(m3.m14 == (1 * 3 + 6 * -2 + 3 * 1 + 6 * 4));
+        assert(m3.m21 == (0 * -2 + 1 * 3 + 4 * 4 + 7 * 0));
+        assert(m3.m22 == (0 * 1 + 1 * 0 + 4 * -1 + 7 * 2));
+        assert(m3.m23 == (0 * 0 + 1 * 5 + 4 * 2 + 7 * -3));
+        assert(m3.m24 == (0 * 3 + 1 * -2 + 4 * 1 + 7 * 4));
+        assert(m3.m31 == (5 * -2 + 6 * 3 + 0 * 4 + -4 * 0));
+        assert(m3.m32 == (5 * 1 + 6 * 0 + 0 * -1 + -4 * 2));
+        assert(m3.m33 == (5 * 0 + 6 * 5 + 0 * 2 + -4 * -3));
+        assert(m3.m34 == (5 * 3 + 6 * -2 + 0 * 1 + -4 * 4));
+        assert(m3.m41 == (-3 * -2 + 7 * 3 + 0 * 4 + 1 * 0));
+        assert(m3.m42 == (-3 * 1 + 7 * 0 + 0 * -1 + 1 * 2));
+        assert(m3.m43 == (-3 * 0 + 7 * 5 + 0 * 2 + 1 * -3));
+        assert(m3.m44 == (-3 * 3 + 7 * -2 + 0 * 1 + 1 * 4));
+
+        Mat4 m4 = new Mat4{
+            -2,  1,  0,  3,
+             3,  0,  5, -2,
+             4, -1,  2,  1,
+             0,  2, -3,  4
+        };
+        assert(m1 == m4);
+
+        Mat4 m5 = new Mat4{
+            -2,  3,  4,  0,
+             1,  0, -1,  2,
+             0,  5,  2, -3,
+             3, -2,  1,  4
+        };
+        assert(m4.Transposed == m5);
+    }
+
+    void RunQuatTests()
+    {
+        Quat q0 = Quat.Zero;
+        Quat qi = Quat.Identity;
+        assert(q0.v.x == 0 && q0.v.y == 0 && q0.v.z == 0 && q0.w == 0);
+        assert(qi.v.x == 0 && qi.v.y == 0 && qi.v.z == 0 && qi.w == 1);
+
+        Quat qz = Quat.FromAngles(0, 0, 0);
+        assert(qz == qi);
+
+        Quat q = new Quat{ new Vec3{2, 0, 0}, 2 };
+        Quat qn = q.Normalized;
+        
+        num L = Math.Sqrt(qn.v.x * qn.v.x + qn.v.y * qn.v.y + qn.v.z * qn.v.z + qn.w * qn.w);
+        assert(AlmostEqual(L, 1));
+
+        Mat3 Rz = Mat3.Rotation(0, 0, 90);
+        Quat qz90 = Quat.FromAngles(0, 0, 90);
+        Mat3 Mq = qz90.ToMatrix();
+
+        assert(AlmostEqual(Mq.m11, Rz.m11));
+        assert(AlmostEqual(Mq.m12, Rz.m12));
+        assert(AlmostEqual(Mq.m21, Rz.m21));
+        assert(AlmostEqual(Mq.m22, Rz.m22));
+        assert(AlmostEqual(Mq.m33, 1));
+    }
+
+    void Run()
+    {
+        RunVec2Tests();
+        RunVec3Tests();
+        RunVec4Tests();
+        RunIVec2Tests();
+        RunIVec4Tests();
+        RunMat3Tests();
+        RunMat4Tests();
+        RunQuatTests();
+    }
+}

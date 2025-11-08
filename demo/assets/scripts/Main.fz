@@ -199,6 +199,7 @@ class App
 int main(string[] args)
 {
     RunAllTests();
+    MathTests.Run();
     App app = new App{};
     app.Run();
     return 0;
