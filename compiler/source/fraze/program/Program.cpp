@@ -1345,6 +1345,55 @@ void Program::Execute_Call(const Operation& op, Word*& stackTop, Word*& bp, size
     ip = info->codeStart;
 }
 
+void Program::Execute_CallVirtual(const Operation& op, Word*& stackTop, Word*& bp, size_t& ip)
+{
+    Word* top = stackTop; // starts at context pointer
+
+    const uint64_t interfaceFuncID = op.arg1_u64;
+    const uint64_t interfaceType = op.arg2_u64;
+
+    auto interfaceFuncInfo = typeInfo[interfaceFuncID]->ToFunctionInfo();
+    assert(interfaceFuncInfo);
+
+    Class* obj = top->GetClass();
+    size_t actualFuncID = obj->GetFunctionID(interfaceType, interfaceFuncInfo->offset);
+
+    auto info = typeInfo[actualFuncID]->ToFunctionInfo();
+    assert(info);
+
+    *(++top) = { bp };
+    bp = top + 1;
+    stackTop = top + info->localSize;
+    codePointers.push(ip);
+    ip = info->codeStart;
+}
+
+void Program::Execute_Return(const Operation& op, Word*& stackTop, Word*& bp, size_t& ip)
+{
+    const uint64_t argsSize = op.arg1_u64;
+    const uint64_t returnSize = op.arg2_u64;
+
+    Word* top = stackTop;
+
+    Word* returnStorageStart = bp - 2 - argsSize - returnSize;
+    Word* returnValueEnd = top + 1;
+    Word* returnValueStart = returnValueEnd - returnSize;
+
+    while(returnValueStart != returnValueEnd)
+    {
+        *(returnStorageStart++) = *(returnValueStart++);
+    }
+
+    top = bp - 1;
+    bp = (top--)->reference;
+
+    stackTop = top - 1 - argsSize;
+    ip = codePointers.pull();
+
+    if(ip != DONE_INSTR)
+        ++ip;
+}
+
 void Program::Execute_CallExternal(const Operation& op, Word*& stackTop, Word*& bp, size_t& ip)
 {
     auto info = typeInfo[op.arg1_u64]->ToFunctionInfo();
@@ -1410,29 +1459,6 @@ void Program::Execute_CallIntrinsic(const Operation& op, Word*& stackTop, Word*&
     ++ip;
 }
 
-void Program::Execute_CallVirtual(const Operation& op, Word*& stackTop, Word*& bp, size_t& ip)
-{
-    Word* top = stackTop; // starts at context pointer
-
-    const uint64_t interfaceFuncID = op.arg1_u64;
-    const uint64_t interfaceType = op.arg2_u64;
-
-    auto interfaceFuncInfo = typeInfo[interfaceFuncID]->ToFunctionInfo();
-    assert(interfaceFuncInfo);
-
-    Class* obj = top->GetClass();
-    size_t actualFuncID = obj->GetFunctionID(interfaceType, interfaceFuncInfo->offset);
-
-    auto info = typeInfo[actualFuncID]->ToFunctionInfo();
-    assert(info);
-
-    *(++top) = { bp };
-    bp = top + 1;
-    stackTop = top + info->localSize;
-    codePointers.push( ip );
-    ip = info->codeStart;
-}
-
 void Program::Execute_Jump(const Operation& op, Word*& stackTop, Word*& _, size_t& ip)
 {
     ip = op.arg1_u64;
@@ -1461,31 +1487,6 @@ void Program::Execute_Goto(const Operation& op, Word*& stackTop, Word*& _, size_
     ip = (stackTop--)->integer;
 }
 
-void Program::Execute_Return(const Operation& op, Word*& stackTop, Word*& bp, size_t& ip)
-{
-    const uint64_t argsSize = op.arg1_u64;
-    const uint64_t returnSize = op.arg2_u64;
-
-    Word* top = stackTop;
-
-    Word* returnStorageStart = bp - 2 - argsSize - returnSize;
-    Word* returnValueEnd = top + 1;
-    Word* returnValueStart = returnValueEnd - returnSize;
-
-    while(returnValueStart != returnValueEnd)
-    {
-        *(returnStorageStart++) = *(returnValueStart++);
-    }
-
-    top = bp - 1;
-    bp = (top--)->reference;
-
-    stackTop = top - 1 - argsSize;
-    ip = codePointers.pull();
-
-    if(ip != DONE_INSTR)
-        ++ip;
-}
 void Program::Execute_Assert(const Operation& op, Word*& stackTop, Word*& _, size_t& ip)
 {
     String* message = (stackTop--)->GetString();
