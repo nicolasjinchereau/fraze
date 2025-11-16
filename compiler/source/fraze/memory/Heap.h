@@ -20,6 +20,7 @@ namespace fraze {
 class Word;
 struct HeapObject;
 struct Page;
+class Program;
 
 struct PageInfo
 {
@@ -42,9 +43,9 @@ class Heap
     std::byte* maxAddress = nullptr;
 
     std::vector<std::span<std::byte>> ranges;
-    stack<Word>* pStack{};
     std::unordered_set<const std::byte*> pinned;
     uint8_t currentColor{};
+    Program* pProgram{};
 public:
     static constexpr size_t BlockSize = 16U;
     static constexpr size_t MinPageSize = 8 * 1024;
@@ -54,7 +55,8 @@ public:
     static_assert(MinPageSize >= BlockSize);
     static_assert(MinGrownPageSize >= MinPageSize);
 
-    Heap();
+    Heap(Program* pProgram);
+
     std::byte* Allocate(size_t size);
     void Collect();
     size_t TotalUsed() const;
@@ -63,7 +65,6 @@ public:
     void RemoveRange(std::byte* rangeStart);
     void PinMemory(const std::byte* p);
     void UnpinMemory(const std::byte* p);
-    void SetStack(stack<Word>* pStack);
 
 #if FRAZE_HEAP_DEBUG
     void SetLocation(SourceLocation* pLocation);

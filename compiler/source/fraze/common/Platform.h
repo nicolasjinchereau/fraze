@@ -5,7 +5,6 @@
 #pragma once
 
 #define FRAZE_INLINE __forceinline
-#define RESTRICT __restrict
 
 #define CONCAT_IMPL(x, y) x##y
 #define CONCAT(x, y) CONCAT_IMPL(x, y)
@@ -25,10 +24,8 @@
 #define FRAZE_OPTIMIZATION_OFF __pragma(optimize("", off))
 #define FRAZE_OPTIMIZATION_ON __pragma(optimize("", on))
 
-#if defined(_DEBUG) || !defined(NDEBUG)
-#  define FRAZE_DEBUG 1
-#  define FRAZE_RELEASE 0
+#ifndef NDEBUG
+#  define FRAZE_ASSERTS 1
 #else
-#  define FRAZE_DEBUG 0
-#  define FRAZE_RELEASE 1
+#  define FRAZE_ASSERTS 0
 #endif

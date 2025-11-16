@@ -368,13 +368,16 @@ void File_ReadAllTextAsync(Program* program, Class& task, const String& path)
 }
 
 // MATH
-void Intrinsic_Mat4Add(const Operation& op, Word*& RESTRICT stackTop, StackFrame* RESTRICT fp)
+void Intrinsic_Mat4Add(const Operation& op, Word* stackTop, Word* bp)
 {
-    Word* top = stackTop;
+    constexpr uint64_t wordSizeArg0 = 16;
+    constexpr uint64_t wordSizeArg1 = 16;
+    constexpr uint64_t wordSizeRet = 16;
+    constexpr uint64_t totalArgSize = wordSizeArg0 + wordSizeArg1;
 
-    Mat4& arg0 = *reinterpret_cast<Mat4*>(fp->start - 1 - 16);
-    Mat4& arg1 = *reinterpret_cast<Mat4*>(fp->start - 1 - 32);
-    Mat4* result = reinterpret_cast<Mat4*>(fp->start - 1 - fp->paramCount - fp->returnSize);
+    Mat4& arg0 = *reinterpret_cast<Mat4*>(bp - 2 - wordSizeArg0);
+    Mat4& arg1 = *reinterpret_cast<Mat4*>(bp - 2 - wordSizeArg0 - wordSizeArg1);
+    Mat4* result = reinterpret_cast<Mat4*>(bp - 2 - totalArgSize - wordSizeRet);
 
     result->m11 = arg0.m11 + arg1.m11;
     result->m12 = arg0.m12 + arg1.m12;
@@ -392,17 +395,19 @@ void Intrinsic_Mat4Add(const Operation& op, Word*& RESTRICT stackTop, StackFrame
     result->m42 = arg0.m42 + arg1.m42;
     result->m43 = arg0.m43 + arg1.m43;
     result->m44 = arg0.m44 + arg1.m44;
-
-    stackTop = (fp->start - 1 - fp->paramCount) - 1;
 }
 
-void Intrinsic_Mat4Sub(const Operation& op, Word*& RESTRICT stackTop, StackFrame* RESTRICT fp)
+void Intrinsic_Mat4Sub(const Operation& op, Word* stackTop, Word* bp)
 {
-    Word* top = stackTop;
+    constexpr uint64_t wordSizeArg0 = 16;
+    constexpr uint64_t wordSizeArg1 = 16;
+    constexpr uint64_t wordSizeRet = 16;
+    constexpr uint64_t totalArgSize = wordSizeArg0 + wordSizeArg1;
 
-    Mat4& arg0 = *reinterpret_cast<Mat4*>(fp->start - 1 - 16);
-    Mat4& arg1 = *reinterpret_cast<Mat4*>(fp->start - 1 - 32);
-    Mat4* result = reinterpret_cast<Mat4*>(fp->start - 1 - fp->paramCount - fp->returnSize);
+    Word* argsEnd = bp - 2;
+    Mat4& arg0 = *reinterpret_cast<Mat4*>(argsEnd - wordSizeArg0);
+    Mat4& arg1 = *reinterpret_cast<Mat4*>(argsEnd - wordSizeArg0 - wordSizeArg1);
+    Mat4* result = reinterpret_cast<Mat4*>(argsEnd - totalArgSize - wordSizeRet);
 
     result->m11 = arg0.m11 - arg1.m11;
     result->m12 = arg0.m12 - arg1.m12;
@@ -420,17 +425,19 @@ void Intrinsic_Mat4Sub(const Operation& op, Word*& RESTRICT stackTop, StackFrame
     result->m42 = arg0.m42 - arg1.m42;
     result->m43 = arg0.m43 - arg1.m43;
     result->m44 = arg0.m44 - arg1.m44;
-
-    stackTop = (fp->start - 1 - fp->paramCount) - 1;
 }
 
-void Intrinsic_Mat4Mul(const Operation& op, Word*& RESTRICT stackTop, StackFrame* RESTRICT fp)
+void Intrinsic_Mat4Mul(const Operation& op, Word* stackTop, Word* bp)
 {
-    Word* top = stackTop;
+    constexpr uint64_t wordSizeArg0 = 16;
+    constexpr uint64_t wordSizeArg1 = 16;
+    constexpr uint64_t wordSizeRet = 16;
+    constexpr uint64_t totalArgSize = wordSizeArg0 + wordSizeArg1;
 
-    Mat4& arg0 = *reinterpret_cast<Mat4*>(fp->start - 1 - 16);
-    Mat4& arg1 = *reinterpret_cast<Mat4*>(fp->start - 1 - 32);
-    Mat4* result = reinterpret_cast<Mat4*>(fp->start - 1 - fp->paramCount - fp->returnSize);
+    Word* argsEnd = bp - 2;
+    Mat4& arg0 = *reinterpret_cast<Mat4*>(argsEnd - wordSizeArg0);
+    Mat4& arg1 = *reinterpret_cast<Mat4*>(argsEnd - wordSizeArg0 - wordSizeArg1);
+    Mat4* result = reinterpret_cast<Mat4*>(argsEnd - totalArgSize - wordSizeRet);
 
     result->m11 = arg0.m11 * arg1.m11 + arg0.m12 * arg1.m21 + arg0.m13 * arg1.m31 + arg0.m14 * arg1.m41;
     result->m12 = arg0.m11 * arg1.m12 + arg0.m12 * arg1.m22 + arg0.m13 * arg1.m32 + arg0.m14 * arg1.m42;
@@ -451,17 +458,19 @@ void Intrinsic_Mat4Mul(const Operation& op, Word*& RESTRICT stackTop, StackFrame
     result->m42 = arg0.m41 * arg1.m12 + arg0.m42 * arg1.m22 + arg0.m43 * arg1.m32 + arg0.m44 * arg1.m42;
     result->m43 = arg0.m41 * arg1.m13 + arg0.m42 * arg1.m23 + arg0.m43 * arg1.m33 + arg0.m44 * arg1.m43;
     result->m44 = arg0.m41 * arg1.m14 + arg0.m42 * arg1.m24 + arg0.m43 * arg1.m34 + arg0.m44 * arg1.m44;
-
-    stackTop = (fp->start - 1 - fp->paramCount) - 1;
 }
 
-void Intrinsic_Mat4NumMul(const Operation& op, Word*& RESTRICT stackTop, StackFrame* RESTRICT fp)
+void Intrinsic_Mat4NumMul(const Operation& op, Word* stackTop, Word* bp)
 {
-    Word* top = stackTop;
+    constexpr uint64_t wordSizeArg0 = 16;
+    constexpr uint64_t wordSizeArg1 = 1;
+    constexpr uint64_t wordSizeRet = 16;
+    constexpr uint64_t totalArgSize = wordSizeArg0 + wordSizeArg1;
 
-    Mat4& arg0 = *reinterpret_cast<Mat4*>(fp->start - 1 - 16);
-    Number& arg1 = *reinterpret_cast<Number*>(fp->start - 1 - 16 - 1);
-    Mat4* result = reinterpret_cast<Mat4*>(fp->start - 1 - fp->paramCount - fp->returnSize);
+    Word* argsEnd = bp - 2;
+    Mat4& arg0 = *reinterpret_cast<Mat4*>(argsEnd - wordSizeArg0);
+    Number& arg1 = *reinterpret_cast<Number*>(argsEnd - wordSizeArg0 - wordSizeArg1);
+    Mat4* result = reinterpret_cast<Mat4*>(argsEnd - totalArgSize - wordSizeRet);
     
     result->m11 = arg0.m11 * arg1;
     result->m12 = arg0.m12 * arg1;
@@ -482,24 +491,24 @@ void Intrinsic_Mat4NumMul(const Operation& op, Word*& RESTRICT stackTop, StackFr
     result->m42 = arg0.m42 * arg1;
     result->m43 = arg0.m43 * arg1;
     result->m44 = arg0.m44 * arg1;
-
-    stackTop = (fp->start - 1 - fp->paramCount) - 1;
 }
 
-void Intrinsic_Vec4Mat4Mul(const Operation& op, Word*& RESTRICT stackTop, StackFrame* RESTRICT fp)
+void Intrinsic_Vec4Mat4Mul(const Operation& op, Word* stackTop, Word* bp)
 {
-    Word* top = stackTop;
+    constexpr uint64_t wordSizeArg0 = 4;
+    constexpr uint64_t wordSizeArg1 = 16;
+    constexpr uint64_t wordSizeRet = 4;
+    constexpr uint64_t totalArgSize = wordSizeArg0 + wordSizeArg1;
     
-    Vec4& arg0 = *reinterpret_cast<Vec4*>(fp->start - 1 - 4);
-    Mat4& arg1 = *reinterpret_cast<Mat4*>(fp->start - 1 - 4 - 16);
-    Vec4* result = reinterpret_cast<Vec4*>(fp->start - 1 - fp->paramCount - fp->returnSize);
+    Word* argsEnd = bp - 2;
+    Vec4& arg0 = *reinterpret_cast<Vec4*>(argsEnd - wordSizeArg0);
+    Mat4& arg1 = *reinterpret_cast<Mat4*>(argsEnd - wordSizeArg0 - wordSizeArg1);
+    Vec4* result = reinterpret_cast<Vec4*>(argsEnd - totalArgSize - wordSizeRet);
 
     result->x = arg0.x * arg1.m11 + arg0.y * arg1.m21 + arg0.z * arg1.m31 + arg0.w * arg1.m41;
     result->y = arg0.x * arg1.m12 + arg0.y * arg1.m22 + arg0.z * arg1.m32 + arg0.w * arg1.m42;
     result->z = arg0.x * arg1.m13 + arg0.y * arg1.m23 + arg0.z * arg1.m33 + arg0.w * arg1.m43;
     result->w = arg0.x * arg1.m14 + arg0.y * arg1.m24 + arg0.z * arg1.m34 + arg0.w * arg1.m44;
-
-    stackTop = (fp->start - 1 - fp->paramCount) - 1;
 }
 
 } // fraze

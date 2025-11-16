@@ -6,6 +6,7 @@
 #include <fraze/common/Extensions.h>
 #include <fraze/common/Object.h>
 #include <fraze/common/Platform.h>
+#include <fraze/program/Program.h>
 #include <print>
 
 namespace fraze {
@@ -157,8 +158,11 @@ HeapObject* Page::GetHeapObject(size_t blockIndex)
 
 // HEAP
 
-Heap::Heap()
+Heap::Heap(Program* pProgram)
+    : pProgram(pProgram)
 {
+    assert(pProgram);
+
     pages.reserve(32);
     sortedPageInfo.reserve(32);
 
@@ -344,11 +348,6 @@ void Heap::UnpinMemory(const std::byte* p) {
     pinned.erase(p);
 }
 
-void Heap::SetStack(stack<Word>* pStack) {
-    std::lock_guard<std::mutex> lk(mut);
-    this->pStack = pStack;
-}
-
 #if FRAZE_HEAP_DEBUG
 void Heap::SetLocation(SourceLocation* pLoc) {
     std::lock_guard<std::mutex> lk(mut);
@@ -380,12 +379,9 @@ void Heap::CollectInternal()
         ++currentColor;
 
     // globals are at the bottom of the stack
-    if(pStack && !pStack->empty())
-    {
-        std::byte* stackBegin = reinterpret_cast<std::byte*>(pStack->begin());
-        std::byte* stackEnd = reinterpret_cast<std::byte*>(pStack->end());
-        ScanRange({ stackBegin, stackEnd });
-    }
+    std::byte* stackBegin = reinterpret_cast<std::byte*>(pProgram->stack.data());
+    std::byte* stackEnd = reinterpret_cast<std::byte*>(pProgram->stackPointer + 1);
+    ScanRange({ stackBegin, stackEnd });
 
     for(auto& range : ranges)
     {

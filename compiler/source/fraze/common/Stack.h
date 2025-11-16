@@ -176,7 +176,7 @@ public:
         *(++_top) = std::move(val);
     }
 
-    FRAZE_INLINE void push(const T* RESTRICT src, std::size_t count)
+    FRAZE_INLINE void push(const T* src, std::size_t count)
     {
         assert(size() + count <= capacity() && "stack overflow");
         
@@ -210,16 +210,16 @@ public:
         _top -= count;
     }
 private:
-    T* RESTRICT _data;   // cache-line aligned base of storage
-    T* RESTRICT _top;    // points at last element, or (_data - 1) when empty
-    T* RESTRICT _cap;    // one past end of storage
+    T* _data;   // cache-line aligned base of storage
+    T* _top;    // points at last element, or (_data - 1) when empty
+    T* _cap;    // one past end of storage
 };
 
 
 template<class T>
 struct stack_facade
 {
-    T*& RESTRICT _top;
+    T*& _top;
 
     FRAZE_INLINE stack_facade(/* T* data, */ T*& top)
         : _top(top){}
@@ -256,7 +256,7 @@ struct stack_facade
         *(++_top) = std::move(val);
     }
 
-    FRAZE_INLINE void push(const T* RESTRICT src, std::size_t count) noexcept
+    FRAZE_INLINE void push(const T* src, std::size_t count) noexcept
     {
         T* dest = _top + 1;
 

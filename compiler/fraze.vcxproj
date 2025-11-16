@@ -97,6 +97,7 @@
     <ClInclude Include="source\fraze\ast\stmt\WhileStatement.h" />
     <ClInclude Include="source\fraze\ast\type\Type.h" />
     <ClInclude Include="source\fraze\ast\type\TypeSpecifier.h" />
+    <ClInclude Include="source\fraze\common\DynamicArray.h" />
     <ClInclude Include="source\fraze\common\Exception.h" />
     <ClInclude Include="source\fraze\common\Extensions.h" />
     <ClInclude Include="source\fraze\common\ExternalFunction.h" />
@@ -119,6 +120,7 @@
     <ClInclude Include="source\fraze\memory\ScopedAllocator.h" />
     <ClInclude Include="source\fraze\program\Dispatcher.h" />
     <ClInclude Include="source\fraze\program\OpCode.h" />
+    <ClInclude Include="source\fraze\program\Operation.h" />
     <ClInclude Include="source\fraze\program\Program.h" />
     <ClInclude Include="source\fraze\program\TypeInfo.h" />
   </ItemGroup>

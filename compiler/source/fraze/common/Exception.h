@@ -99,11 +99,11 @@ do {                                                                        \
 } while(false)
 
 #ifndef NDEBUG
-#  define ENFORCE_DBG ENFORCE
-#  define DEBUG_BREAK_DBG DEBUG_BREAK
+#  define ENFORCE_DBG(...) ENFORCE(__VA_ARGS__)
+#  define DEBUG_BREAK_DBG() DEBUG_BREAK()
 #else
-#  define ENFORCE_DBG
-#  define DEBUG_BREAK_DBG
+#  define ENFORCE_DBG(...) ((void)0)
+#  define DEBUG_BREAK_DBG() ((void)0)
 #endif
 
 template<class... Args>

@@ -7,7 +7,8 @@
 #include <unordered_map>
 #include <string>
 
-namespace fraze {
+namespace fraze
+{
 
 enum class OpCode : uint8_t
 {
@@ -150,11 +151,8 @@ enum class OpCode : uint8_t
     ConvObjToType,
     ConvRefToStruct,
 
-    // arg is the WordType
-    Box,
-
-    // arg is the WordType
-    Unbox,
+    Box, // arg is the WordType
+    Unbox, // arg is the WordType
 
     // concatenate two strings
     StringConcat,
@@ -163,42 +161,27 @@ enum class OpCode : uint8_t
     Dup,
     DupN,
 
-    // calls function id on top of stack
-    Call,
+    Call, // calls function id on top of stack
+    CallVirtual, // stack top is interface function id and arg is interface id
+    Return, // Pop ip
 
     // calls external function id on top of stack
     CallExternal,
     CallIntrinsic,
-
-    // stack top is interface function id and arg is interface id
-    CallVirtual,
-
-    // jump to code[arg]
-    Jump,
-
-    // jump to code[arg] if stack[top] is true and pop stack
-    JumpIf,
-
-    // jump to code[arg] if stack[top] is false and pop stack
-    JumpIfNot,
+    
+    Jump, // jump to code[arg]
+    JumpIf, // jump to code[arg] if stack[top] is true and pop stack
+    JumpIfNot, // jump to code[arg] if stack[top] is false and pop stack
 
     // jump to stack[top]
     Goto,
 
-    // Pop ip
-    Return,
-
     // if stack[top] is false, terminate with message at stack[top]
     Assert,
-
-    // if stack[top] is null, terminate with null reference error
-    NullCheck,
-
-    // if stack[top] is less than 0 or greater than stack[top - 1].Count, terminate with index range error
-    BoundsCheck,
-
-    // if the object at stack[top] is not of the word type at stack[top - 1], terminate with type error
-    ObjectTypeCheck,
+    
+    NullCheck, // if stack[top] is null, terminate with null reference error
+    BoundsCheck, // if stack[top] is less than 0 or greater than stack[top - 1].Count, terminate with index range error
+    ObjectTypeCheck, // if the object at stack[top] is not of the word type at stack[top - 1], terminate with type error
 
     // number of enum members
     COUNT,

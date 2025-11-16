@@ -123,6 +123,6 @@ private:
     }
 };
 
-using IntrinsicFunction = void (*)(const Operation& op, Word*& RESTRICT stackTop, StackFrame* RESTRICT fp);
+using IntrinsicFunction = void (*)(const Operation& op, Word* stackTop, Word* bp);
 
 } // fraze

@@ -398,10 +398,10 @@ private:
                 }
 
                 // param offset and size
-                std::vector<std::pair<int, int>> params;
+                std::vector<ParamInfo> params;
                 for(const auto& param : func->GetChildren<ParameterDefinition>())
                 {
-                    params.push_back({ (int)param->offset, (int)param->size });
+                    params.push_back({ (uint32_t)param->offset, (uint32_t)param->size });
                 }
 
                 int intrinsicID = -1;
@@ -1692,13 +1692,21 @@ void CodeGenerator::Visit(const sptr<AwaitExpression>& node)
     Emit(node->loc, OpCode::PushField, awaited->offset, 1);
     Emit(node->loc, OpCode::CallVirtual, setAwaiterFuncID, awaitableInterfaceID);
 
+    size_t paramSize = 0;
+    size_t returnSize = 1;
+    if(auto func = node->scope->owner->ToFunctionDefinition())
+    {
+        paramSize = func->paramSize;
+        returnSize = typeInfo[func->type]->ToFunctionInfo()->returnSize;
+    }
+
     // store the resume location in $position and return
     size_t resumeLocation = program->code.size();
     Emit(node->loc, OpCode::PushInteger, -1);
     Emit(node->loc, OpCode::PushContext);
     Emit(node->loc, OpCode::PopField, node->context->targetDef->GetVariable("$position")->offset, 1);
     Emit(node->loc, OpCode::PushNull);
-    Emit(node->loc, OpCode::Return);
+    Emit(node->loc, OpCode::Return, paramSize, returnSize);
     program->code[resumeLocation].arg1_u64 = program->code.size();
     
     // push $awaited.GetValue()
@@ -2166,6 +2174,14 @@ void CodeGenerator::Visit(const sptr<IfStatement>& node)
 
 void CodeGenerator::Visit(const sptr<ReturnStatement>& node)
 {
+    size_t paramSize = 0;
+    size_t returnSize = 1;
+    if(auto func = node->enclosingScope->owner->ToFunctionDefinition())
+    {
+        paramSize = func->paramSize;
+        returnSize = typeInfo[func->type]->ToFunctionInfo()->returnSize;
+    }
+
     if(node->context)
     {
         auto awaitableType = Type::Get("Awaitable");
@@ -2199,7 +2215,7 @@ void CodeGenerator::Visit(const sptr<ReturnStatement>& node)
 
         // done!
         Emit(node->loc, OpCode::PushNull);
-        Emit(node->loc, OpCode::Return);
+        Emit(node->loc, OpCode::Return, paramSize, returnSize);
     }
     else
     {
@@ -2208,7 +2224,7 @@ void CodeGenerator::Visit(const sptr<ReturnStatement>& node)
         else
             Emit(node->loc, OpCode::PushNull);
 
-        Emit(node->loc, OpCode::Return);
+        Emit(node->loc, OpCode::Return, paramSize, returnSize);
     }
 }
 

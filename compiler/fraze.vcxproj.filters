@@ -344,6 +344,12 @@
     <ClInclude Include="source\fraze\compiler\NativeFunctions.h">
       <Filter>source\fraze\compiler</Filter>
     </ClInclude>
+    <ClInclude Include="source\fraze\program\Operation.h">
+      <Filter>source\fraze\program</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\common\DynamicArray.h">
+      <Filter>source\fraze\common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="natvis\fraze.natvis">
