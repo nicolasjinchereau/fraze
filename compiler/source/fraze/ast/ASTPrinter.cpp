@@ -176,9 +176,9 @@ void ASTPrinter::Visit(const sptr<EmitExpression>& node)
     stream << GetPreamble(node->loc) << "EmitExpression ";
 
     size_t i = 0;
-    for(auto& instr : node->code) {
+    for(auto& emission : node->emissions) {
         if(i++ > 0) std::cout << ", ";
-        stream << "{ " << OpCodeNames[instr.code] << ", " << instr.arg1_u64 << " }";
+        stream << "{ " << OpCodeNames[emission.op.code] << ", " << emission.op.arg1_u64 << " }";
     }
 
     stream << std::endl;

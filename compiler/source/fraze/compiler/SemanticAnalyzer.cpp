@@ -1897,7 +1897,10 @@ void SemanticAnalyzer::Visit(const sptr<IdentifierExpression>& node)
                 {
                     auto expectedType = spnew<TypeSpecifier>(node->loc, node->scope, shared_string("int"));
                     auto emitExpr = spnew<EmitExpression>(node->loc, node->scope, expectedType, node->context,
-                        std::vector<Operation>{ Operation(node->context->loc, OpCode::NullCheck), Operation(node->loc, OpCode::PushCount)  });
+                        std::vector<Emission>{
+                            Emission{ node->context->loc, Operation(OpCode::NullCheck) },
+                            Emission{ node->loc, Operation(OpCode::PushCount) }
+                        });
                     VisitChild(emitExpr);
                     replacement = emitExpr;
                     return;
@@ -1906,7 +1909,10 @@ void SemanticAnalyzer::Visit(const sptr<IdentifierExpression>& node)
                 {
                     auto expectedType = spnew<TypeSpecifier>(node->loc, node->scope, shared_string("int"));
                     auto emitExpr = spnew<EmitExpression>(node->loc, node->scope, expectedType, node->context,
-                        std::vector<Operation>{ Operation(node->context->loc, OpCode::NullCheck), Operation(node->loc, OpCode::PushSize) });
+                        std::vector<Emission>{
+                            Emission{ node->context->loc, Operation(OpCode::NullCheck) },
+                            Emission{ node->loc, Operation(OpCode::PushSize) }
+                        });
                     VisitChild(emitExpr);
                     replacement = emitExpr;
                     return;

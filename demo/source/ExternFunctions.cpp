@@ -368,16 +368,17 @@ void File_ReadAllTextAsync(Program* program, Class& task, const String& path)
 }
 
 // MATH
-void Intrinsic_Mat4Add(const Operation& op, Word* stackTop, Word* bp)
+void Intrinsic_Mat4Add(const Operation& op, Word* rsp, Word* rbp)
 {
     constexpr uint64_t wordSizeArg0 = 16;
     constexpr uint64_t wordSizeArg1 = 16;
     constexpr uint64_t wordSizeRet = 16;
     constexpr uint64_t totalArgSize = wordSizeArg0 + wordSizeArg1;
 
-    Mat4& arg0 = *reinterpret_cast<Mat4*>(bp - 2 - wordSizeArg0);
-    Mat4& arg1 = *reinterpret_cast<Mat4*>(bp - 2 - wordSizeArg0 - wordSizeArg1);
-    Mat4* result = reinterpret_cast<Mat4*>(bp - 2 - totalArgSize - wordSizeRet);
+    Word* argsEnd = rbp - 3;
+    Mat4& arg0 = *reinterpret_cast<Mat4*>(argsEnd - wordSizeArg0);
+    Mat4& arg1 = *reinterpret_cast<Mat4*>(argsEnd - wordSizeArg0 - wordSizeArg1);
+    Mat4* result = reinterpret_cast<Mat4*>(argsEnd - totalArgSize - wordSizeRet);
 
     result->m11 = arg0.m11 + arg1.m11;
     result->m12 = arg0.m12 + arg1.m12;
@@ -397,14 +398,14 @@ void Intrinsic_Mat4Add(const Operation& op, Word* stackTop, Word* bp)
     result->m44 = arg0.m44 + arg1.m44;
 }
 
-void Intrinsic_Mat4Sub(const Operation& op, Word* stackTop, Word* bp)
+void Intrinsic_Mat4Sub(const Operation& op, Word* rsp, Word* rbp)
 {
     constexpr uint64_t wordSizeArg0 = 16;
     constexpr uint64_t wordSizeArg1 = 16;
     constexpr uint64_t wordSizeRet = 16;
     constexpr uint64_t totalArgSize = wordSizeArg0 + wordSizeArg1;
 
-    Word* argsEnd = bp - 2;
+    Word* argsEnd = rbp - 3;
     Mat4& arg0 = *reinterpret_cast<Mat4*>(argsEnd - wordSizeArg0);
     Mat4& arg1 = *reinterpret_cast<Mat4*>(argsEnd - wordSizeArg0 - wordSizeArg1);
     Mat4* result = reinterpret_cast<Mat4*>(argsEnd - totalArgSize - wordSizeRet);
@@ -427,14 +428,14 @@ void Intrinsic_Mat4Sub(const Operation& op, Word* stackTop, Word* bp)
     result->m44 = arg0.m44 - arg1.m44;
 }
 
-void Intrinsic_Mat4Mul(const Operation& op, Word* stackTop, Word* bp)
+void Intrinsic_Mat4Mul(const Operation& op, Word* rsp, Word* rbp)
 {
     constexpr uint64_t wordSizeArg0 = 16;
     constexpr uint64_t wordSizeArg1 = 16;
     constexpr uint64_t wordSizeRet = 16;
     constexpr uint64_t totalArgSize = wordSizeArg0 + wordSizeArg1;
 
-    Word* argsEnd = bp - 2;
+    Word* argsEnd = rbp - 3;
     Mat4& arg0 = *reinterpret_cast<Mat4*>(argsEnd - wordSizeArg0);
     Mat4& arg1 = *reinterpret_cast<Mat4*>(argsEnd - wordSizeArg0 - wordSizeArg1);
     Mat4* result = reinterpret_cast<Mat4*>(argsEnd - totalArgSize - wordSizeRet);
@@ -460,14 +461,14 @@ void Intrinsic_Mat4Mul(const Operation& op, Word* stackTop, Word* bp)
     result->m44 = arg0.m41 * arg1.m14 + arg0.m42 * arg1.m24 + arg0.m43 * arg1.m34 + arg0.m44 * arg1.m44;
 }
 
-void Intrinsic_Mat4NumMul(const Operation& op, Word* stackTop, Word* bp)
+void Intrinsic_Mat4NumMul(const Operation& op, Word* rsp, Word* rbp)
 {
     constexpr uint64_t wordSizeArg0 = 16;
     constexpr uint64_t wordSizeArg1 = 1;
     constexpr uint64_t wordSizeRet = 16;
     constexpr uint64_t totalArgSize = wordSizeArg0 + wordSizeArg1;
 
-    Word* argsEnd = bp - 2;
+    Word* argsEnd = rbp - 3;
     Mat4& arg0 = *reinterpret_cast<Mat4*>(argsEnd - wordSizeArg0);
     Number& arg1 = *reinterpret_cast<Number*>(argsEnd - wordSizeArg0 - wordSizeArg1);
     Mat4* result = reinterpret_cast<Mat4*>(argsEnd - totalArgSize - wordSizeRet);
@@ -493,14 +494,14 @@ void Intrinsic_Mat4NumMul(const Operation& op, Word* stackTop, Word* bp)
     result->m44 = arg0.m44 * arg1;
 }
 
-void Intrinsic_Vec4Mat4Mul(const Operation& op, Word* stackTop, Word* bp)
+void Intrinsic_Vec4Mat4Mul(const Operation& op, Word* rsp, Word* rbp)
 {
     constexpr uint64_t wordSizeArg0 = 4;
     constexpr uint64_t wordSizeArg1 = 16;
     constexpr uint64_t wordSizeRet = 4;
     constexpr uint64_t totalArgSize = wordSizeArg0 + wordSizeArg1;
     
-    Word* argsEnd = bp - 2;
+    Word* argsEnd = rbp - 3;
     Vec4& arg0 = *reinterpret_cast<Vec4*>(argsEnd - wordSizeArg0);
     Mat4& arg1 = *reinterpret_cast<Mat4*>(argsEnd - wordSizeArg0 - wordSizeArg1);
     Vec4* result = reinterpret_cast<Vec4*>(argsEnd - totalArgSize - wordSizeRet);

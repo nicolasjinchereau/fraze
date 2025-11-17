@@ -254,7 +254,7 @@ sptr<Program> Compiler::Compile()
                     if(currentFunction)
                     {
                         for(size_t opCount = 0;
-                            opCodeIndex < currentFunction->codeEnd && program->code[opCodeIndex].loc.line <= lineNum;
+                            opCodeIndex < currentFunction->codeEnd && program->locations[opCodeIndex].line <= lineNum;
                             ++opCodeIndex)
                         {
                             if(opCount++ > 0)

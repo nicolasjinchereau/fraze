@@ -380,7 +380,7 @@ void Heap::CollectInternal()
 
     // globals are at the bottom of the stack
     std::byte* stackBegin = reinterpret_cast<std::byte*>(pProgram->stack.data());
-    std::byte* stackEnd = reinterpret_cast<std::byte*>(pProgram->stackPointer + 1);
+    std::byte* stackEnd = reinterpret_cast<std::byte*>(pProgram->rsp + 1);
     ScanRange({ stackBegin, stackEnd });
 
     for(auto& range : ranges)

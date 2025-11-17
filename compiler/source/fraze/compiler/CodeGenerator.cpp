@@ -1339,12 +1339,12 @@ void CodeGenerator::Visit(const sptr<CallExpression>& node)
                 }
                 else if(funcInfo->intrinsicID != -1)
                 {
-                    Operation op(node->loc, OpCode::CallIntrinsic);
+                    Operation op(OpCode::CallIntrinsic);
                     op.arg1_u32a = (uint32_t)funcInfo->id;
                     op.arg1_u32b = (uint32_t)funcInfo->intrinsicID;
                     op.arg2_u32a = funcInfo->returnSize;
                     op.arg2_u32b = funcInfo->paramSize;
-                    Emit(op);
+                    Emit(node->loc, op);
                 }
                 else
                 {
@@ -1437,9 +1437,10 @@ void CodeGenerator::Visit(const sptr<EmitExpression>& node)
 {
     VisitChild(node->context);
 
-    for(auto& operation : node->code)
+    for(auto& emission : node->emissions)
     {
-        program->code.push_back(operation);
+        program->locations.push_back(emission.loc);
+        program->code.push_back(emission.op);
     }
 }
 
@@ -2075,7 +2076,7 @@ void CodeGenerator::Visit(const sptr<ExpressionStatement>& node)
 {
     if(auto emitExpr = node->expression->ToEmitExpression())
     {
-        if(emitExpr->code.size() == 1 && emitExpr->code.back().code == OpCode::NoOp)
+        if(emitExpr->emissions.size() == 1 && emitExpr->emissions.back().op.code == OpCode::NoOp)
         {
             VisitChild(node->expression);
             return;

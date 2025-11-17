@@ -130,6 +130,12 @@ public:
     Word(const Word& obj) = default;
     Word& operator=(const Word& obj) = default;
 
+    static Word Raw(uint64_t value) {
+        Word ret;
+        ret.storage = value;
+        return ret;
+    }
+
     void Set(std::nullptr_t) { object = nullptr; }
     void Set(Boolean value) { storage = static_cast<uint64_t>(value); }
     void Set(Integer value) { integer = value; }

@@ -34,10 +34,8 @@ struct Operation
         const char* arg2_cstr;
     };
 
-    SourceLocation loc;
-
-    Operation(const SourceLocation& loc, OpCode op, auto arg1, auto arg2)
-        : code(op), loc(loc)
+    Operation(OpCode op, auto arg1, auto arg2)
+        : code(op)
     {
         if constexpr(std::is_floating_point_v<decltype(arg1)>)
             arg1_f64 = arg1;
@@ -62,13 +60,13 @@ struct Operation
             static_assert(0);
     }
 
-    Operation(const SourceLocation& loc, OpCode op, auto arg1)
-        : Operation(loc, op, arg1, 0ull)
+    Operation(OpCode op, auto arg1)
+        : Operation(op, arg1, 0ull)
     {
     }
 
-    Operation(const SourceLocation& loc, OpCode op)
-        : Operation(loc, op, 0ull, 0ull)
+    Operation(OpCode op)
+        : Operation(op, 0ull, 0ull)
     {
     }
 };

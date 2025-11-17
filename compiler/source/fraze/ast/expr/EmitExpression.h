@@ -7,34 +7,40 @@
 
 namespace fraze {
 
+struct Emission
+{
+    SourceLocation loc;
+    Operation op;
+};
+
 class EmitExpression : public Expression
 {
 public:
     sptr<TypeSpecifier> expectedType;
     sptr<Expression> context;
-    std::vector<Operation> code;
+    std::vector<Emission> emissions;
 
     EmitExpression(
         const SourceLocation& loc,
         Scope* scope,
         const sptr<TypeSpecifier>& expectedType,
         const sptr<Expression>& context,
-        const Operation& operation)
+        const Emission& emission)
         : Expression(loc, scope)
         , expectedType(expectedType)
         , context(context)
-        , code({ operation })
+        , emissions({ emission })
     {
     }
 
     EmitExpression(
         const SourceLocation& loc,
         Scope* scope,
-        const Operation& operation)
+        const Emission& emission)
         : Expression(loc, scope)
         , expectedType(spnew<TypeSpecifier>(loc, Type::Get("void")))
         , context(nullptr)
-        , code({ operation })
+        , emissions({ emission })
     {
     }
 
@@ -43,11 +49,11 @@ public:
         Scope* scope,
         const sptr<TypeSpecifier>& expectedType,
         const sptr<Expression>& context,
-        const std::vector<Operation>& code)
+        const std::vector<Emission>& emissions)
         : Expression(loc, scope)
         , expectedType(expectedType)
         , context(context)
-        , code(code)
+        , emissions(emissions)
     {
     }
 
@@ -58,7 +64,7 @@ public:
                 scopes.GetCurrent(),
                 expectedType->Clone(scopes, nullptr)->ToTypeSpecifier(),
                 context ? context->Clone(scopes, nullptr)->ToExpression() : decltype(context){},
-                code);
+                emissions);
 
         copy->isContext = isContext;
 

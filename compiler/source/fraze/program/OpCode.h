@@ -21,12 +21,12 @@ enum class OpCode : uint8_t
     // Push STACK[frameStart - paramCount - 1] onto stack
     PushContext,
 
-    // Push STACK[bp + arg] onto stack
+    // Push STACK[rbp + arg] onto stack
     PushLocal,
     PushLocalN,
     PushLocalAddr,
 
-    // Pop stack into STACK[bp + arg]
+    // Pop stack into STACK[rbp + arg]
     PopLocal,
     PopLocalN,
 
@@ -163,7 +163,7 @@ enum class OpCode : uint8_t
 
     Call, // calls function id on top of stack
     CallVirtual, // stack top is interface function id and arg is interface id
-    Return, // Pop ip
+    Return, // Pop rip
 
     // calls external function id on top of stack
     CallExternal,

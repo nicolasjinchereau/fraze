@@ -28,20 +28,24 @@ public:
     size_t Emit(Number data);
     size_t Emit(String* data);
 
-    void Emit(const Operation& op) {
+    void Emit(const SourceLocation& loc, const Operation& op) {
+        program->locations.push_back(loc);
         program->code.push_back(op);
     }
 
     void Emit(const SourceLocation& loc, OpCode op) {
-        program->code.push_back(Operation(loc, op, 0ull, 0ull));
+        program->locations.push_back(loc);
+        program->code.push_back(Operation(op, 0ull, 0ull));
     }
 
     void Emit(const SourceLocation& loc, OpCode op, auto arg1) {
-        program->code.push_back(Operation(loc, op, arg1, 0ull));
+        program->locations.push_back(loc);
+        program->code.push_back(Operation(op, arg1, 0ull));
     }
 
     void Emit(const SourceLocation& loc, OpCode op, auto arg1, auto arg2) {
-        program->code.push_back(Operation(loc, op, arg1, arg2));
+        program->locations.push_back(loc);
+        program->code.push_back(Operation(op, arg1, arg2));
     }
 
     void PopExpression(const sptr<Expression>& node, const sptr<Expression>& source);
