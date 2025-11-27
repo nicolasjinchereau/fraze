@@ -202,13 +202,13 @@
     <LibraryPath>.\third_party\zlib\lib\$(PlatformName)\$(Configuration);.\third_party\libpng\lib\$(PlatformName)\$(Configuration);.\third_party\assimp\lib\$(PlatformName)\$(Configuration);$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>include;source;..\third_party\utfcpp;$(IncludePath)</IncludePath>
+    <IncludePath>include;source;..\third_party\utfcpp;..\third_party\mir;$(IncludePath)</IncludePath>
     <EnableMicrosoftCodeAnalysis>false</EnableMicrosoftCodeAnalysis>
     <IntDir>$(ProjectDir)obj\$(Platform)\$(Configuration)\</IntDir>
     <OutDir>$(ProjectDir)lib\$(Platform)\$(Configuration)\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>include;source;..\third_party\utfcpp;$(IncludePath)</IncludePath>
+    <IncludePath>include;source;..\third_party\utfcpp;..\third_party\mir;$(IncludePath)</IncludePath>
     <EnableMicrosoftCodeAnalysis>false</EnableMicrosoftCodeAnalysis>
     <IntDir>$(ProjectDir)obj\$(Platform)\$(Configuration)\</IntDir>
     <OutDir>$(ProjectDir)lib\$(Platform)\$(Configuration)\</OutDir>

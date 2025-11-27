@@ -20,7 +20,7 @@ int main(int argc, char** argv)
         AddExternFunctions(compiler);
         
 #if !FRAZE_ASSERTS
-        //compiler.DisableAssert().DisableNullCheck().DisableBoundsCheck().DisableTypeCheck();
+        compiler.DisableAssert().DisableNullCheck().DisableBoundsCheck().DisableTypeCheck();
 #endif
 
         auto program = compiler.Compile();

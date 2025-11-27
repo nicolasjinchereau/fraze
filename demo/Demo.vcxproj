@@ -144,13 +144,13 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <IntDir>$(ProjectDir)obj\$(Platform)\$(Configuration)\</IntDir>
-    <LibraryPath>..\compiler\lib\$(Platform)\$(Configuration);..\third_party\zlib\lib\$(PlatformName)\$(Configuration);..\third_party\libpng\lib\$(PlatformName)\$(Configuration);..\third_party\assimp\lib\$(PlatformName)\$(Configuration);$(LibraryPath)</LibraryPath>
+    <LibraryPath>..\compiler\lib\$(Platform)\$(Configuration);..\third_party\zlib\lib\$(Platform)\$(Configuration);..\third_party\libpng\lib\$(Platform)\$(Configuration);..\third_party\assimp\lib\$(Platform)\$(Configuration);..\third_party\mir\lib\$(Platform)\$(Configuration);$(LibraryPath)</LibraryPath>
     <OutDir>$(ProjectDir)bin\$(Platform)\$(Configuration)\</OutDir>
     <IncludePath>..\compiler\source;.\source;..\third_party\libpng\source;..\third_party\assimp\include;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <IntDir>$(ProjectDir)obj\$(Platform)\$(Configuration)\</IntDir>
-    <LibraryPath>..\compiler\lib\$(Platform)\$(Configuration);..\third_party\zlib\lib\$(PlatformName)\$(Configuration);..\third_party\libpng\lib\$(PlatformName)\$(Configuration);..\third_party\assimp\lib\$(PlatformName)\$(Configuration);$(LibraryPath)</LibraryPath>
+    <LibraryPath>..\compiler\lib\$(Platform)\$(Configuration);..\third_party\zlib\lib\$(Platform)\$(Configuration);..\third_party\libpng\lib\$(Platform)\$(Configuration);..\third_party\assimp\lib\$(Platform)\$(Configuration);..\third_party\mir\lib\$(Platform)\$(Configuration);$(LibraryPath)</LibraryPath>
     <OutDir>$(ProjectDir)bin\$(Platform)\$(Configuration)\</OutDir>
     <IncludePath>..\compiler\source;.\source;..\third_party\libpng\source;..\third_party\assimp\include;$(IncludePath)</IncludePath>
   </PropertyGroup>
@@ -196,7 +196,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>d3dcompiler.lib;D3D11.lib;dxguid.lib;png.lib;zlib.lib;assimp.lib;fraze.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>d3dcompiler.lib;D3D11.lib;dxguid.lib;png.lib;zlib.lib;assimp.lib;mir.lib;fraze.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -215,7 +215,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>d3dcompiler.lib;D3D11.lib;dxguid.lib;png.lib;zlib.lib;assimp.lib;fraze.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>d3dcompiler.lib;D3D11.lib;dxguid.lib;png.lib;zlib.lib;assimp.lib;mir.lib;fraze.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
