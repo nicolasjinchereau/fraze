@@ -1478,9 +1478,7 @@ void Program::Execute_CallIntrinsic(const Operation& op)
     *(++top) = { rbp };
     rbp = top + 1;
 
-    // commit the changes here in case native calls back into the VM
-    rsp = top;
-    intrinsics[intrinsicID](op, top, rbp);
+    intrinsics[intrinsicID](rbp);
 
     top = rbp - 1;
     rbp = (top--)->reference;

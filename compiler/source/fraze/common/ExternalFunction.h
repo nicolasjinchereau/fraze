@@ -17,9 +17,6 @@ namespace fraze {
 
 class Program;
 
-struct Operation;
-struct StackFrame;
-
 template<typename... Args>
 concept FirstArgIsProgram = requires
 {
@@ -123,6 +120,6 @@ private:
     }
 };
 
-using IntrinsicFunction = void (*)(const Operation& op, Word* rsp, Word* rbp);
+using IntrinsicFunction = void (*)(Word* basePointer);
 
 } // fraze

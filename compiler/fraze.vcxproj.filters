@@ -96,6 +96,9 @@
     <ClCompile Include="source\fraze\compiler\Lexer.cpp">
       <Filter>source\fraze\compiler</Filter>
     </ClCompile>
+    <ClCompile Include="source\fraze\compiler\RuntimeTypeInfo.cpp">
+      <Filter>source\fraze\compiler</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="source\fraze\ast\ASTNode.h">
@@ -349,6 +352,9 @@
     </ClInclude>
     <ClInclude Include="source\fraze\common\DynamicArray.h">
       <Filter>source\fraze\common</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\compiler\RuntimeTypeInfo.h">
+      <Filter>source\fraze\compiler</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

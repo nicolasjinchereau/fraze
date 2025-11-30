@@ -368,7 +368,7 @@ void File_ReadAllTextAsync(Program* program, Class& task, const String& path)
 }
 
 // MATH
-void Intrinsic_Mat4Add(const Operation& op, Word* rsp, Word* rbp)
+void Intrinsic_Mat4Add(Word* rbp)
 {
     constexpr uint64_t wordSizeArg0 = 16;
     constexpr uint64_t wordSizeArg1 = 16;
@@ -398,7 +398,7 @@ void Intrinsic_Mat4Add(const Operation& op, Word* rsp, Word* rbp)
     result->m44 = arg0.m44 + arg1.m44;
 }
 
-void Intrinsic_Mat4Sub(const Operation& op, Word* rsp, Word* rbp)
+void Intrinsic_Mat4Sub(Word* rbp)
 {
     constexpr uint64_t wordSizeArg0 = 16;
     constexpr uint64_t wordSizeArg1 = 16;
@@ -428,7 +428,7 @@ void Intrinsic_Mat4Sub(const Operation& op, Word* rsp, Word* rbp)
     result->m44 = arg0.m44 - arg1.m44;
 }
 
-void Intrinsic_Mat4Mul(const Operation& op, Word* rsp, Word* rbp)
+void Intrinsic_Mat4Mul(Word* rbp)
 {
     constexpr uint64_t wordSizeArg0 = 16;
     constexpr uint64_t wordSizeArg1 = 16;
@@ -461,7 +461,7 @@ void Intrinsic_Mat4Mul(const Operation& op, Word* rsp, Word* rbp)
     result->m44 = arg0.m41 * arg1.m14 + arg0.m42 * arg1.m24 + arg0.m43 * arg1.m34 + arg0.m44 * arg1.m44;
 }
 
-void Intrinsic_Mat4NumMul(const Operation& op, Word* rsp, Word* rbp)
+void Intrinsic_Mat4NumMul(Word* rbp)
 {
     constexpr uint64_t wordSizeArg0 = 16;
     constexpr uint64_t wordSizeArg1 = 1;
@@ -494,7 +494,7 @@ void Intrinsic_Mat4NumMul(const Operation& op, Word* rsp, Word* rbp)
     result->m44 = arg0.m44 * arg1;
 }
 
-void Intrinsic_Vec4Mat4Mul(const Operation& op, Word* rsp, Word* rbp)
+void Intrinsic_Vec4Mat4Mul(Word* rbp)
 {
     constexpr uint64_t wordSizeArg0 = 4;
     constexpr uint64_t wordSizeArg1 = 16;
