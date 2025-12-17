@@ -24,10 +24,6 @@ Array<>::Array(const ArrayInfo* info, size_t length)
     std::uninitialized_default_construct_n(p, length);
 }
 
-Array<>::~Array() {
-    std::destroy_n(&GetWord(0), length);
-}
-
 size_t Array<>::GetSize() const {
     return length;
 }
@@ -143,10 +139,6 @@ Class::Class(const ClassInfo* info)
     std::uninitialized_default_construct_n(&GetWord(0), info->size);
 }
 
-Class::~Class() {
-    std::destroy_n(&GetWord(0), info->size);
-}
-
 std::string_view Class::GetName() const {
     return info->qualifiedName;
 }
@@ -260,12 +252,6 @@ size_t Class::GetFunctionID(size_t interfaceID, size_t offset)
 Word& Class::GetWord(size_t i) const {
     auto p = (Word*)(this + 1);
     return p[i];
-}
-
-// BOX
-
-Box* Box::New(Heap& heap, Word value, WordType type) {
-    return Object::Create<Box>(heap, sizeof(Box), value, type);
 }
 
 } // fraze

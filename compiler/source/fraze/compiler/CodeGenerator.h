@@ -53,7 +53,7 @@ public:
     bool IsValueExpression(const sptr<Expression> &expr);
     void EmitNullCheck(const SourceLocation& loc);
     void EmitBoundsCheck(const SourceLocation& loc);
-    void EmitObjectTypeCheck(const SourceLocation& loc, WordType wordType);
+    void EmitObjectTypeCheck(const SourceLocation& loc, size_t typeID);
 
     /*****************************
     *            ROOT            *

@@ -7,8 +7,21 @@ interface IPredicate
     bool IsMatch(object obj);
 }
 
+class Boolean
+{
+    bool value;
+    extern int GetHashCode(bool value);
+}
+
+class Integer
+{
+    int value;
+    extern int GetHashCode(int value);
+}
+
 class Number
 {
+    num value;
     extern int GetHashCode(num value);
 }
 
@@ -34,4 +47,3 @@ class GC
     extern void Collect();
     extern void Report();
 }
-

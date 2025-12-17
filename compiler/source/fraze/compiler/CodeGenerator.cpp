@@ -177,15 +177,24 @@ void CodeGenerator::EmitConversion(sptr<Expression>& value, const sptr<TypeSpeci
     {
         if (sourceType->IsBoolean())
         {
-            Emit(value->loc, OpCode::Box, std::to_underlying(WordType::Boolean));
+            // box boolean value
+            auto type = Type::Get("Boolean");
+            auto id = typeInfo[type]->ToClassInfo()->id;
+            Emit(value->loc, OpCode::NewClass, id);
         }
         else if (sourceType->IsInteger())
         {
-            Emit(value->loc, OpCode::Box, std::to_underlying(WordType::Integer));
+            // box integer value
+            auto type = Type::Get("Integer");
+            auto id = typeInfo[type]->ToClassInfo()->id;
+            Emit(value->loc, OpCode::NewClass, id);
         }
         else if (sourceType->IsNumber())
         {
-            Emit(value->loc, OpCode::Box, std::to_underlying(WordType::Number));
+            // box number value
+            auto type = Type::Get("Number");
+            auto id = typeInfo[type]->ToClassInfo()->id;
+            Emit(value->loc, OpCode::NewClass, id);
         }
         // array, class, functor, string are already objects
     }
@@ -193,18 +202,28 @@ void CodeGenerator::EmitConversion(sptr<Expression>& value, const sptr<TypeSpeci
     {
         if (sourceType->IsObject())
         {
+            // unbox boolean value
             EmitNullCheck(value->loc);
-            EmitObjectTypeCheck(value->loc, WordType::Boolean);
-            Emit(value->loc, OpCode::Unbox, std::to_underlying(WordType::Boolean));
+
+            auto requiredType = Type::Get("Boolean");
+            auto requiredTypeId = typeInfo[requiredType]->ToClassInfo()->id;
+            EmitObjectTypeCheck(value->loc, requiredTypeId);
+
+            Emit(value->loc, OpCode::PushField, 0, 1);
         }
     }
     else if(resultType->IsInteger())
     {
         if (sourceType->IsObject())
         {
+            // unbox integer value
             EmitNullCheck(value->loc);
-            EmitObjectTypeCheck(value->loc, WordType::Integer);
-            Emit(value->loc, OpCode::Unbox, std::to_underlying(WordType::Integer));
+
+            auto requiredType = Type::Get("Integer");
+            auto requiredTypeId = typeInfo[requiredType]->ToClassInfo()->id;
+            EmitObjectTypeCheck(value->loc, requiredTypeId);
+
+            Emit(value->loc, OpCode::PushField, 0, 1);
         }
         else if (sourceType->IsNumber())
         {
@@ -216,9 +235,14 @@ void CodeGenerator::EmitConversion(sptr<Expression>& value, const sptr<TypeSpeci
     {
         if (sourceType->IsObject())
         {
+            // unbox number value
             EmitNullCheck(value->loc);
-            EmitObjectTypeCheck(value->loc, WordType::Number);
-            Emit(value->loc, OpCode::Unbox, std::to_underlying(WordType::Number));
+            
+            auto requiredType = Type::Get("Number");
+            auto requiredTypeId = typeInfo[requiredType]->ToClassInfo()->id;
+            EmitObjectTypeCheck(value->loc, requiredTypeId);
+
+            Emit(value->loc, OpCode::PushField, 0, 1);
         }
         if (sourceType->IsInteger())
         {
@@ -316,11 +340,11 @@ void CodeGenerator::EmitBoundsCheck(const SourceLocation& loc)
     }
 }
 
-void CodeGenerator::EmitObjectTypeCheck(const SourceLocation& loc, WordType wordType)
+void CodeGenerator::EmitObjectTypeCheck(const SourceLocation& loc, size_t typeID)
 {
-    if (Compiler::GetActiveCompiler()->IsTypeCheckEnabled())
+    if(Compiler::GetActiveCompiler()->IsTypeCheckEnabled())
     {
-        Emit(loc, OpCode::ObjectTypeCheck, static_cast<uint64_t>(wordType));
+        Emit(loc, OpCode::ObjectTypeCheck, typeID);
     }
 }
 

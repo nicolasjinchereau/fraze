@@ -164,8 +164,6 @@ private:
     void Execute_ConvEnumToStr(const Operation& op);
     void Execute_ConvObjToType(const Operation& op);
     void Execute_ConvRefToStruct(const Operation& op);
-    void Execute_Box(const Operation& op);
-    void Execute_Unbox(const Operation& op);
     void Execute_StringConcat(const Operation& op);
     void Execute_Dup(const Operation& op);
     void Execute_DupN(const Operation& op);
@@ -262,8 +260,6 @@ private:
         &Program::Execute_ConvEnumToStr,
         &Program::Execute_ConvObjToType,
         &Program::Execute_ConvRefToStruct,
-        &Program::Execute_Box,
-        &Program::Execute_Unbox,
         &Program::Execute_StringConcat,
         &Program::Execute_Dup,
         &Program::Execute_DupN,

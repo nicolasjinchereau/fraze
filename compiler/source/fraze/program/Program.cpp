@@ -355,8 +355,6 @@ void Program::VerifyHandlers()
     VERIFY_HANDLER_INDEX(ConvEnumToStr);
     VERIFY_HANDLER_INDEX(ConvObjToType);
     VERIFY_HANDLER_INDEX(ConvRefToStruct);
-    VERIFY_HANDLER_INDEX(Box);
-    VERIFY_HANDLER_INDEX(Unbox);
     VERIFY_HANDLER_INDEX(StringConcat);
     VERIFY_HANDLER_INDEX(Dup);
     VERIFY_HANDLER_INDEX(DupN);
@@ -902,35 +900,57 @@ void Program::Execute_StringEqual(const Operation& op)
 
 void Program::Execute_IsInstance(const Operation& op)
 {
-    auto targetTypeInfo = typeInfo[op.arg1_u64];
-    assert(targetTypeInfo);
+    auto rightTypeInfo = typeInfo[op.arg1_u64];
+    assert(rightTypeInfo);
 
     Word* top = rsp;
-    Object* value = top->object;
+    Object* leftValue = top->object;
 
     bool isInstance = false;
 
-    if(value == nullptr)
+    if(leftValue == nullptr)
     {
-        if (auto bt = targetTypeInfo->ToBasicTypeInfo(); bt && bt->qualifiedName == "null")
+        if (auto bt = rightTypeInfo->ToBasicTypeInfo(); bt && bt->qualifiedName == "null")
             isInstance = true;
     }
     else
     {
-        WordType valueWordType = value->GetType();
+        WordType leftWordType = leftValue->GetType();
 
-        if (valueWordType == WordType::Class)
+        if (leftWordType == WordType::Class)
         {
-            auto valueTypeInfo = static_cast<Class*>(value)->GetInfo();
-
-            if(auto targetClassInfo = targetTypeInfo->ToClassInfo())
+            // could be class or interface
+            auto leftTypeInfo = static_cast<Class*>(leftValue)->GetInfo();
+            
+            if(leftTypeInfo->qualifiedName == "Boolean")
             {
-                if (valueTypeInfo->id == targetClassInfo->id)
+                if(auto bt = rightTypeInfo->ToBasicTypeInfo(); bt && bt->qualifiedName == "bool")
+                    isInstance = true;
+                else if(auto ci = rightTypeInfo->ToClassInfo(); ci && ci->qualifiedName == "Boolean")
                     isInstance = true;
             }
-            else if (auto targetInterfaceInfo = targetTypeInfo->ToInterfaceInfo())
+            else if(leftTypeInfo->qualifiedName == "Integer")
             {
-                for (auto& itf : valueTypeInfo->interfaces)
+                if(auto bt = rightTypeInfo->ToBasicTypeInfo(); bt && bt->qualifiedName == "int")
+                    isInstance = true;
+                else if(auto ci = rightTypeInfo->ToClassInfo(); ci && ci->qualifiedName == "Integer")
+                    isInstance = true;
+            }
+            else if(leftTypeInfo->qualifiedName == "Number")
+            {
+                if(auto bt = rightTypeInfo->ToBasicTypeInfo(); bt && bt->qualifiedName == "num")
+                    isInstance = true;
+                else if(auto ci = rightTypeInfo->ToClassInfo(); ci && ci->qualifiedName == "Number")
+                    isInstance = true;
+            }
+            else if(auto rightClassInfo = rightTypeInfo->ToClassInfo())
+            {
+                if(leftTypeInfo->id == rightClassInfo->id)
+                    isInstance = true;
+            }
+            else if(auto targetInterfaceInfo = rightTypeInfo->ToInterfaceInfo())
+            {
+                for (auto& itf : leftTypeInfo->interfaces)
                 {
                     if (itf == targetInterfaceInfo->id)
                     {
@@ -940,34 +960,19 @@ void Program::Execute_IsInstance(const Operation& op)
                 }
             }
         }
-        else if(valueWordType == WordType::Array)
+        else if(leftWordType == WordType::Array)
         {
-            auto valueTypeInfo = static_cast<Array<>*>(value)->GetInfo();
+            auto valueTypeInfo = static_cast<Array<>*>(leftValue)->GetInfo();
 
-            if (auto targetArrInfo = targetTypeInfo->ToArrayInfo())
+            if (auto targetArrInfo = rightTypeInfo->ToArrayInfo())
             {
                 if (valueTypeInfo->id == targetArrInfo->id)
                     isInstance = true;
             }
         }
-        else if(valueWordType == WordType::String)
+        else if(leftWordType == WordType::String)
         {
-            if (auto bt = targetTypeInfo->ToBasicTypeInfo(); bt && bt->qualifiedName == "string")
-                isInstance = true;
-        }
-        else if (valueWordType == WordType::Boolean) // boxed
-        {
-            if (auto bt = targetTypeInfo->ToBasicTypeInfo(); bt && bt->qualifiedName == "bool")
-                isInstance = true;
-        }
-        else if (valueWordType == WordType::Integer) // boxed
-        {
-            if (auto bt = targetTypeInfo->ToBasicTypeInfo(); bt && bt->qualifiedName == "int")
-                isInstance = true;
-        }
-        else if (valueWordType == WordType::Number) // boxed
-        {
-            if (auto bt = targetTypeInfo->ToBasicTypeInfo(); bt && bt->qualifiedName == "num")
+            if (auto bt = rightTypeInfo->ToBasicTypeInfo(); bt && bt->qualifiedName == "string")
                 isInstance = true;
         }
     }
@@ -1285,34 +1290,6 @@ void Program::Execute_ConvRefToStruct(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_Box(const Operation& op)
-{
-    Word* top = rsp;
-    Box* box = Box::New(heap, *top, (WordType)op.arg1_u64);
-    top->object = box;
-    ++rip;
-}
-
-void Program::Execute_Unbox(const Operation& op)
-{
-    Word* top = rsp;
-    Box* box = static_cast<Box*>(top->object);
-
-    switch((WordType)op.arg1_u64)
-    {
-    case WordType::Boolean:
-        top->storage = box->GetValue().storage;
-        break;
-    case WordType::Integer:
-        top->integer = box->GetValue().integer;
-        break;
-    case WordType::Number:
-        top->number = box->GetValue().number;
-        break;
-    }
-    ++rip;
-}
-
 void Program::Execute_StringConcat(const Operation& op)
 {
     Word* top = rsp;
@@ -1561,24 +1538,12 @@ void Program::Execute_BoundsCheck(const Operation& op)
 
 void Program::Execute_ObjectTypeCheck(const Operation& op)
 {
-    Word* top = rsp;
-    auto objectType = top->object->GetType();
-    auto targetType = static_cast<WordType>(op.arg1_u64);
+    const Class* info = static_cast<Class*>(rsp->object);
+    const ClassInfo* classInfo = info->GetInfo();
 
-    if (objectType != targetType)
+    if(classInfo->id != op.arg1_u64)
     {
-        const char* type{};
-
-        if(targetType == WordType::Boolean)
-            type = "bool";
-        else if(targetType == WordType::Integer)
-            type = "int";
-        else if(targetType == WordType::Number)
-            type = "num";
-        
-        assert(type);
-
-        Throw(locations[rip], "Object is not of type '{}'", type);
+        Throw(locations[rip], "Object is not of type '{}'", typeInfo[op.arg1_u64]->qualifiedName);
     }
 
     ++rip;

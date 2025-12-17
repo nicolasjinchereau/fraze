@@ -45,6 +45,8 @@ using string_view_set = std::unordered_set<std::string, StringViewHash, StringVi
 template<typename T, typename... Ts>
 constexpr bool is_any_of_v = (std::is_same_v<T, Ts> || ...);
 
+template<size_t i, class... Args>
+using get_type = std::tuple_element_t<i, std::tuple<Args...>>;
 
 template<typename T>
 struct is_c_string

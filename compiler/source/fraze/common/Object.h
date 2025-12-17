@@ -259,7 +259,6 @@ protected:
     Word& GetWord(size_t i) const;
 public:
     Array(const ArrayInfo* info, size_t length);
-    ~Array();
 
     static Array<>* New(Heap& heap, const ArrayInfo* info, size_t length);
 
@@ -333,7 +332,6 @@ class Class : public Object
     Word& GetWord(size_t i) const;
 public:
     Class(const ClassInfo* info);
-    ~Class();
 
     static Class* New(Heap& heap, const ClassInfo* info);
 
@@ -400,25 +398,6 @@ public:
 
     inline operator std::string_view() const {
         return GetView();
-    }
-};
-
-class Box : public Object
-{
-    WordType type{};
-    Word value;
-public:
-    Box(Word value, WordType type)
-        : value(value), type(type){}
-
-    static Box* New(Heap& heap, Word value, WordType type);
-
-    virtual WordType GetType() const override {
-        return type;
-    }
-
-    Word GetValue() const {
-        return value;
     }
 };
 

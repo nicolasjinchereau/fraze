@@ -151,9 +151,6 @@ enum class OpCode : uint8_t
     ConvObjToType,
     ConvRefToStruct,
 
-    Box, // arg is the WordType
-    Unbox, // arg is the WordType
-
     // concatenate two strings
     StringConcat,
 
@@ -181,7 +178,7 @@ enum class OpCode : uint8_t
     
     NullCheck, // if stack[top] is null, terminate with null reference error
     BoundsCheck, // if stack[top] is less than 0 or greater than stack[top - 1].Count, terminate with index range error
-    ObjectTypeCheck, // if the object at stack[top] is not of the word type at stack[top - 1], terminate with type error
+    ObjectTypeCheck, // if the object at stack[top] is not of the type 'arg', terminate with type error
 
     // number of enum members
     COUNT,
@@ -268,9 +265,6 @@ inline std::unordered_map<OpCode, std::string> OpCodeNames {
     { OpCode::ConvEnumToStr,   "ConvEnumToStr" },
     { OpCode::ConvObjToType,   "ConvObjToType" },
     { OpCode::ConvRefToStruct, "ConvRefToStruct" },
-
-    { OpCode::Box,             "Box" },
-    { OpCode::Unbox,           "Unbox" },
 
     { OpCode::StringConcat,    "StringConcat" },
 

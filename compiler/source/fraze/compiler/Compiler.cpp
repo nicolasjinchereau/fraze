@@ -26,6 +26,8 @@ Compiler::Compiler(std::string_view assetsPath)
     AddFunction("YieldAsync", &YieldAsync);
     AddFunction("Console.Write", &Console_Write);
     AddFunction("Console.WriteLine", &Console_WriteLine);
+    AddFunction("Boolean.GetHashCode", &Boolean_GetHashCode);
+    AddFunction("Integer.GetHashCode", &Integer_GetHashCode);
     AddFunction("Number.GetHashCode", &Number_GetHashCode);
     AddFunction("Object.GetHashCode", &Object_GetHashCode);
     AddFunction("String.GetHashCode", &String_GetHashCode);

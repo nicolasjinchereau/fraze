@@ -73,14 +73,16 @@ inline void Console_WriteLine(const String& text) {
     std::println("{}", text.GetView());
 }
 
-inline Integer Number_GetHashCode(const Number& value) {
-    union {
-        Number number;
-        Integer integer;
-    } u;
+inline Integer Boolean_GetHashCode(const Boolean& value) {
+    return value ? 1 : 0;
+}
 
-    u.number = value;
-    return u.integer;
+inline Integer Integer_GetHashCode(const Integer& value) {
+    return value;
+}
+
+inline Integer Number_GetHashCode(const Number& value) {
+    return std::bit_cast<Integer>(value);
 }
 
 inline void WaitAsync(Program* program, Class& task, const Number& seconds)

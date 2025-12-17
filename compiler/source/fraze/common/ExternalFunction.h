@@ -21,10 +21,7 @@ template<typename... Args>
 concept FirstArgIsProgram = requires
 {
     requires sizeof...(Args) >= 1;
-    requires std::is_same_v<
-        typename std::tuple_element<0, std::tuple<Args...>>::type,
-            Program*
-    >;
+    requires std::is_same_v<get_type<0, Args...>, Program*>;
 };
 
 template<typename... Args>
