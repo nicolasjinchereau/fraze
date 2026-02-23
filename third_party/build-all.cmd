@@ -1,7 +1,7 @@
 @echo off
 echo building third party libs...
 
-call "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat"
+call "C:\Program Files\Microsoft Visual Studio\18\Community\Common7\Tools\VsDevCmd.bat"
 
 cd assimp\projects\windows
 msbuild assimp.sln /p:Configuration=Debug /t:Clean;Rebuild
