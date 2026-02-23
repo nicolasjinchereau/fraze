@@ -68,7 +68,7 @@ class Graphics : public Object
     std::mutex mut;
 public:
 
-    Graphics();
+    Graphics(const TypeInfo* typeInfo);
     ~Graphics();
 
     virtual WordType GetType() const override;

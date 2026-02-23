@@ -135,7 +135,7 @@ inline Array<String>* String_Split(Program* program, const String& input, const 
     if(a != str.size())
         parts.push_back(std::string_view(str.begin() + a, str.end()));
 
-    Array<String>* ret = NEW_FRAZE_ARRAY(alloc, String, "string[]", parts.size());
+    Array<String>* ret = NEW_FRAZE_ARRAY_T(alloc, String, "string[]", parts.size());
 
     for(size_t i = 0; i != parts.size(); ++i)
     {

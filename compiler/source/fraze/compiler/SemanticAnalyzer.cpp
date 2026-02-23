@@ -684,7 +684,8 @@ void SemanticAnalyzer::Visit(const sptr<FunctionDefinition>& node)
             {
                 if(lastDot < name.length() - 1)
                 {
-                    if(name[lastDot + 1] == '$')
+                    char firstNameChar = name[lastDot + 1];
+                    if(Lexer::IsInternalSymbol(firstNameChar))
                     {
                         name.erase(name.begin() + lastDot + 1);
                     }
@@ -692,7 +693,7 @@ void SemanticAnalyzer::Visit(const sptr<FunctionDefinition>& node)
             }
             else
             {
-                if(name.starts_with("$"))
+                if(!name.empty() && Lexer::IsInternalSymbol(name[0]))
                     name.erase(name.begin());
             }
 
@@ -742,7 +743,7 @@ void SemanticAnalyzer::Visit(const sptr<FunctionDefinition>& node)
                         isMatch = type->IsClass() || type->IsInterface();
                         break;
                     case WordType::Object:
-                        isMatch = type->IsObject();
+                        isMatch = type->IsObject() || type->IsClass() || type->IsInterface() || type->IsArray() || type->IsString();
                         break;
                     case WordType::Reference:
                         isMatch = type->IsStruct();
@@ -779,7 +780,7 @@ void SemanticAnalyzer::Visit(const sptr<FunctionDefinition>& node)
                         isMatch = type->IsClass() || type->IsInterface();
                         break;
                     case WordType::Object:
-                        isMatch = type->IsObject();
+                        isMatch = type->IsObject() || type->IsClass() || type->IsInterface() || type->IsString() || type->IsArray();
                         break;
                     case WordType::Reference:
                         isMatch = type->IsStruct();
@@ -1450,6 +1451,7 @@ sptr<Definition> SemanticAnalyzer::SelectCallTarget(
     const SourceLocation& loc,
     const Scope* scope,
     const std::vector<sptr<Definition>>& callTargets,
+    const sptr<Expression>& context,
     const std::vector<sptr<Expression>>& arguments,
     bool suppressErrors)
 {
@@ -1464,29 +1466,64 @@ sptr<Definition> SemanticAnalyzer::SelectCallTarget(
         auto paramCount = params.count();
 
         // reject if arg count doesnt match
-        if(paramCount != arguments.size())
-            continue;
-
-        auto currentParam = params.begin();
-        auto currentArg = arguments.begin();
-
-        for( ; currentParam != params.end(); ++currentParam, ++currentArg)
+        if(func->isUFC)
         {
-            auto param = *currentParam;
-            auto arg = *currentArg;
-
-            VisitChild(param);
-
-            auto paramType = param->typeSpec->GetType();
-            auto argType = arg->EvaluateType();
-
-            if(!IsAssignable(paramType, argType))
-                break;
+            assert(context != nullptr);
+            if(paramCount != 1 + arguments.size())
+                continue;
+        }
+        else
+        {
+            if(paramCount != arguments.size())
+                continue;
         }
 
-        // reject if any arg type didn't match
-        if(currentParam != params.end())
-            continue;
+        if(func->isUFC)
+        {
+            bool isMatch = true;
+            auto contextAndArgs = fraze::concat(std::views::single(context), arguments);
+
+            for(auto [param, arg] : std::views::zip(params, contextAndArgs))
+            {
+                VisitChild(param);
+
+                auto paramType = param->typeSpec->GetType();
+                auto argType = arg->EvaluateType();
+
+                if(!IsAssignable(paramType, argType))
+                {
+                    isMatch = false;
+                    break;
+                }
+            }
+
+            // reject if any arg type didn't match
+            if(!isMatch)
+                continue;
+        }
+        else
+        {
+            auto currentParam = params.begin();
+            auto currentArg = arguments.begin();
+
+            for(; currentParam != params.end(); ++currentParam, ++currentArg)
+            {
+                auto param = *currentParam;
+                auto arg = *currentArg;
+
+                VisitChild(param);
+
+                auto paramType = param->typeSpec->GetType();
+                auto argType = arg->EvaluateType();
+
+                if(!IsAssignable(paramType, argType))
+                    break;
+            }
+
+            // reject if any arg type didn't match
+            if(currentParam != params.end())
+                continue;
+        }
 
         // match
         matches.push_back(target);
@@ -1735,7 +1772,7 @@ void SemanticAnalyzer::VisitCallTarget(
             }
         }
 
-        auto targetDef = SelectCallTarget(node->loc, node->scope, callTargets, arguments);
+        auto targetDef = SelectCallTarget(node->loc, node->scope, callTargets, node->context, arguments);
         assert(!!targetDef); // SelectFunction should throw if no match found
 
         if(!node->context)
@@ -1777,6 +1814,13 @@ void SemanticAnalyzer::Visit(const sptr<CallExpression>& node)
     if(auto ident = node->target->ToIdentifierExpression())
     {
         VisitCallTarget(ident, node->arguments);
+
+        auto targetDef = GetCallTargetFunction(ident->targetDef->self());
+        if(targetDef->isUFC && ident->context)
+        {
+            node->arguments.insert(node->arguments.begin(), ident->context);
+            ident->context = nullptr;
+        }
     }
     else
     {
@@ -2114,13 +2158,22 @@ void SemanticAnalyzer::Visit(const sptr<NewExpression>& node)
         if(!node->hasConstructor.has_value())
         {
             std::vector<sptr<Definition>> callTargets;
-            FindCallTargets("$init", scope, scope, callTargets);
-            sptr<Definition> initDef = SelectCallTarget(node->loc, node->scope, callTargets, node->arguments, true);
+            FindCallTargets("#this", scope, scope, callTargets);
+            sptr<Definition> initDef = SelectCallTarget(node->loc, node->scope, callTargets, nullptr, node->arguments, true);
             node->hasConstructor = !!initDef;
 
             if(node->hasConstructor.value())
             {
                 sptr<Expression> context = node;
+
+                auto ctor = GetCallTargetFunction(initDef);
+                if(ctor->isExternal)
+                {
+                    assert(!targetType->IsStruct());
+
+                    // external constructors do their own allocation
+                    context = spnew<IdentifierExpression>(node->loc, node->scope, node->typeSpec->GetTypeName());
+                }
 
                 if(targetType->IsStruct())
                 {
@@ -2151,7 +2204,7 @@ void SemanticAnalyzer::Visit(const sptr<NewExpression>& node)
                     context = fold;
                 }
 
-                auto targetFunc = spnew<IdentifierExpression>(node->loc, node->scope, context, shared_string("$init"));
+                auto targetFunc = spnew<IdentifierExpression>(node->loc, node->scope, context, shared_string("#this"));
                 auto callExpr = spnew<CallExpression>(node->loc, node->scope, targetFunc);
                 callExpr->arguments = std::move(node->arguments);
                 node->arguments.clear();

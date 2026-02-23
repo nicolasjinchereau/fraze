@@ -119,7 +119,8 @@ std::unordered_map<TextureFilterMode, D3D11_FILTER> filterModes = {
 
 } // d3d11
 
-Graphics::Graphics()
+Graphics::Graphics(const TypeInfo* typeInfo)
+    : Object(typeInfo)
 {
     UINT creationFlags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
     //creationFlags &= ~D3D11_CREATE_DEVICE_SINGLETHREADED;

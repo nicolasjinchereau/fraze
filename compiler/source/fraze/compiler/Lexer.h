@@ -452,7 +452,7 @@ public:
     void Tokenize(std::vector<Token>& outTokens);
     static const std::string& GetTokenName(TokenType type);
     static const std::string& GetKeywordName(Keyword keyword);
-
+    static bool IsInternalSymbol(char32_t c);
 private:
     Token GetNextToken();
     void SkipWhitespace();

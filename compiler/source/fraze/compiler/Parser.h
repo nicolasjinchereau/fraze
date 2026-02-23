@@ -208,7 +208,7 @@ private:
         {
             if (token.IsKeyword(Keyword::Section))
                 ParseSectionDefinition();
-            else if (token.IsKeyword(Keyword::Class))
+            else if (IsClassDefinition())
                 ParseClassDefinition();
             else if (token.IsKeyword(Keyword::Interface))
                 ParseInterfaceDefinition();
@@ -287,8 +287,31 @@ private:
         }
     }
 
+    void ParseExternClassMembers(sptr<ClassDefinition>& classDef)
+    {
+        assert(classDef->isExternal);
+
+        while(true)
+        {
+            if(IsFunctionDefinition())
+            {
+                auto func = ParseFunctionDefinition();
+                ENFORCE(func->isExternal, func->loc, "a function inside an extern class must also be extern");
+            }
+            else
+            {
+                break;
+            }
+        }
+    }
+
     sptr<ClassDefinition> ParseClassDefinition()
     {
+        bool isExternal = false;
+        
+        if(TryConsume(Keyword::Extern))
+            isExternal = true;
+
         const Token& classTok = Consume(Keyword::Class);
 
         const Token& nameTok = Consume(TokenType::Identifier);
@@ -296,42 +319,64 @@ private:
         auto def = spnew<ClassDefinition>(classTok.loc, scopes.GetCurrent(), nameTok.GetIdentifier());
         scopes.GetCurrent()->AddDefinition(def);
 
-        // parse template parameters
-        if(TryConsume(TokenType::Less))
-        {
-            while (token.type != TokenType::Greater)
-            {
-                const Token& tempParamNameTok = Consume(TokenType::Identifier);
-                
-                auto typeSpec = spnew<TypeSpecifier>(tempParamNameTok.loc, def->scope.get(), shared_string("$placeholder"));
-                auto templateParamDef = spnew<TemplateParameterDefinition>(tempParamNameTok.loc, def->scope.get(), tempParamNameTok.GetIdentifier(), typeSpec);
-                def->scope->AddDefinition(templateParamDef);
+        def->isExternal = isExternal;
 
-                if (!TryConsume(TokenType::Comma))
-                    break;
+        if(isExternal)
+        {
+            ENFORCE(!token.IsType(TokenType::Less), token.loc, "extern classes cannot be templates");
+            ENFORCE(!token.IsType(TokenType::Colon), token.loc, "extern classes cannot implement interfaces");
+
+            if(!TryConsume(TokenType::Semicolon))
+            {
+                Consume(TokenType::LeftBrace);
+                scopes.Push(def->scope.get());
+
+                ParseExternClassMembers(def);
+                ENFORCE(token.IsType(TokenType::RightBrace), token.loc, "Expected '}}' or extern function definition");
+
+                scopes.Pop();
+                Consume(TokenType::RightBrace);
+            }
+        }
+        else
+        {
+            // parse template parameters
+            if(TryConsume(TokenType::Less))
+            {
+                while(token.type != TokenType::Greater)
+                {
+                    const Token& tempParamNameTok = Consume(TokenType::Identifier);
+                
+                    auto typeSpec = spnew<TypeSpecifier>(tempParamNameTok.loc, def->scope.get(), shared_string("$placeholder"));
+                    auto templateParamDef = spnew<TemplateParameterDefinition>(tempParamNameTok.loc, def->scope.get(), tempParamNameTok.GetIdentifier(), typeSpec);
+                    def->scope->AddDefinition(templateParamDef);
+
+                    if(!TryConsume(TokenType::Comma))
+                        break;
+                }
+
+                Consume(TokenType::Greater);
             }
 
-            Consume(TokenType::Greater);
+            // parse interfaces
+            if(TryConsume(TokenType::Colon))
+            {
+                do {
+                    auto interfaceTypeSpec = ParseTypeSpecifier();
+                    def->interfaces.push_back(interfaceTypeSpec);
+                } while(TryConsume(TokenType::Comma));
+            }
+
+            // consume class body
+            Consume(TokenType::LeftBrace);
+            scopes.Push(def->scope.get());
+
+            ParseClassMembers(def);
+            ENFORCE(token.IsType(TokenType::RightBrace), token.loc, "Expected '}}' or member definition");
+
+            scopes.Pop();
+            Consume(TokenType::RightBrace);
         }
-
-        // parse interfaces
-        if(TryConsume(TokenType::Colon))
-        {
-            do {
-                auto interfaceTypeSpec = ParseTypeSpecifier();
-                def->interfaces.push_back(interfaceTypeSpec);
-            } while(TryConsume(TokenType::Comma));
-        }
-
-        // consume class body
-        Consume(TokenType::LeftBrace);
-        scopes.Push(def->scope.get());
-
-        ParseClassMembers(def);
-        ENFORCE(token.IsType(TokenType::RightBrace), token.loc, "Expected '}}' or member definition");
-
-        scopes.Pop();
-        Consume(TokenType::RightBrace);
 
         return def;
     }
@@ -610,6 +655,25 @@ private:
         return it->IsType(TokenType::Assign);
     }
     
+    bool IsClassDefinition()
+    {
+        auto it = Peek();
+
+        if(it->IsKeyword(Keyword::Extern))
+            ++it;
+
+        if(!it->IsKeyword(Keyword::Class))
+            return false;
+
+        ++it;
+
+        // class name
+        if(it->type != TokenType::Identifier || it->IsKeyword())
+            return false;
+
+        return true;
+    }
+
     bool IsVariableDefinition()
     {
         auto it = Peek();
@@ -915,6 +979,7 @@ interface {}
         bool isExternal = false;
         bool isAbstract = false;
         bool isStatic = false;
+        bool isDeclaredStatic = false;
         bool isPrivate = false;
         bool isMember = false;
         bool isConstructor = false;
@@ -926,6 +991,7 @@ interface {}
                 isStatic = true;
             }
             else if(TryConsume(Keyword::Static)) {
+                isDeclaredStatic = true;
                 isStatic = true;
             }
             else if(TryConsume(Keyword::Private)) {
@@ -957,7 +1023,7 @@ interface {}
                 }
             }
 
-            name = "$init";
+            name = "#this";
             Consume(Keyword::This);
             isConstructor = true;
         }
@@ -999,9 +1065,12 @@ interface {}
             }
         }
         
-        if(owner->ToClassDefinition() != nullptr)
+        bool isOwnerExternClass = false;
+
+        if(auto ownerClassDef = owner->ToClassDefinition())
         {
             isMember = true;
+            isOwnerExternClass = ownerClassDef->isExternal;
         }
         else if(owner->ToStructDefinition() != nullptr)
         {
@@ -1018,7 +1087,7 @@ interface {}
         }
 
         bool isTask = (returnType->baseTypeName == "Task");
-        ENFORCE(!isConstructor || (!isExternal && !isStatic), loc, "invalid storage class for constructor");
+        ENFORCE(!isConstructor || !isStatic || isExternal, loc, "invalid storage class for constructor");
 
         auto def = spnew<FunctionDefinition>(loc, scopes.GetCurrent(), shared_string(name));
         def->isExternal = isExternal;
@@ -1030,8 +1099,17 @@ interface {}
         def->returnType = returnType;
         scopes.GetCurrent()->AddDefinition(def);
 
-        Consume(TokenType::LeftParen);
+        auto& leftParenTok = Consume(TokenType::LeftParen);
         scopes.Push(def->scope.get());
+
+        // if function is a non-static extern member function, add context as first parameter
+        if(isOwnerExternClass && isExternal && !isDeclaredStatic && name != "#this")
+        {
+            auto contextTypeSpec = spnew<TypeSpecifier>(leftParenTok.loc, scopes.GetCurrent(), owner->qualifiedName);
+            auto contextParam = spnew<ParameterDefinition>(leftParenTok.loc, scopes.GetCurrent(), contextTypeSpec, shared_string("$this"));
+            scopes.GetCurrent()->AddDefinition(contextParam);
+            def->isUFC = true;
+        }
 
         while (token.type != TokenType::RightParen)
         {

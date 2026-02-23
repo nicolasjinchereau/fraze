@@ -21,23 +21,24 @@ std::vector<float> ToFloatBuffer(const Array<>& data)
 	return init;
 }
 
-Buffer::Buffer(Graphics* graphics, BufferType type, BufferUsage usage, BufferCPUAccess cpuAccess, Integer size)
-	: Buffer(graphics, type, usage, cpuAccess, std::vector<float>((size_t)(size * 8 / 2)), 0)
+Buffer::Buffer(const TypeInfo* typeInfo, Graphics* graphics, BufferType type, BufferUsage usage, BufferCPUAccess cpuAccess, Integer size)
+	: Buffer(typeInfo, graphics, type, usage, cpuAccess, std::vector<float>((size_t)(size * 8 / 2)), 0)
 {
 }
 
-Buffer::Buffer(Graphics* graphics, BufferType type, BufferUsage usage, BufferCPUAccess cpuAccess, const Array<>& data)
-	: Buffer(graphics, type, usage, cpuAccess, ToFloatBuffer(data), data.GetSize() / data.GetCount() * 8 / 2)
+Buffer::Buffer(const TypeInfo* typeInfo, Graphics* graphics, BufferType type, BufferUsage usage, BufferCPUAccess cpuAccess, const Array<>& data)
+	: Buffer(typeInfo, graphics, type, usage, cpuAccess, ToFloatBuffer(data), data.GetSize() / data.GetCount() * 8 / 2)
 {
 }
 
-Buffer::Buffer(Graphics* graphics, BufferType type, BufferUsage usage, BufferCPUAccess cpuAccess, const std::vector<float>& data, size_t stride)
-	: Buffer(graphics, type, usage, cpuAccess, data.data(), data.size() * sizeof(float), stride)
+Buffer::Buffer(const TypeInfo* typeInfo, Graphics* graphics, BufferType type, BufferUsage usage, BufferCPUAccess cpuAccess, const std::vector<float>& data, size_t stride)
+	: Buffer(typeInfo, graphics, type, usage, cpuAccess, data.data(), data.size() * sizeof(float), stride)
 {
 }
 
-Buffer::Buffer(Graphics* graphics, BufferType type, BufferUsage usage, BufferCPUAccess cpuAccess, const void* data, size_t size, size_t stride)
-	: graphics(graphics)
+Buffer::Buffer(const TypeInfo* typeInfo, Graphics* graphics, BufferType type, BufferUsage usage, BufferCPUAccess cpuAccess, const void* data, size_t size, size_t stride)
+	: Object(typeInfo)
+    , graphics(graphics)
 	, type(type)
 	, usage(usage)
 	, cpuAccess(cpuAccess)

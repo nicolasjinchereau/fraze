@@ -34,6 +34,7 @@
     <ClCompile Include="source\fraze\compiler\Lexer.cpp" />
     <ClCompile Include="source\fraze\compiler\RuntimeTypeInfo.cpp" />
     <ClCompile Include="source\fraze\compiler\SemanticAnalyzer.cpp" />
+    <ClCompile Include="source\fraze\memory\DefaultAllocator.cpp" />
     <ClCompile Include="source\fraze\memory\Heap.cpp" />
     <ClCompile Include="source\fraze\memory\ScopedAllocator.cpp" />
     <ClCompile Include="source\fraze\program\Dispatcher.cpp" />
@@ -118,7 +119,9 @@
     <ClInclude Include="source\fraze\compiler\Lexer.h" />
     <ClInclude Include="source\fraze\compiler\Parser.h" />
     <ClInclude Include="source\fraze\compiler\NativeFunctions.h" />
+    <ClInclude Include="source\fraze\memory\DefaultAllocator.h" />
     <ClInclude Include="source\fraze\memory\Heap.h" />
+    <ClInclude Include="source\fraze\memory\IAllocator.h" />
     <ClInclude Include="source\fraze\memory\ScopedAllocator.h" />
     <ClInclude Include="source\fraze\program\Dispatcher.h" />
     <ClInclude Include="source\fraze\program\OpCode.h" />

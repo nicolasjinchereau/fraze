@@ -29,6 +29,7 @@ public:
     bool isMember = false;
     bool isCoroutine = false;
     bool isConstructor = false;
+    bool isUFC = false;
     sptr<IExternalFunction> externalFunction;
     IntrinsicFunction externalIntrinsic{};
     sptr<BlockStatement> body;
@@ -66,6 +67,7 @@ public:
         copy->isMember = isMember;
         copy->isCoroutine = isCoroutine;
         copy->isConstructor = isConstructor;
+        copy->isUFC = isUFC;
         copy->externalFunction = externalFunction;
         copy->offset = offset;
         copy->paramSize = paramSize;

@@ -2,34 +2,38 @@
 *  Copyright (c) 2025 Nicolas Jinchereau. All rights reserved.  *
 *---------------------------------------------------------------*/
 
+extern class NativeShader
+{
+    extern this(object graphicsObj, string src, string vertexEntry, string pixelEntry);
+    extern void SetUniformMat4(string name, Mat4 value);
+    extern void SetUniformTex(string name, object textureObj);
+}
+
 class Shader
 {
-    private object nativeShader;
-    private extern object CreateNativeShader(object graphicsObj, string src, string vertexEntry, string pixelEntry);
-    private extern void SetUniformMat4(object shaderObj, string name, Mat4 value);
-    private extern void SetUniformTex(object shaderObj, string name, object textureObj);
-    private extern Task<object> CreateNativeShaderAsync(object graphicsObj, string src, string vertexEntry, string pixelEntry);
+    private NativeShader nativeShader;
+    
+    extern Task<NativeShader> CreateNativeShaderAsync(object graphicsObj, string src, string vertexEntry, string pixelEntry);
 
-    this(Graphics graphics, string src, string vertexEntry, string pixelEntry)
-    {
-        nativeShader = CreateNativeShader(graphics.NativeGraphics, src, vertexEntry, pixelEntry);
+    this(Graphics graphics, string src, string vertexEntry, string pixelEntry) {
+        nativeShader = new NativeShader{graphics.NativeHandle, src, vertexEntry, pixelEntry};
     }
 
     void SetUniform(string name, Mat4 value) {
-        SetUniformMat4(nativeShader, name, value);
+        nativeShader.SetUniformMat4(name, value);
     }
 
     void SetUniform(string name, Texture value) {
-        SetUniformTex(nativeShader, name, value.NativeTexture);
+        nativeShader.SetUniformTex(name, value.NativeHandle);
     }
 
     static Task<Shader> CreateShaderAsync(Graphics graphics, string src, string vertexEntry, string pixelEntry)
     {
-        object newNativeShader = await Shader.CreateNativeShaderAsync(graphics.NativeGraphics, src, vertexEntry, pixelEntry);
+        NativeShader newNativeShader = await Shader.CreateNativeShaderAsync(graphics.NativeHandle, src, vertexEntry, pixelEntry);
         return new Shader{ newNativeShader };
     }
 
-    object NativeShader {
+    object NativeHandle {
         get { return nativeShader; }
     }
 }

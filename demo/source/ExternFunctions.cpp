@@ -13,10 +13,9 @@
 #include <File.h>
 #include <fraze/program/Program.h>
 #include <fraze/compiler/Compiler.h>
-#include <array>
 #include <string>
-#include <print>
 #include <chrono>
+#include <memory>
 
 using clock_type = std::chrono::high_resolution_clock;
 
@@ -28,55 +27,55 @@ void AddExternFunctions(Compiler& compiler)
     compiler.AddFunction("RecordFrameEnd", &RecordFrameEnd);
     compiler.AddFunction("Time.GetTicks", &Time_GetTicks);
     compiler.AddFunction("Time.GetTicksPerSecond", &Time_GetTicksPerSecond);
-    compiler.AddFunction("Window.CreateNativeWindow", &Window_CreateNativeWindow);
-    compiler.AddFunction("Window.Show", &Window_Show);
-    compiler.AddFunction("Window.Hide", &Window_Hide);
-    compiler.AddFunction("Window.Close", &Window_Close);
-    compiler.AddFunction("Window.PumpMessage", &Window_PumpMessage);
-    compiler.AddFunction("Window.GetWidth", &Window_GetWidth);
-    compiler.AddFunction("Window.GetHeight", &Window_GetHeight);
-    compiler.AddFunction("Graphics.CreateNativeGraphics", &Graphics_CreateNativeGraphics);
-    compiler.AddFunction("Graphics.SetRenderTarget", &Graphics_SetRenderTarget);
-    compiler.AddFunction("Graphics.SetShader", &Graphics_SetShader);
-    compiler.AddFunction("Graphics.SetVertexBuffer", &Graphics_SetVertexBuffer);
-    compiler.AddFunction("Graphics.SetIndexBuffer", &Graphics_SetIndexBuffer);
-    compiler.AddFunction("Graphics.SetClearColor", &Graphics_SetClearColor);
-    compiler.AddFunction("Graphics.SetViewport", &Graphics_SetViewport);
-    compiler.AddFunction("Graphics.GetViewport", &Graphics_GetViewport);
-    compiler.AddFunction("Graphics.SetCullMode", &Graphics_SetCullMode);
-    compiler.AddFunction("Graphics.SetScissorTestEnabled", &Graphics_SetScissorTestEnabled);
-    compiler.AddFunction("Graphics.SetScissorRect", &Graphics_SetScissorRect);
-    compiler.AddFunction("Graphics.SetDepthTest", &Graphics_SetDepthTest);
-    compiler.AddFunction("Graphics.SetDepthWriteEnabled", &Graphics_SetDepthWriteEnabled);
-    compiler.AddFunction("Graphics.SetBlendingEnabled", &Graphics_SetBlendingEnabled);
-    compiler.AddFunction("Graphics.SetBlendOperations", &Graphics_SetBlendOperations);
-    compiler.AddFunction("Graphics.SetBlendFactors", &Graphics_SetBlendFactors);
-    compiler.AddFunction("Graphics.SetColorMask", &Graphics_SetColorMask);
-    compiler.AddFunction("Graphics.SetBlendColor", &Graphics_SetBlendColor);
-    compiler.AddFunction("Graphics.Clear", &Graphics_Clear);
-    compiler.AddFunction("Graphics.Present", &Graphics_Present);
-    compiler.AddFunction("Graphics.DrawArray", &Graphics_DrawArray);
-    compiler.AddFunction("Graphics.DrawIndexed", &Graphics_DrawIndexed);
-    compiler.AddFunction("Shader.CreateNativeShader", &Shader_CreateNativeShader);
+    compiler.AddFunction("NativeWindow.this", &NativeWindow_this);
+    compiler.AddFunction("NativeWindow.Show", &NativeWindow_Show);
+    compiler.AddFunction("NativeWindow.Hide", &NativeWindow_Hide);
+    compiler.AddFunction("NativeWindow.Close", &NativeWindow_Close);
+    compiler.AddFunction("NativeWindow.PumpMessage", &NativeWindow_PumpMessage);
+    compiler.AddFunction("NativeWindow.GetWidth", &NativeWindow_GetWidth);
+    compiler.AddFunction("NativeWindow.GetHeight", &NativeWindow_GetHeight);
+    compiler.AddFunction("NativeGraphics.this", &NativeGraphics_this);
+    compiler.AddFunction("NativeGraphics.SetRenderTarget", &NativeGraphics_SetRenderTarget);
+    compiler.AddFunction("NativeGraphics.SetShader", &NativeGraphics_SetShader);
+    compiler.AddFunction("NativeGraphics.SetVertexBuffer", &NativeGraphics_SetVertexBuffer);
+    compiler.AddFunction("NativeGraphics.SetIndexBuffer", &NativeGraphics_SetIndexBuffer);
+    compiler.AddFunction("NativeGraphics.SetClearColor", &NativeGraphics_SetClearColor);
+    compiler.AddFunction("NativeGraphics.SetViewport", &NativeGraphics_SetViewport);
+    compiler.AddFunction("NativeGraphics.GetViewport", &NativeGraphics_GetViewport);
+    compiler.AddFunction("NativeGraphics.SetCullMode", &NativeGraphics_SetCullMode);
+    compiler.AddFunction("NativeGraphics.SetScissorTestEnabled", &NativeGraphics_SetScissorTestEnabled);
+    compiler.AddFunction("NativeGraphics.SetScissorRect", &NativeGraphics_SetScissorRect);
+    compiler.AddFunction("NativeGraphics.SetDepthTest", &NativeGraphics_SetDepthTest);
+    compiler.AddFunction("NativeGraphics.SetDepthWriteEnabled", &NativeGraphics_SetDepthWriteEnabled);
+    compiler.AddFunction("NativeGraphics.SetBlendingEnabled", &NativeGraphics_SetBlendingEnabled);
+    compiler.AddFunction("NativeGraphics.SetBlendOperations", &NativeGraphics_SetBlendOperations);
+    compiler.AddFunction("NativeGraphics.SetBlendFactors", &NativeGraphics_SetBlendFactors);
+    compiler.AddFunction("NativeGraphics.SetColorMask", &NativeGraphics_SetColorMask);
+    compiler.AddFunction("NativeGraphics.SetBlendColor", &NativeGraphics_SetBlendColor);
+    compiler.AddFunction("NativeGraphics.Clear", &NativeGraphics_Clear);
+    compiler.AddFunction("NativeGraphics.Present", &NativeGraphics_Present);
+    compiler.AddFunction("NativeGraphics.DrawArray", &NativeGraphics_DrawArray);
+    compiler.AddFunction("NativeGraphics.DrawIndexed", &NativeGraphics_DrawIndexed);
+    compiler.AddFunction("NativeShader.this", &NativeShader_this);
+    compiler.AddFunction("NativeShader.SetUniformMat4", &NativeShader_SetUniformMat4);
+    compiler.AddFunction("NativeShader.SetUniformTex", &NativeShader_SetUniformTex);
     compiler.AddFunction("Shader.CreateNativeShaderAsync", &Shader_CreateShaderObjectAsync);
-    compiler.AddFunction("Shader.SetUniformMat4", &Shader_SetUniformMat4);
-    compiler.AddFunction("Shader.SetUniformTex", &Shader_SetUniformTex);
-    compiler.AddFunction("Texture.CreateNativeTexture", &Texture_CreateNativeTexture);
+    compiler.AddFunction("NativeTexture.this", &NativeTexture_this);
     compiler.AddFunction("Texture.CreateNativeTextureAsync", &Texture_CreateNativeTextureAsync);
     compiler.AddFunction("Model.ImportModel", &Model_ImportModel);
     compiler.AddFunction("Model.CreateSphereMesh", &Model_CreateSphereMesh);
     compiler.AddFunction("Model.ImportModelObjectAsync", &Model_ImportModelObjectAsync);
-    compiler.AddFunction("Buffer.CreateNativeBufferWithSize", &Buffer_CreateNativeBufferWithSize);
-    compiler.AddFunction("Buffer.CreateNativeBufferFromData", &Buffer_CreateNativeBufferFromData);
-    compiler.AddFunction("Buffer.SetData", &Buffer_SetData);
-    compiler.AddFunction("Buffer.GetSize", &Buffer_GetSize);
-    compiler.AddFunction("Buffer.GetStride", &Buffer_GetStride);
+    compiler.AddFunction("NativeBuffer.this", "NativeBuffer(object,BufferType,BufferUsage,BufferCPUAccess,int)", &NativeBuffer_this_size);
+    compiler.AddFunction("NativeBuffer.this", "NativeBuffer(object,BufferType,BufferUsage,BufferCPUAccess,void[])", &NativeBuffer_this_data);
+    compiler.AddFunction("NativeBuffer.SetData", &NativeBuffer_SetData);
+    compiler.AddFunction("NativeBuffer.GetSize", &NativeBuffer_GetSize);
+    compiler.AddFunction("NativeBuffer.GetStride", &NativeBuffer_GetStride);
     compiler.AddFunction("File.ReadAllText", &File_ReadAllText);
     compiler.AddFunction("File.ReadAllTextAsync", &File_ReadAllTextAsync);
-    compiler.AddIntrinsic("Mat4.operator+:Mat4(Mat4,Mat4)", &Intrinsic_Mat4Add);
-    compiler.AddIntrinsic("Mat4.operator-:Mat4(Mat4,Mat4)", &Intrinsic_Mat4Sub);
-    compiler.AddIntrinsic("Mat4.operator*:Mat4(Mat4,Mat4)", &Intrinsic_Mat4Mul);
-    compiler.AddIntrinsic("Mat4.operator*:Mat4(Mat4,num)", &Intrinsic_Mat4NumMul);
+    compiler.AddIntrinsic("Mat4.operator+", "Mat4(Mat4,Mat4)", &Intrinsic_Mat4Add);
+    compiler.AddIntrinsic("Mat4.operator-", "Mat4(Mat4,Mat4)", &Intrinsic_Mat4Sub);
+    compiler.AddIntrinsic("Mat4.operator*", "Mat4(Mat4,Mat4)", &Intrinsic_Mat4Mul);
+    compiler.AddIntrinsic("Mat4.operator*", "Mat4(Mat4,num)", &Intrinsic_Mat4NumMul);
     compiler.AddIntrinsic("Vec4.operator*", &Intrinsic_Vec4Mat4Mul);
 }
 
@@ -123,8 +122,9 @@ Integer Time_GetTicksPerSecond() {
 }
 
 // WINDOW
-Object* Window_CreateNativeWindow(Program* program, Object& window, const String& title, Integer x, Integer y, Integer width, Integer height) {
-    return new Window(
+Object* NativeWindow_this(Program* program, Object& window, const String& title, Integer x, Integer y, Integer width, Integer height) {
+    ScopedAllocator allocator(program);
+    return NEW_FRAZE_EXTERN_CLASS(allocator, Window, "NativeWindow",
         program,
         &window,
         title.GetView(),
@@ -133,154 +133,167 @@ Object* Window_CreateNativeWindow(Program* program, Object& window, const String
     );
 }
 
-void Window_Show(Object& windowObj) {
+void NativeWindow_Show(Object& windowObj) {
     auto window = static_cast<Window*>(&windowObj);
     window->Show();
 }
 
-void Window_Hide(Object& windowObj) {
+void NativeWindow_Hide(Object& windowObj) {
     auto window = static_cast<Window*>(&windowObj);
     window->Hide();
 }
 
-void Window_Close(Object& windowObj) {
+void NativeWindow_Close(Object& windowObj) {
     auto window = static_cast<Window*>(&windowObj);
     window->Close();
 }
 
-Integer Window_GetWidth(Object& windowObj) {
+Integer NativeWindow_GetWidth(Object& windowObj) {
     auto window = static_cast<Window*>(&windowObj);
     return window->GetSize().x;
 }
 
-Integer Window_GetHeight(Object& windowObj) {
+Integer NativeWindow_GetHeight(Object& windowObj) {
     auto window = static_cast<Window*>(&windowObj);
     return window->GetSize().y;
 }
 
-Integer Window_PumpMessage(Object& windowObj) {
+Integer NativeWindow_PumpMessage(Object& windowObj) {
     auto window = static_cast<Window*>(&windowObj);
     return window->PumpMessage();
 }
 
 // GRAPHICS
-Object* Graphics_CreateNativeGraphics() {
-    return new Graphics();
+Object* NativeGraphics_this(Program* program) {
+    ScopedAllocator allocator(program);
+    return NEW_FRAZE_EXTERN_CLASS(allocator, Graphics, "NativeGraphics");
 }
 
-void Graphics_SetRenderTarget(Object& graphicsObj, Object& windowObj) {
+void NativeGraphics_SetRenderTarget(Object& graphicsObj, Object& windowObj) {
     auto graphics = static_cast<Graphics*>(&graphicsObj);
     auto window = static_cast<Window*>(&windowObj);
     graphics->SetRenderTarget(window);
 }
 
-void Graphics_SetShader(Object& graphicsObj, Object& shaderObj) {
+void NativeGraphics_SetShader(Object& graphicsObj, Object& shaderObj) {
     auto graphics = static_cast<Graphics*>(&graphicsObj);
     auto shader = static_cast<Shader*>(&shaderObj);
     graphics->SetShader(shader);
 }
 
-void Graphics_SetVertexBuffer(Object& graphicsObj, Object& bufferObj) {
+void NativeGraphics_SetVertexBuffer(Object& graphicsObj, Object& bufferObj) {
     auto graphics = static_cast<Graphics*>(&graphicsObj);
     auto buffer = static_cast<Buffer*>(&bufferObj);
     graphics->SetVertexBuffer(buffer);
 }
 
-void Graphics_SetIndexBuffer(Object& graphicsObj, Object& bufferObj) {
+void NativeGraphics_SetIndexBuffer(Object& graphicsObj, Object& bufferObj) {
     auto graphics = static_cast<Graphics*>(&graphicsObj);
     auto buffer = static_cast<Buffer*>(&bufferObj);
     graphics->SetIndexBuffer(buffer);
 }
 
-void Graphics_SetClearColor(Object& graphicsObj, const Color& color) {
+void NativeGraphics_SetClearColor(Object& graphicsObj, const Color& color) {
     auto graphics = static_cast<Graphics*>(&graphicsObj);
     graphics->SetClearColor(color);
 }
 
-void Graphics_SetViewport(Object& graphicsObj, IntRect rect) {
+void NativeGraphics_SetViewport(Object& graphicsObj, IntRect rect) {
     auto graphics = static_cast<Graphics*>(&graphicsObj);
     graphics->SetViewport(rect);
 }
 
-IntRect Graphics_GetViewport(Object& graphicsObj) {
+IntRect NativeGraphics_GetViewport(Object& graphicsObj) {
     auto graphics = static_cast<Graphics*>(&graphicsObj);
     return graphics->GetViewport();
 }
 
-void Graphics_SetCullMode(Object& graphicsObj, CullMode mode) {
+void NativeGraphics_SetCullMode(Object& graphicsObj, CullMode mode) {
     auto graphics = static_cast<Graphics*>(&graphicsObj);
     graphics->SetCullMode(mode);
 }
 
-void Graphics_SetScissorTestEnabled(Object& graphicsObj, bool enabled) {
+void NativeGraphics_SetScissorTestEnabled(Object& graphicsObj, bool enabled) {
     auto graphics = static_cast<Graphics*>(&graphicsObj);
     graphics->SetScissorTestEnabled(enabled);
 }
 
-void Graphics_SetScissorRect(Object& graphicsObj, IntRect rect) {
+void NativeGraphics_SetScissorRect(Object& graphicsObj, IntRect rect) {
     auto graphics = static_cast<Graphics*>(&graphicsObj);
     graphics->SetScissorRect(rect);
 }
 
-void Graphics_SetDepthTest(Object& graphicsObj, DepthTest test) {
+void NativeGraphics_SetDepthTest(Object& graphicsObj, DepthTest test) {
     auto graphics = static_cast<Graphics*>(&graphicsObj);
     graphics->SetDepthTest(test);
 }
 
-void Graphics_SetDepthWriteEnabled(Object& graphicsObj, bool enabled) {
+void NativeGraphics_SetDepthWriteEnabled(Object& graphicsObj, bool enabled) {
     auto graphics = static_cast<Graphics*>(&graphicsObj);
     graphics->SetDepthWriteEnabled(enabled);
 }
 
-void Graphics_SetBlendingEnabled(Object& graphicsObj, bool enabled) {
+void NativeGraphics_SetBlendingEnabled(Object& graphicsObj, bool enabled) {
     auto graphics = static_cast<Graphics*>(&graphicsObj);
     graphics->SetBlendingEnabled(enabled);
 }
 
-void Graphics_SetBlendOperations(Object& graphicsObj, BlendOperation colorBlendOp, BlendOperation alphaBlendOp) {
+void NativeGraphics_SetBlendOperations(Object& graphicsObj, BlendOperation colorBlendOp, BlendOperation alphaBlendOp) {
     auto graphics = static_cast<Graphics*>(&graphicsObj);
     graphics->SetBlendOperations(colorBlendOp, alphaBlendOp);
 }
 
-void Graphics_SetBlendFactors(Object& graphicsObj, BlendFactor sourceColor, BlendFactor destColor, BlendFactor sourceAlpha, BlendFactor destAlpha) {
+void NativeGraphics_SetBlendFactors(Object& graphicsObj, BlendFactor sourceColor, BlendFactor destColor, BlendFactor sourceAlpha, BlendFactor destAlpha) {
     auto graphics = static_cast<Graphics*>(&graphicsObj);
     graphics->SetBlendFactors(sourceColor, destColor, sourceAlpha, destAlpha);
 }
 
-void Graphics_SetColorMask(Object& graphicsObj, bool red, bool green, bool blue, bool alpha) {
+void NativeGraphics_SetColorMask(Object& graphicsObj, bool red, bool green, bool blue, bool alpha) {
     auto graphics = static_cast<Graphics*>(&graphicsObj);
     graphics->SetColorMask(red, green, blue, alpha);
 }
 
-void Graphics_SetBlendColor(Object& graphicsObj, const Color& color) {
+void NativeGraphics_SetBlendColor(Object& graphicsObj, const Color& color) {
     auto graphics = static_cast<Graphics*>(&graphicsObj);
     graphics->SetBlendColor(color);
 }
 
-void Graphics_Clear(Object& graphicsObj) {
+void NativeGraphics_Clear(Object& graphicsObj) {
     auto graphics = static_cast<Graphics*>(&graphicsObj);
     graphics->Clear();
 }
 
-void Graphics_Present(Object& graphicsObj) {
+void NativeGraphics_Present(Object& graphicsObj) {
     auto graphics = static_cast<Graphics*>(&graphicsObj);
     graphics->Present();
 }
 
-void Graphics_DrawArray(Object& graphicsObj, Integer start, Integer count, DrawMode mode) {
+void NativeGraphics_DrawArray(Object& graphicsObj, Integer start, Integer count, DrawMode mode) {
     auto graphics = static_cast<Graphics*>(&graphicsObj);
     graphics->DrawArray(static_cast<int>(start), static_cast<int>(count), mode);
 }
 
-void Graphics_DrawIndexed(Object& graphicsObj, Integer start, Integer count, DrawMode mode) {
+void NativeGraphics_DrawIndexed(Object& graphicsObj, Integer start, Integer count, DrawMode mode) {
     auto graphics = static_cast<Graphics*>(&graphicsObj);
     graphics->DrawIndexed(static_cast<int>(start), static_cast<int>(count), mode);
 }
 
 // SHADER
-Object* Shader_CreateNativeShader(Object& graphicsObj, const String& src, const String& vertexEntry, const String& pixelEntry) {
+Object* NativeShader_this(Program* program, Object& graphicsObj, const String& src, const String& vertexEntry, const String& pixelEntry) {
     auto graphics = static_cast<Graphics*>(&graphicsObj);
-    return new Shader(graphics, src.GetView(), vertexEntry.GetView(), pixelEntry.GetView());
+    ScopedAllocator allocator(program);
+    return NEW_FRAZE_EXTERN_CLASS(allocator, Shader, "NativeShader", graphics, src.GetView(), vertexEntry.GetView(), pixelEntry.GetView());
+}
+
+void NativeShader_SetUniformMat4(Object& shaderObj, const String& name, const Mat4& value) {
+    auto shader = static_cast<Shader*>(&shaderObj);
+    shader->SetUniform(name, value);
+}
+
+void NativeShader_SetUniformTex(Object& shaderObj, const String& name, Object& textureObj) {
+    auto shader = static_cast<Shader*>(&shaderObj);
+    auto texture = static_cast<Texture*>(&textureObj);
+    shader->SetUniform(name, texture);
 }
 
 void Shader_CreateShaderObjectAsync(Program* program, Class& task, Object& graphicsObj, const String& src, const String& vertexEntry, const String& pixelEntry)
@@ -289,21 +302,11 @@ void Shader_CreateShaderObjectAsync(Program* program, Class& task, Object& graph
     Shader::CreateShaderAsync(program, task, graphics, src, vertexEntry, pixelEntry);
 }
 
-void Shader_SetUniformMat4(Object& shaderObj, const String& name, const Mat4& value) {
-    auto shader = static_cast<Shader*>(&shaderObj);
-    shader->SetUniform(name, value);
-}
-
-void Shader_SetUniformTex(Object& shaderObj, const String& name, Object& textureObj) {
-    auto shader = static_cast<Shader*>(&shaderObj);
-    auto texture = static_cast<Texture*>(&textureObj);
-    shader->SetUniform(name, texture);
-}
-
 // TEXTURE
-Object* Texture_CreateNativeTexture(Object& graphicsObj, const String& path) {
+Object* NativeTexture_this(Program* program, Object& graphicsObj, const String& path) {
     auto graphics = static_cast<Graphics*>(&graphicsObj);
-    return new Texture(graphics, path);
+    ScopedAllocator allocator(program);
+    return NEW_FRAZE_EXTERN_CLASS(allocator, Texture, "NativeTexture", graphics, path);
 }
 
 void Texture_CreateNativeTextureAsync(Program* program, Class& task, Object& graphicsObj, const String& path) {
@@ -314,7 +317,8 @@ void Texture_CreateNativeTextureAsync(Program* program, Class& task, Object& gra
 // MODEL
 Object* Model_ImportModel(Program* program, Object& graphicsObj, const String& path) {
     auto graphics = static_cast<Graphics*>(&graphicsObj);
-    return ModelImporter::ImportModel(program, graphics, std::string(path));
+    ScopedAllocator allocator(program);
+    return ModelImporter::ImportModel(allocator, graphics, std::string(path));
 }
 
 Object* Model_CreateSphereMesh(Program* program, Object& graphicsObj, Number radius, Integer segments, Integer rings, bool invert) {
@@ -327,30 +331,32 @@ void Model_ImportModelObjectAsync(Program* program, Class& task, Object& graphic
     ModelImporter::ImportModelAsync(program, task, graphics, std::string(path));
 }
 
-// BUFFER
-Object* Buffer_CreateNativeBufferWithSize(Object& graphicsObj, BufferType type, BufferUsage usage, BufferCPUAccess cpuAccess, Integer size) {
+// NATIVE BUFFER
+Object* NativeBuffer_this_size(Program* program, Object& graphicsObj, BufferType type, BufferUsage usage, BufferCPUAccess cpuAccess, Integer size) {
     auto graphics = static_cast<Graphics*>(&graphicsObj);
-    return new Buffer(graphics, type, usage, cpuAccess, size);
+    ScopedAllocator allocator(program);
+    return NEW_FRAZE_EXTERN_CLASS(allocator, Buffer, "NativeBuffer", graphics, type, usage, cpuAccess, size);
 }
 
-Object* Buffer_CreateNativeBufferFromData(Object& graphicsObj, BufferType type, BufferUsage usage, BufferCPUAccess cpuAccess, const Array<>& data) {
+Object* NativeBuffer_this_data(Program* program, Object& graphicsObj, BufferType type, BufferUsage usage, BufferCPUAccess cpuAccess, const Array<>& data) {
     auto graphics = static_cast<Graphics*>(&graphicsObj);
-    return new Buffer(graphics, type, usage, cpuAccess, data);
+    ScopedAllocator allocator(program);
+    return NEW_FRAZE_EXTERN_CLASS(allocator, Buffer, "NativeBuffer", graphics, type, usage, cpuAccess, data);
 }
 
-void Buffer_SetData(Object& bufferObj, const Array<>& data)
+void NativeBuffer_SetData(Object& bufferObj, const Array<>& data)
 {
     auto buffer = static_cast<Buffer*>(&bufferObj);
     buffer->SetData(data);
 }
 
-Integer Buffer_GetSize(Object& bufferObj)
+Integer NativeBuffer_GetSize(Object& bufferObj)
 {
     auto buffer = static_cast<Buffer*>(&bufferObj);
     return static_cast<Integer>(buffer->GetSize());
 }
 
-Integer Buffer_GetStride(Object& bufferObj)
+Integer NativeBuffer_GetStride(Object& bufferObj)
 {
     auto buffer = static_cast<Buffer*>(&bufferObj);
     return static_cast<Integer>(buffer->GetStride());

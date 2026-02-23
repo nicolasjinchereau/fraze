@@ -198,22 +198,27 @@ std::byte* Heap::AllocateRaw(size_t size)
     return page->Allocate(size);
 }
 
-std::byte* Heap::Allocate(size_t size)
+std::byte* Heap::Allocate(size_t size, bool pin)
 {
     std::lock_guard<std::mutex> lk(mut);
 
     size_t bytesNeeded = sizeof(HeapObject) + size;
     
-    if(auto p = AllocateRaw(bytesNeeded))
+    if(auto block = AllocateRaw(bytesNeeded))
     {
-        HeapObject* pBlock = reinterpret_cast<HeapObject*>(p);
-        pBlock->size = bytesNeeded;
+        HeapObject* heapObject = reinterpret_cast<HeapObject*>(block);
+        heapObject->size = bytesNeeded;
 
 #if FRAZE_HEAP_DEBUG
         pBlock->pLocation = pLocation;
         LogLocation("Alloc", pLocation);
 #endif
-        return pBlock->payload();
+        auto p = heapObject->payload();
+
+        if(pin)
+            pinned.insert(p);
+
+        return p;
     }
 
     return nullptr;
@@ -346,6 +351,14 @@ void Heap::PinMemory(const std::byte* p) {
 void Heap::UnpinMemory(const std::byte* p) {
     std::lock_guard<std::mutex> lk(mut);
     pinned.erase(p);
+}
+
+void Heap::UnpinMemory(const std::span<std::byte*> ps)
+{
+    std::lock_guard<std::mutex> lk(mut);
+
+    for(auto& p : ps)
+        pinned.erase(p);
 }
 
 #if FRAZE_HEAP_DEBUG

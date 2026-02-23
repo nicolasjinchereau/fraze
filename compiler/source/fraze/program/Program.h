@@ -21,6 +21,7 @@
 #include <fraze/common/Stack.h>
 #include <fraze/common/Utility.h>
 #include <fraze/memory/Heap.h>
+#include <fraze/memory/DefaultAllocator.h>
 #include <fraze/program/OpCode.h>
 #include <fraze/program/Operation.h>
 #include <fraze/program/TypeInfo.h>
@@ -49,6 +50,7 @@ class Program
     std::array<uint64_t, static_cast<size_t>(OpCode::COUNT)> opcodeTotalCount{};
 #endif // FRAZE_CODE_PROFILING
 
+    friend DefaultAllocator;
     friend ScopedAllocator;
     friend Heap;
 public:
@@ -75,11 +77,23 @@ public:
     void Execute(const Operation& op);
     void PinMemory(const void* p);
     void UnpinMemory(const void* p);
+    void UnpinMemory(const std::span<std::byte*> ps);
     void Collect();
     void Report();
     void Print(bool printData, bool printCode);
     void PrintOperation(size_t index, std::ostream& stream);
     std::string GetLiteralValue(uint64_t index);
+
+    template<ObjectSubclass T, typename... Args>
+        requires std::is_base_of_v<Object, T>
+    Object* NewExternClass(const std::string& qualifiedName, Args&&... args)
+    {
+        T* obj = reinterpret_cast<T*>(heap.Allocate(sizeof(T), true));
+        std::construct_at(obj, std::forward<Args>(args)...);
+        obj->info = GetTypeInfo(qualifiedName);
+        assert(obj->info);
+        return obj;
+    }
 
 #if FRAZE_CODE_PROFILING
     void DumpCodeProfile(std::ostream& stream);

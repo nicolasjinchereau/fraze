@@ -83,134 +83,138 @@ struct IntRect
     int h;
 }
 
+extern class NativeGraphics
+{
+    extern this();
+    extern void SetRenderTarget(object windowObj);
+    extern void SetShader(object shaderObj);
+    extern void SetVertexBuffer(object bufferObj);
+    extern void SetIndexBuffer(object bufferObj);
+    extern void SetClearColor(Color color);
+    extern void SetViewport(IntRect rect);
+    extern IntRect GetViewport();
+    extern void SetCullMode(CullMode mode);
+    extern void SetScissorTestEnabled(bool enabled);
+    extern void SetScissorRect(IntRect rect);
+    extern void SetDepthTest(DepthTest test);
+    extern void SetDepthWriteEnabled(bool enabled);
+    extern void SetBlendingEnabled(bool enabled);
+    extern void SetBlendOperations(BlendOperation colorBlendOp, BlendOperation alphaBlendOp);
+    extern void SetBlendFactors(BlendFactor sourceColor, BlendFactor destColor, BlendFactor sourceAlpha, BlendFactor destAlpha);
+    extern void SetColorMask(bool red, bool green, bool blue, bool alpha);
+    extern void SetBlendColor(Color color);
+    extern void Clear();
+    extern void Present();
+    extern void DrawArray(int start, int count, DrawMode mode);
+    extern void DrawIndexed(int start, int count, DrawMode mode);
+}
+
 class Graphics
 {
-    private object nativeGraphics;
-    private extern object CreateNativeGraphics();
-    private extern void SetRenderTarget(object graphicsObj, object windowObj);
-    private extern void SetShader(object graphicsObj, object shaderObj);
-    private extern void SetVertexBuffer(object graphicsObj, object bufferObj);
-    private extern void SetIndexBuffer(object graphicsObj, object bufferObj);
-    private extern void SetClearColor(object graphicsObj, Color color);
-    private extern void SetViewport(object graphicsObj, IntRect rect);
-    private extern IntRect GetViewport(object graphicsObj);
-    private extern void SetCullMode(object graphicsObj, CullMode mode);
-    private extern void SetScissorTestEnabled(object graphicsObj, bool enabled);
-    private extern void SetScissorRect(object graphicsObj, IntRect rect);
-    private extern void SetDepthTest(object graphicsObj, DepthTest test);
-    private extern void SetDepthWriteEnabled(object graphicsObj, bool enabled);
-    private extern void SetBlendingEnabled(object graphicsObj, bool enabled);
-    private extern void SetBlendOperations(object graphicsObj, BlendOperation colorBlendOp, BlendOperation alphaBlendOp);
-    private extern void SetBlendFactors(object graphicsObj, BlendFactor sourceColor, BlendFactor destColor, BlendFactor sourceAlpha, BlendFactor destAlpha);
-    private extern void SetColorMask(object graphicsObj, bool red, bool green, bool blue, bool alpha);
-    private extern void SetBlendColor(object graphicsObj, Color color);
-    private extern void Clear(object graphicsObj);
-    private extern void Present(object graphicsObj);
-    private extern void DrawArray(object graphicsObj, int start, int count, DrawMode mode);
-    private extern void DrawIndexed(object graphicsObj, int start, int count, DrawMode mode);
+    private NativeGraphics nativeGraphics;
 
     private Shader currentShader;
     private Buffer currentBuffer;
 
     static Graphics Current = null;
 
-    object NativeGraphics {
+    object NativeHandle {
 		get { return nativeGraphics; }
 	}
 
     this() {
-        nativeGraphics = CreateNativeGraphics();
+        nativeGraphics = new NativeGraphics{};
     }
 
     void SetRenderTarget(Window window) {
-        SetRenderTarget(nativeGraphics, window.NativeWindow);
+        nativeGraphics.SetRenderTarget(window.NativeHandle);
     }
 
     void SetShader(Shader shader)
     {
-        SetShader(nativeGraphics, shader.NativeShader);
+        nativeGraphics.SetShader(shader.NativeHandle);
         currentShader = shader;  // prevent GC
     }
 
     void SetVertexBuffer(Buffer buffer)
     {
-        SetVertexBuffer(nativeGraphics, buffer.NativeBuffer);
+        nativeGraphics.SetVertexBuffer(buffer.NativeHandle);
         currentBuffer = buffer;  // prevent GC
     }
 
     void SetIndexBuffer(Buffer buffer)
     {
-        SetIndexBuffer(nativeGraphics, buffer.NativeBuffer);
+        nativeGraphics.SetIndexBuffer(buffer.NativeHandle);
         currentBuffer = buffer;  // prevent GC
     }
 
     void SetClearColor(Color color) {
-        SetClearColor(nativeGraphics, color);
+        nativeGraphics.SetClearColor(color);
     }
 
     IntRect Viewport
     {
-        get { return GetViewport(nativeGraphics); }
-        set { SetViewport(nativeGraphics, value); }
+        get { return nativeGraphics.GetViewport(); }
+        set { nativeGraphics.SetViewport(value); }
     }
 
     void SetCullMode(CullMode mode) {
-        SetCullMode(nativeGraphics, mode);
+        nativeGraphics.SetCullMode(mode);
     }
 
     void SetScissorTestEnabled(bool enabled) {
-        SetScissorTestEnabled(nativeGraphics, enabled);
+        nativeGraphics.SetScissorTestEnabled(enabled);
     }
 
     void SetScissorRect(IntRect rect) {
-        SetScissorRect(nativeGraphics, rect);
+        nativeGraphics.SetScissorRect(rect);
     }
 
     void SetDepthTest(DepthTest test) {
-        SetDepthTest(nativeGraphics, test);
+        nativeGraphics.SetDepthTest(test);
     }
 
     void SetDepthWriteEnabled(bool enabled) {
-        SetDepthWriteEnabled(nativeGraphics, enabled);
+        nativeGraphics.SetDepthWriteEnabled(enabled);
     }
 
     void SetBlendingEnabled(bool enabled) {
-        SetBlendingEnabled(nativeGraphics, enabled);
+        nativeGraphics.SetBlendingEnabled(enabled);
     }
 
     void SetBlendOperations(BlendOperation colorBlendOp, BlendOperation alphaBlendOp) {
-        SetBlendOperations(nativeGraphics, colorBlendOp, alphaBlendOp);
+        nativeGraphics.SetBlendOperations(colorBlendOp, alphaBlendOp);
     }
 
     void SetBlendFactors(BlendFactor sourceColor, BlendFactor destColor, BlendFactor sourceAlpha, BlendFactor destAlpha) {
-        SetBlendFactors(nativeGraphics, sourceColor, destColor, sourceAlpha, destAlpha);
+        nativeGraphics.SetBlendFactors(sourceColor, destColor, sourceAlpha, destAlpha);
     }
 
     void SetBlendFactors(BlendFactor sourceFactor, BlendFactor destFactor) {
-        SetBlendFactors(nativeGraphics, sourceFactor, destFactor, sourceFactor, destFactor);
+        nativeGraphics.SetBlendFactors(sourceFactor, destFactor, sourceFactor, destFactor);
     }
 
     void SetColorMask(bool red, bool green, bool blue, bool alpha) {
-        SetColorMask(nativeGraphics, red, green, blue, alpha);
+        nativeGraphics.SetColorMask(red, green, blue, alpha);
     }
 
     void SetBlendColor(Color color) {
-        SetBlendColor(nativeGraphics, color);
+        nativeGraphics.SetBlendColor(color);
     }
 
     void Clear() {
-        Clear(nativeGraphics);
+        nativeGraphics.Clear();
     }
 
     void Present() {
-        Present(nativeGraphics);
+        nativeGraphics.Present();
     }
 
     void DrawArray(int start, int count, DrawMode mode) {
-        DrawArray(nativeGraphics, start, count, mode);
+        nativeGraphics.DrawArray(start, count, mode);
     }
 
     void DrawIndexed(int start, int count, DrawMode mode) {
-        DrawIndexed(nativeGraphics, start, count, mode);
+        nativeGraphics.DrawIndexed(start, count, mode);
     }
 }

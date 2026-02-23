@@ -368,12 +368,18 @@ Token Lexer::GetNextToken()
     case '_':
         return GetIdentifierOrKeywordToken();
     case '$':
+    case '#':
         if(allowInternalSymbols)
             return GetIdentifierOrKeywordToken();
         [[fallthrough]];
     default:
         ENFORCE(false, location, "unexpected character: {}", (char)value);
     }
+}
+
+bool Lexer::IsInternalSymbol(char32_t c)
+{
+    return c == '$' || c == '#';
 }
 
 void Lexer::SkipWhitespace()
@@ -630,14 +636,14 @@ Token Lexer::GetNumberToken()
 
 Token Lexer::GetIdentifierOrKeywordToken()
 {
-    assert(isalpha(value) || value == '_' || (value == '$' && allowInternalSymbols));
+    assert(isalpha(value) || value == '_' || (IsInternalSymbol(value) && allowInternalSymbols));
 
     auto start = pos;
     auto loc = location;
 
     do {
         SkipChar();
-    } while (pos != chars.end() && (isalnum(value) || value == '_' || (value == '$' && allowInternalSymbols)));
+    } while (pos != chars.end() && (isalnum(value) || value == '_' || (IsInternalSymbol(value) && allowInternalSymbols)));
 
     std::string_view chars { start, pos };
     return Token(loc, shared_string(chars), TokenType::Identifier);

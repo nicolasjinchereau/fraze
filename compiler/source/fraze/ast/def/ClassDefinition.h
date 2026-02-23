@@ -23,9 +23,9 @@ public:
     sptr<TypeSpecifier> originalClassType;
     bool isCoroutineState = false;
     bool isFunctor = false;
+    bool isExternal = false;
     Type* type{};
     size_t size{};
-
     std::vector<std::vector<FunctionDefinition*>> implementations; // ignored by ASTVisitor, set up by SemanticAnalyzer
 
     ClassDefinition(

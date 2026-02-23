@@ -287,6 +287,7 @@ sptr<TypeInfo> RuntimeTypeInfo::GetTypeInfo(Type* type)
             info->qualifiedName = type->GetName();
             info->loc = classDef->loc;
             info->size = classDef->size;
+            info->isExternal = classDef->isExternal;
             allTypeInfo.push_back(info);
             typeInfoByType[type] = info;
             ret = info;

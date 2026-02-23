@@ -119,4 +119,95 @@ struct CountableAdaptor
 
 inline constexpr CountableAdaptor countable{};
 
+
+template <std::ranges::input_range R1, std::ranges::input_range R2>
+class concat_view : public std::ranges::view_interface<concat_view<R1, R2>>
+{
+    R1 r1_;
+    R2 r2_;
+
+    class iterator
+    {
+        using I1 = std::ranges::iterator_t<R1>;
+        using S1 = std::ranges::sentinel_t<R1>;
+        using I2 = std::ranges::iterator_t<R2>;
+        using S2 = std::ranges::sentinel_t<R2>;
+
+        I1 it1_;
+        S1 end1_;
+        I2 it2_;
+        S2 end2_;
+        bool in_first_;
+
+    public:
+        using iterator_category = std::input_iterator_tag;
+        using difference_type = std::ptrdiff_t;
+        using value_type = std::common_type_t<
+            std::ranges::range_value_t<R1>,
+            std::ranges::range_value_t<R2>>;
+
+        iterator(I1 it1, S1 end1, I2 it2, S2 end2, bool in_first)
+            : it1_(it1), end1_(end1), it2_(it2), end2_(end2), in_first_(in_first)
+        {
+            if(in_first_ && it1_ == end1_) in_first_ = false;
+        }
+
+        decltype(auto) operator*() const
+        {
+            return in_first_ ? *it1_ : *it2_;
+        }
+
+        iterator& operator++()
+        {
+            if(in_first_)
+            {
+                ++it1_;
+                if(it1_ == end1_) in_first_ = false;
+            }
+            else
+            {
+                ++it2_;
+            }
+            return *this;
+        }
+
+        void operator++(int) { ++*this; }
+
+        friend bool operator==(const iterator& it, std::default_sentinel_t)
+        {
+            return !it.in_first_ && it.it2_ == it.end2_;
+        }
+    };
+
+public:
+    concat_view() = default;
+    concat_view(R1 r1, R2 r2) : r1_(std::move(r1)), r2_(std::move(r2)) {}
+
+    auto begin()
+    {
+        return iterator(
+            std::ranges::begin(r1_), std::ranges::end(r1_),
+            std::ranges::begin(r2_), std::ranges::end(r2_),
+            true);
+    }
+
+    auto end() { return std::default_sentinel; }
+};
+
+template <class R1, class R2>
+concat_view(R1, R2) -> concat_view<std::views::all_t<R1>, std::views::all_t<R2>>;
+
+struct ConcatFunc
+{
+    template <std::ranges::input_range R1, std::ranges::input_range R2>
+    auto operator()(R1&& r1, R2&& r2) const
+    {
+        return concat_view<std::views::all_t<R1>, std::views::all_t<R2>>(
+            std::views::all(std::forward<R1>(r1)),
+            std::views::all(std::forward<R2>(r2)));
+    }
+};
+
+inline constexpr ConcatFunc concat{};
+
 } // fraze

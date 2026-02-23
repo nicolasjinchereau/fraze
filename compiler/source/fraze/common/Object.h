@@ -15,6 +15,7 @@
 #include <variant>
 #include <fraze/common/Pointers.h>
 #include <fraze/memory/Heap.h>
+#include <fraze/memory/IAllocator.h>
 #include <fraze/program/TypeInfo.h>
 
 namespace fraze {
@@ -63,25 +64,39 @@ struct _IsArrayImpl<Array<T>> : std::true_type {};
 template<typename T>
 inline constexpr bool IsArray = _IsArrayImpl<T>::value;
 
+class Program;
 class Class;
 class String;
+class ScopedAllocator;
 
 class Object
 {
+    friend Program;
+    friend ScopedAllocator;
+protected:
+    const TypeInfo* info = nullptr;
+
 public:
-    Object(){}
-    virtual ~Object(){}
+    Object(const TypeInfo* info)
+        : info(info)
+    {
+        assert(info);
+    }
 
     Object(const Object&) = delete;
     Object& operator=(const Object&) = delete;
 
     virtual WordType GetType() const = 0;
 
+    const TypeInfo* GetTypeInfo() const {
+        return info;
+    }
+
     template<class T, typename... Args> requires std::is_convertible_v<T*, Object*>
-    static T* Create(Heap& heap, size_t size, Args&&... args)
+    static T* Create(IAllocator& allocator, size_t size, Args&&... args)
     {
         assert(size != 0);
-        T* val = reinterpret_cast<T*>(heap.Allocate(size));
+        T* val = reinterpret_cast<T*>(allocator.Allocate(size));
         return std::construct_at(val, std::forward<Args>(args)...);
     }
 
@@ -105,7 +120,8 @@ public:
     }
 };
 
-class Program;
+template<class T>
+concept ObjectSubclass = std::is_base_of_v<Object, std::remove_cvref_t<T>>;
 
 class Word
 {
@@ -254,13 +270,12 @@ class Array<void> : public Object
 {
 protected:
     size_t length = 0;
-    const ArrayInfo* info{};
     Word* GetData() const;
     Word& GetWord(size_t i) const;
 public:
     Array(const ArrayInfo* info, size_t length);
 
-    static Array<>* New(Heap& heap, const ArrayInfo* info, size_t length);
+    static Array<>* New(IAllocator& allocator, const ArrayInfo* info, size_t length);
 
     virtual WordType GetType() const override {
         return WordType::Array;
@@ -273,7 +288,7 @@ public:
     Word& At(size_t index);
     const Word& At(size_t index) const;
 
-    const ArrayInfo* GetInfo() const { return info; }
+    const ArrayInfo* GetInfo() const { return static_cast<const ArrayInfo*>(info); }
 };
 
 template<class T>
@@ -328,12 +343,11 @@ public:
 
 class Class : public Object
 {
-    const ClassInfo* info{};
     Word& GetWord(size_t i) const;
 public:
     Class(const ClassInfo* info);
 
-    static Class* New(Heap& heap, const ClassInfo* info);
+    static Class* New(IAllocator& allocator, const ClassInfo* info);
 
     virtual WordType GetType() const override {
         return WordType::Class;
@@ -349,7 +363,7 @@ public:
     void SetFields(size_t index, const std::span<Word>& values);
     void SetField(std::string_view name, const Word& val);
     void SetField(std::string_view name, const std::span<Word>& val);
-    const ClassInfo* GetInfo() const { return info; }
+    const ClassInfo* GetInfo() const { return static_cast<const ClassInfo*>(info); }
     size_t GetFunctionID(size_t interfaceID, size_t offset);
 
     void SetField(std::string_view name, Object* val) {
@@ -376,16 +390,16 @@ class String : public Object
 {
     size_t length = 0;
 public:
-    String(size_t length);
-    String(std::string_view str);
-    String(std::string_view left, std::string_view right);
+    String(const TypeInfo* info, size_t length);
+    String(const TypeInfo* info, std::string_view str);
+    String(const TypeInfo* info, std::string_view left, std::string_view right);
 
-    static String* New(Heap& heap, std::string_view str);
-    static String* New(Heap& heap, size_t length);
-    static String* New(Heap& heap, std::string_view left, std::string_view right);
+    static String* New(IAllocator& allocator, std::string_view str);
+    static String* New(IAllocator& allocator, size_t length);
+    static String* New(IAllocator& allocator, std::string_view left, std::string_view right);
     
     // for static strings
-    static std::unique_ptr<String, Object::Deleter> New(std::string_view str);
+    static std::unique_ptr<String, Object::Deleter> New(Program* program, std::string_view str);
 
     virtual WordType GetType() const override {
         return WordType::String;

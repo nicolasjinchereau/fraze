@@ -54,49 +54,53 @@ interface IWindowEventHandler
     void OnResize(Window window, IVec2 size);
 }
 
+extern class NativeWindow
+{
+    extern this(object window, string title, int x, int y, int width, int height);
+    extern void Show();
+    extern void Hide();
+    extern void Close();
+    extern int PumpMessage();
+    extern int GetWidth();
+    extern int GetHeight();
+}
+
 class Window
 {
-    private object nativeWindow;
-    private extern object CreateNativeWindow(object window, string title, int x, int y, int width, int height);
-    private extern void Show(object windowObj);
-    private extern void Hide(object windowObj);
-    private extern void Close(object windowObj);
-    private extern int PumpMessage(object windowObj);
-    private extern int GetWidth(object windowObj);
-    private extern int GetHeight(object windowObj);
+    private NativeWindow nativeWindow;
 
     private List<IWindowEventHandler> eventHandlers;
 
     this(string title, int x, int y, int width, int height) {
-        nativeWindow = CreateNativeWindow(this, title, x, y, width, height);
+        nativeWindow = new NativeWindow{this, title, x, y, width, height};
         eventHandlers = new List<IWindowEventHandler>{};
     }
 
     void Show() {
-        Show(nativeWindow);
+        nativeWindow.Show();
     }
 
     void Hide() {
-        Hide(nativeWindow);
+        nativeWindow.Hide();
     }
 
     void Close() {
-        Close(nativeWindow);
+        nativeWindow.Close();
     }
 
     int PumpMessage() {
-        return PumpMessage(nativeWindow);
+        return nativeWindow.PumpMessage();
     }
 
     int Width {
-        get { return GetWidth(nativeWindow); }
+        get { return nativeWindow.GetWidth(); }
     }
 
     int Height {
-        get { return GetHeight(nativeWindow); }
+        get { return nativeWindow.GetHeight(); }
     }
 
-    object NativeWindow {
+    object NativeHandle {
         get { return nativeWindow; }
     }
 

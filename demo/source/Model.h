@@ -17,7 +17,7 @@ class ModelImporter
 {
     friend Graphics;
 public:
-    static Class* ImportModel(Program* program, Graphics* graphics, const std::string& path);
+    static Class* ImportModel(IAllocator& allocator, Graphics* graphics, const std::string& path);
     static Class* CreateSphereMesh(Program* program, Graphics* graphics, Number radius, Integer segments, Integer rings, bool invert);
     static void ImportModelAsync(Program* program, Class& task, Graphics* graphics, const std::string& path);
 };

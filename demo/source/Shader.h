@@ -40,7 +40,7 @@ class Shader : public Object
     ShaderResources resources;
     bool uniformsChanged = true;
 public:
-    Shader(Graphics* graphics, std::string_view src, std::string_view vertexEntry, std::string_view pixelEntry);
+    Shader(const TypeInfo* typeInfo, Graphics* graphics, std::string_view src, std::string_view vertexEntry, std::string_view pixelEntry);
     ~Shader();
 
     virtual WordType GetType() const override;

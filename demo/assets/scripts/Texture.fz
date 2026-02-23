@@ -24,24 +24,28 @@ enum TextureFilterMode
     Trilinear,
 }
 
+extern class NativeTexture
+{
+    extern this(object graphicsObj, string path);
+}
+
 class Texture
 {
-    private object nativeTexture;
-    private extern object CreateNativeTexture(object graphicsObj, string path);
-    private extern Task<object> CreateNativeTextureAsync(object graphicsObj, string path);
+    private NativeTexture nativeTexture;
+    private extern Task<NativeTexture> CreateNativeTextureAsync(object graphicsObj, string path);
 
     this(Graphics graphics, string path)
     {
-        nativeTexture = CreateNativeTexture(graphics.NativeGraphics, path);
+        nativeTexture = new NativeTexture{graphics.NativeHandle, path};
     }
 
     static Task<Texture> CreateTextureAsync(Graphics graphics, string path)
     {
-        object nativeTex = await Texture.CreateNativeTextureAsync(graphics.NativeGraphics, path);
+        NativeTexture nativeTex = await Texture.CreateNativeTextureAsync(graphics.NativeHandle, path);
         return new Texture{ nativeTex };
     }
 
-    object NativeTexture {
+    object NativeHandle {
         get { return nativeTexture; }
     }
 }

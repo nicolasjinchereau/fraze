@@ -8,8 +8,8 @@
 
 namespace fraze {
 
-Window::Window(Program* program, Object* window, std::string_view title, const IVec2& pos, const IVec2& size, bool resizable)
-    : program(program), window(window), title(title), pos(pos), size(size), resizable(resizable)
+Window::Window(const TypeInfo* typeInfo, Program* program, Object* window, std::string_view title, const IVec2& pos, const IVec2& size, bool resizable)
+    : Object(typeInfo), program(program), window(window), title(title), pos(pos), size(size), resizable(resizable)
 {
 }
 

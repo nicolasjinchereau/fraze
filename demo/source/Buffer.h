@@ -26,10 +26,10 @@ class Buffer : public Object
     size_t stride = {};
     ComPtr<ID3D11Buffer> buffer;
 public:
-    Buffer(Graphics* graphics, BufferType type, BufferUsage usage, BufferCPUAccess cpuAccess, Integer size);
-    Buffer(Graphics* graphics, BufferType type, BufferUsage usage, BufferCPUAccess cpuAccess, const Array<>& data);
-    Buffer(Graphics* graphics, BufferType type, BufferUsage usage, BufferCPUAccess cpuAccess, const std::vector<float>& data, size_t stride);
-    Buffer(Graphics* graphics, BufferType type, BufferUsage usage, BufferCPUAccess cpuAccess, const void* data, size_t size, size_t stride);
+    Buffer(const TypeInfo* typeInfo, Graphics* graphics, BufferType type, BufferUsage usage, BufferCPUAccess cpuAccess, Integer size);
+    Buffer(const TypeInfo* typeInfo, Graphics* graphics, BufferType type, BufferUsage usage, BufferCPUAccess cpuAccess, const Array<>& data);
+    Buffer(const TypeInfo* typeInfo, Graphics* graphics, BufferType type, BufferUsage usage, BufferCPUAccess cpuAccess, const std::vector<float>& data, size_t stride);
+    Buffer(const TypeInfo* typeInfo, Graphics* graphics, BufferType type, BufferUsage usage, BufferCPUAccess cpuAccess, const void* data, size_t size, size_t stride);
     ~Buffer();
 
     virtual WordType GetType() const override;

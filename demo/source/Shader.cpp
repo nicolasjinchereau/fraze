@@ -6,13 +6,15 @@
 #include <Shader.h>
 #include <Graphics.h>
 #include <Texture.h>
+#include <fraze/memory/ScopedAllocator.h>
 #include <fraze/program/Program.h>
 #include <fraze/program/Dispatcher.h>
 #include <WorkerThread.h>
 
 namespace fraze {
 
-Shader::Shader(Graphics* graphics, std::string_view src, std::string_view vertexEntry, std::string_view pixelEntry)
+Shader::Shader(const TypeInfo* typeInfo, Graphics* graphics, std::string_view src, std::string_view vertexEntry, std::string_view pixelEntry)
+    : Object(typeInfo)
 {
     this->graphics = graphics;
     graphics->CreateShader(src, vertexEntry, pixelEntry, &resources);
@@ -34,9 +36,10 @@ void Shader::CreateShaderAsync(Program* program, Class& task, Graphics* graphics
     sptr<Dispatcher> dispatcher = Dispatcher::GetCurrent();
 
     WorkerThread::GetInstance().InvokeAsync([=] {
-        Shader* shader = new Shader(graphics, sourceStr, vertexEntryStr, pixelEntryStr);
+        sptr<ScopedAllocator> allocator = spnew<ScopedAllocator>(program);
+        Shader* shader = NEW_FRAZE_EXTERN_CLASS(*allocator, Shader, "NativeShader", graphics, sourceStr, vertexEntryStr, pixelEntryStr);
 
-        dispatcher->InvokeAsync([=]{
+        dispatcher->InvokeAsync([=, allocator=allocator]{
             taskPtr->SetField("$position", Integer(-1));
             taskPtr->SetField("$value", shader);
             program->Invoke("OnAwaitableCompleted", taskPtr);

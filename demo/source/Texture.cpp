@@ -5,6 +5,7 @@
 #include <Texture.h>
 #include <Graphics.h>
 #include <fraze/common/Pointers.h>
+#include <fraze/memory/ScopedAllocator.h>
 #include <fraze/program/Dispatcher.h>
 #include <fraze/program/Program.h>
 #include <WorkerThread.h>
@@ -32,7 +33,8 @@ size_t GetBytesPerPixel(PixelDataFormat format)
     }
 }
 
-Texture::Texture(Graphics* graphics, std::string_view path)
+Texture::Texture(const TypeInfo* typeInfo, Graphics* graphics, std::string_view path)
+    : Object(typeInfo)
 {
     this->graphics = graphics;
 
@@ -175,9 +177,10 @@ void Texture::CreateTextureAsync(Program* program, Class& task, Graphics* graphi
     sptr<Dispatcher> dispatcher = Dispatcher::GetCurrent();
     
     WorkerThread::GetInstance().InvokeAsync([=]{
-        Texture* texture = new Texture(graphics, pathStr);
+        sptr<ScopedAllocator> allocator = spnew<ScopedAllocator>(program);
+        Object* texture = NEW_FRAZE_EXTERN_CLASS(*allocator, Texture, "NativeTexture", graphics, pathStr);
 
-        dispatcher->InvokeAsync([=] {
+        dispatcher->InvokeAsync([=, allocator=allocator] {
             taskPtr->SetField("$position", Integer(-1));
             taskPtr->SetField("$value", texture);
             program->Invoke("OnAwaitableCompleted", taskPtr);

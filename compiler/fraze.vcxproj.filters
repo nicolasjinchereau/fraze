@@ -99,6 +99,9 @@
     <ClCompile Include="source\fraze\compiler\RuntimeTypeInfo.cpp">
       <Filter>source\fraze\compiler</Filter>
     </ClCompile>
+    <ClCompile Include="source\fraze\memory\DefaultAllocator.cpp">
+      <Filter>source\fraze\memory</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="source\fraze\ast\ASTNode.h">
@@ -355,6 +358,12 @@
     </ClInclude>
     <ClInclude Include="source\fraze\compiler\RuntimeTypeInfo.h">
       <Filter>source\fraze\compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\memory\IAllocator.h">
+      <Filter>source\fraze\memory</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\memory\DefaultAllocator.h">
+      <Filter>source\fraze\memory</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

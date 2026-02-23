@@ -35,7 +35,7 @@ class Texture : public Object
     ComPtr<ID3D11ShaderResourceView> resourceView;
     ComPtr<ID3D11SamplerState> samplerState;
 public:
-    Texture(Graphics* graphics, std::string_view path);
+    Texture(const TypeInfo* typeInfo, Graphics* graphics, std::string_view path);
     ~Texture();
 
     virtual WordType GetType() const override;

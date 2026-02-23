@@ -349,22 +349,28 @@ Compiler* Compiler::GetActiveCompiler()
 
 sptr<IExternalFunction> Compiler::GetFunction(std::string_view qualifiedName, std::string_view signature)
 {
-    sptr<IExternalFunction> ret;
-
     auto it = functions.find(qualifiedName);
     if(it != functions.end())
-        ret = it->second;
+        return it->second;
 
-    return ret;
+    std::string nameAndSignature;
+    nameAndSignature.reserve(qualifiedName.length() + 1 + signature.length());
+    nameAndSignature += qualifiedName;
+    nameAndSignature += ":";
+    nameAndSignature += signature;
+
+    it = functions.find(nameAndSignature);
+    if(it != functions.end())
+        return it->second;
+
+    return nullptr;
 }
 
 IntrinsicFunction Compiler::GetIntrinsic(std::string_view qualifiedName, std::string_view signature)
 {
-    IntrinsicFunction ret = nullptr;
-
     auto it = intrinsics.find(qualifiedName);
     if(it != intrinsics.end())
-        ret = it->second;
+        return it->second;
 
     std::string nameAndSignature;
     nameAndSignature.reserve(qualifiedName.length() + 1 + signature.length());
@@ -374,9 +380,9 @@ IntrinsicFunction Compiler::GetIntrinsic(std::string_view qualifiedName, std::st
 
     it = intrinsics.find(nameAndSignature);
     if(it != intrinsics.end())
-        ret = it->second;
+        return it->second;
 
-    return ret;
+    return nullptr;
 }
 
 } // fraze

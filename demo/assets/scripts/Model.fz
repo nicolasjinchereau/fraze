@@ -86,12 +86,12 @@ class Model
 
     static Model ImportModel(Graphics graphics, string path)
     {
-        return ImportModel(graphics.NativeGraphics, path) as Model;
+        return ImportModel(graphics.NativeHandle, path) as Model;
     }
 
     static Task<Model> ImportModelAsync(Graphics graphics, string path)
     {
-        object modelObj = await Model.ImportModelObjectAsync(graphics.NativeGraphics, path);
+        object modelObj = await Model.ImportModelObjectAsync(graphics.NativeHandle, path);
         return modelObj as Model;
     }
 
@@ -134,6 +134,6 @@ class Model
 
     static Mesh CreateSphereMesh(Graphics graphics, num radius, int segments, int rings, bool invert)
     {
-        return CreateSphereMesh(graphics.NativeGraphics, radius, segments, rings, invert) as Mesh;
+        return CreateSphereMesh(graphics.NativeHandle, radius, segments, rings, invert) as Mesh;
     }
 }

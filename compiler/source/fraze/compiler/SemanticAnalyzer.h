@@ -109,7 +109,7 @@ private:
     sptr<Definition> SearchUpward(Scope* scope, const std::string& name, const std::vector<sptr<Expression>>& arguments, Scope* toScope = nullptr);
     
     void FindCallTargets(std::string_view name, Scope* fromScope, Scope* toScope, std::vector<sptr<Definition>>& callTargets);
-    sptr<Definition> SelectCallTarget(const SourceLocation& loc, const Scope* scope, const std::vector<sptr<Definition>>& callTargets, const std::vector<sptr<Expression>>& arguments, bool suppressErrors = false);
+    sptr<Definition> SelectCallTarget(const SourceLocation& loc, const Scope* scope, const std::vector<sptr<Definition>>& callTargets, const sptr<Expression>& context, const std::vector<sptr<Expression>>& arguments, bool suppressErrors = false);
     sptr<FunctionDefinition> GetCallTargetFunction(const sptr<Definition>& target);
     void VisitCallTarget(const sptr<IdentifierExpression>& node, std::vector<sptr<Expression>>& arguments);
 

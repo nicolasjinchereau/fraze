@@ -110,6 +110,7 @@ struct ClassInfo : TypeInfo
     std::vector<size_t> interfaces;
     std::vector<std::vector<size_t>> implementations;
     std::vector<FieldInfo*> fields;
+    bool isExternal{};
 
     virtual ClassInfo* ToClassInfo() override { return this; }
     virtual const ClassInfo* ToClassInfo() const override { return this; }

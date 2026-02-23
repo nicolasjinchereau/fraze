@@ -78,8 +78,19 @@ public:
         return *this;
     }
 
+    template<class Ret, class... Args>
+    Compiler& AddFunction(const std::string& qualifiedName, const std::string& signature, Ret(*func)(Args...)) {
+        AddFunction(std::format("{}:{}", qualifiedName, signature), func);
+        return *this;
+    }
+
     Compiler& AddIntrinsic(const std::string& qualifiedName, IntrinsicFunction intrinsic) {
         intrinsics[qualifiedName] = intrinsic;
+        return *this;
+    }
+
+    Compiler& AddIntrinsic(const std::string& qualifiedName, const std::string& signature, IntrinsicFunction intrinsic) {
+        AddIntrinsic(std::format("{}:{}", qualifiedName, signature), intrinsic);
         return *this;
     }
 

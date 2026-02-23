@@ -114,6 +114,7 @@ sptr<ASTNode> ClassDefinition::Clone(ScopeStack& scopes, const sptr<TypeSpecifie
 
     copy->isCoroutineState = isCoroutineState;
     copy->isFunctor = isFunctor;
+    copy->isExternal = isExternal;
     copy->size = size;
     copy->originalClassType = originalClassType ? originalClassType->Clone(scopes, nullptr)->ToTypeSpecifier() : decltype(originalClassType){};
 

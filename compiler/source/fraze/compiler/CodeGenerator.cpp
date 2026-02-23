@@ -895,8 +895,8 @@ void CodeGenerator::Visit(const sptr<CallExpression>& node)
             Emit(node->loc, OpCode::PushNull);
         }
 
-        assert(didPushContext || func->isStatic);
-       
+        assert(didPushContext || func->isStatic || func->isUFC);
+        
         // call
         if(interfaceID != size_t(-1))
         {
@@ -1487,7 +1487,7 @@ void CodeGenerator::Visit(const sptr<PostfixExpression>& node)
 }
 
 void CodeGenerator::Visit(const sptr<StringLiteralExpression>& node) {
-    program->staticObjects.push_back(String::New(node->value));
+    program->staticObjects.push_back(String::New(program.get(), node->value));
     auto index = Emit((String*)program->staticObjects.back().get());
     Emit(node->loc, OpCode::PushLiteral, index);
 }

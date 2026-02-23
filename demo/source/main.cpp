@@ -29,7 +29,7 @@ int main(int argc, char** argv)
         
         dispatcher->InvokeAsync([&]{
             fraze::ScopedAllocator alloc(program.get());
-            fraze::Array<fraze::String>* argArray = NEW_FRAZE_ARRAY(alloc, fraze::String, "string[]", 1);
+            fraze::Array<fraze::String>* argArray = NEW_FRAZE_ARRAY_T(alloc, fraze::String, "string[]", 1);
             argArray->At(0) = NEW_FRAZE_STRING(alloc, "test");
             program->Invoke("main", argArray).GetInteger();
         });

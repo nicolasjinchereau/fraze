@@ -57,7 +57,7 @@ public:
 
     Heap(Program* pProgram);
 
-    std::byte* Allocate(size_t size);
+    std::byte* Allocate(size_t size, bool pin = false);
     void Collect();
     size_t TotalUsed() const;
     void Report();
@@ -65,6 +65,7 @@ public:
     void RemoveRange(std::byte* rangeStart);
     void PinMemory(const std::byte* p);
     void UnpinMemory(const std::byte* p);
+    void UnpinMemory(const std::span<std::byte*> ps);
 
 #if FRAZE_HEAP_DEBUG
     void SetLocation(SourceLocation* pLocation);

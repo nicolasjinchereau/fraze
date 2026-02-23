@@ -40,36 +40,40 @@ struct Vertex
     Vec3 norm;
 }
 
+extern class NativeBuffer
+{
+    extern this(object graphicsObj, BufferType type, BufferUsage usage, BufferCPUAccess cpuAccess, int size);
+    extern this(object graphicsObj, BufferType type, BufferUsage usage, BufferCPUAccess cpuAccess, void[] data);
+    extern void SetData(void[] dataArray);
+    extern int GetSize();
+    extern int GetStride();
+}
+
 class Buffer
 {
-    private object nativeBuffer;
-    private extern object CreateNativeBufferWithSize(object graphicsObj, BufferType type, BufferUsage usage, BufferCPUAccess cpuAccess, int size);
-    private extern object CreateNativeBufferFromData(object graphicsObj, BufferType type, BufferUsage usage, BufferCPUAccess cpuAccess, void[] data);
-	private extern void SetData(object bufferObj, void[] dataArray);
-	private extern int GetSize(object bufferObj);
-	private extern int GetStride(object bufferObj);
-    
+    private NativeBuffer nativeBuffer;
+
 	this(Graphics graphics, BufferType type, BufferUsage usage, BufferCPUAccess cpuAccess, int size) {
-        nativeBuffer = CreateNativeBufferWithSize(graphics.NativeGraphics, type, usage, cpuAccess, size);
+        nativeBuffer = new NativeBuffer{graphics.NativeHandle, type, usage, cpuAccess, size};
     }
 	
 	this(Graphics graphics, BufferType type, BufferUsage usage, BufferCPUAccess cpuAccess, void[] data) {
-        nativeBuffer = CreateNativeBufferFromData(graphics.NativeGraphics, type, usage, cpuAccess, data);
+        nativeBuffer = new NativeBuffer{graphics.NativeHandle, type, usage, cpuAccess, data};
     }
 
 	void SetData(void[] data) {
-		SetData(nativeBuffer, data);
+        nativeBuffer.SetData(data);
 	}
 
 	int Size {
-		get { return GetSize(nativeBuffer); }
+		get { return nativeBuffer.GetSize(); }
 	}
 
 	int Stride {
-		get { return GetStride(nativeBuffer); }
+		get { return nativeBuffer.GetStride(); }
 	}
 
-	object NativeBuffer {
+	object NativeHandle {
 		get { return nativeBuffer; }
 	}
 }

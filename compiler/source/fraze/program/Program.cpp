@@ -49,6 +49,11 @@ void Program::UnpinMemory(const void* p)
     heap.UnpinMemory(static_cast<const std::byte*>(p));
 }
 
+void Program::UnpinMemory(const std::span<std::byte*> ps)
+{
+    heap.UnpinMemory(ps);
+}
+
 void Program::Collect()
 {
     heap.Collect();
@@ -752,7 +757,8 @@ void Program::Execute_NewArray(const Operation& op)
     size_t elementSize = structInfo ? structInfo->size : size_t(1);
 
     Integer length = top->integer;
-    top->object = Array<>::New(heap, arrayInfo, length * elementSize);
+    DefaultAllocator alloc(this);
+    top->object = Array<>::New(alloc, arrayInfo, length * elementSize);
 
     ++rip;
 }
@@ -761,7 +767,8 @@ void Program::Execute_NewClass(const Operation& op)
 {
     Word* top = rsp;
     auto* classInfo = typeInfo[op.arg1_u64]->ToClassInfo();
-    Class* instance = Class::New(heap, classInfo->ToClassInfo());
+    DefaultAllocator alloc(this);
+    Class* instance = Class::New(alloc, classInfo->ToClassInfo());
 
     Word* end = top + 1;
     Word* firstArg = end - classInfo->size;
@@ -1176,7 +1183,8 @@ void Program::Execute_ConvNumToInt(const Operation& op)
 void Program::Execute_ConvBoolToStr(const Operation& op)
 {
     bool value = static_cast<bool>(rsp->storage);
-    rsp->object = String::New(heap, value ? "true" : "false");
+    DefaultAllocator alloc(this);
+    rsp->object = String::New(alloc, value ? "true" : "false");
     ++rip;
 }
 
@@ -1190,7 +1198,8 @@ void Program::Execute_ConvIntToStr(const Operation& op)
         buffer.data(), buffer.data() + buffer.size(), value);
     assert(ret.ec == std::errc());
 
-    top->object = String::New(heap, std::string_view(buffer.data(), ret.ptr));
+    DefaultAllocator alloc(this);
+    top->object = String::New(alloc, std::string_view(buffer.data(), ret.ptr));
     ++rip;
 }
 
@@ -1204,7 +1213,8 @@ void Program::Execute_ConvNumToStr(const Operation& op)
         buffer.data(), buffer.data() + buffer.size(), value, std::chars_format::fixed);
     assert(ret.ec == std::errc());
 
-    top->object = String::New(heap, std::string_view(buffer.data(), ret.ptr));
+    DefaultAllocator alloc(this);
+    top->object = String::New(alloc, std::string_view(buffer.data(), ret.ptr));
     ++rip;
 }
 
@@ -1215,7 +1225,8 @@ void Program::Execute_ConvEnumToStr(const Operation& op)
     auto* enumInfo = typeInfo[op.arg1_u64]->ToEnumInfo();
     auto it = std::ranges::find_if(enumInfo->members, [&](auto m){ return m.second == value; });
     assert(it != enumInfo->members.end());
-    top->object = String::New(heap, it->first);
+    DefaultAllocator alloc(this);
+    top->object = String::New(alloc, it->first);
     ++rip;
 }
 
@@ -1298,8 +1309,8 @@ void Program::Execute_StringConcat(const Operation& op)
     String* lhs = (top--)->GetString();
     std::string_view lhsView = lhs->GetView();
     std::string_view rhsView = rhs->GetView();
-    String* result = String::New(heap, lhsView, rhsView);
-    (++top)->object = result;
+    DefaultAllocator alloc(this);
+    (++top)->object = String::New(alloc, lhsView, rhsView);
     rsp = top;
     ++rip;
 }
