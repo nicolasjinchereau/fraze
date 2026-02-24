@@ -71,10 +71,6 @@ void Buffer::SetData(const Array<>& data)
 	graphics->UnmapBuffer(buffer, 0);
 }
 
-WordType Buffer::GetType() const {
-	return WordType::Object;
-}
-
 size_t Buffer::GetSize() const {
 	return size * 2 / 8;
 }

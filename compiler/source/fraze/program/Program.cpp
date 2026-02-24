@@ -922,28 +922,25 @@ void Program::Execute_IsInstance(const Operation& op)
     }
     else
     {
-        WordType leftWordType = leftValue->GetType();
+        const TypeInfo* leftTypeInfo = leftValue->GetTypeInfo();
 
-        if (leftWordType == WordType::Class)
+        if (auto leftClassInfo = leftTypeInfo->ToClassInfo()) // class or interface
         {
-            // could be class or interface
-            auto leftTypeInfo = static_cast<Class*>(leftValue)->GetInfo();
-            
-            if(leftTypeInfo->qualifiedName == "Boolean")
+            if(leftClassInfo->qualifiedName == "Boolean")
             {
                 if(auto bt = rightTypeInfo->ToBasicTypeInfo(); bt && bt->qualifiedName == "bool")
                     isInstance = true;
                 else if(auto ci = rightTypeInfo->ToClassInfo(); ci && ci->qualifiedName == "Boolean")
                     isInstance = true;
             }
-            else if(leftTypeInfo->qualifiedName == "Integer")
+            else if(leftClassInfo->qualifiedName == "Integer")
             {
                 if(auto bt = rightTypeInfo->ToBasicTypeInfo(); bt && bt->qualifiedName == "int")
                     isInstance = true;
                 else if(auto ci = rightTypeInfo->ToClassInfo(); ci && ci->qualifiedName == "Integer")
                     isInstance = true;
             }
-            else if(leftTypeInfo->qualifiedName == "Number")
+            else if(leftClassInfo->qualifiedName == "Number")
             {
                 if(auto bt = rightTypeInfo->ToBasicTypeInfo(); bt && bt->qualifiedName == "num")
                     isInstance = true;
@@ -952,14 +949,14 @@ void Program::Execute_IsInstance(const Operation& op)
             }
             else if(auto rightClassInfo = rightTypeInfo->ToClassInfo())
             {
-                if(leftTypeInfo->id == rightClassInfo->id)
+                if(leftClassInfo->id == rightClassInfo->id)
                     isInstance = true;
             }
-            else if(auto targetInterfaceInfo = rightTypeInfo->ToInterfaceInfo())
+            else if(auto rightInterfaceInfo = rightTypeInfo->ToInterfaceInfo())
             {
-                for (auto& itf : leftTypeInfo->interfaces)
+                for (auto& itf : leftClassInfo->interfaces)
                 {
-                    if (itf == targetInterfaceInfo->id)
+                    if (itf == rightInterfaceInfo->id)
                     {
                         isInstance = true;
                         break;
@@ -967,17 +964,16 @@ void Program::Execute_IsInstance(const Operation& op)
                 }
             }
         }
-        else if(leftWordType == WordType::Array)
+        else if(auto leftArrayInfo = leftTypeInfo->ToArrayInfo())
         {
-            auto valueTypeInfo = static_cast<Array<>*>(leftValue)->GetInfo();
-
-            if (auto targetArrInfo = rightTypeInfo->ToArrayInfo())
+            if (auto rightArrInfo = rightTypeInfo->ToArrayInfo())
             {
-                if (valueTypeInfo->id == targetArrInfo->id)
+                if (leftArrayInfo->id == rightArrInfo->id)
                     isInstance = true;
             }
         }
-        else if(leftWordType == WordType::String)
+        else if(auto leftBasicTypeInfo = leftTypeInfo->ToBasicTypeInfo();
+            leftBasicTypeInfo && leftBasicTypeInfo->qualifiedName == "string")
         {
             if (auto bt = rightTypeInfo->ToBasicTypeInfo(); bt && bt->qualifiedName == "string")
                 isInstance = true;
@@ -1236,52 +1232,52 @@ void Program::Execute_ConvObjToType(const Operation& op)
     // check if the object is of the target type; if not, set to null
     Word* top = rsp;
     Object* obj = top->object;
-    auto& targetInfo = typeInfo[op.arg1_u64];
+    auto& rightTypeInfo = typeInfo[op.arg1_u64];
 
-    switch(obj->GetType())
+    auto leftTypeInfo = obj->GetTypeInfo();
+    
+    if (auto leftClassInfo = leftTypeInfo->ToClassInfo())
     {
-    case WordType::Class:
-    {
-        auto valueClassInfo = ((Class*)obj)->GetInfo();
-
-        if(auto targetClassInfo = targetInfo->ToClassInfo())
+        if (auto rightClassInfo = rightTypeInfo->ToClassInfo())
         {
-            if(valueClassInfo->id != targetClassInfo->id)
+            if (leftClassInfo->id != rightClassInfo->id)
                 top->object = nullptr;
         }
-        else if(auto targetItfInfo = targetInfo->ToInterfaceInfo())
+        else if (auto rightInterfaceInfo = rightTypeInfo->ToInterfaceInfo())
         {
             bool match = false;
 
-            for(auto& implementedItf : valueClassInfo->interfaces)
+            for (auto& implementedItf : leftClassInfo->interfaces)
             {
-                if(implementedItf == targetItfInfo->id)
+                if (implementedItf == rightInterfaceInfo->id)
                 {
                     match = true;
                     break;
                 }
             }
 
-            if(!match)
+            if (!match)
                 top->object = nullptr;
         }
-        break;
     }
-    case WordType::Array:
-        if(((Array<>*)obj)->GetInfo()->id != targetInfo->id)
+    else if (auto leftArrayInfo = leftTypeInfo->ToArrayInfo())
+    {
+        if (leftArrayInfo->id != rightTypeInfo->id)
         {
             top->object = nullptr;
         }
-        break;
-    case WordType::String:
-        if(targetInfo->ToBasicTypeInfo() == nullptr || targetInfo->qualifiedName != "string")
+    }
+    else if(auto leftBasicTypeInfo = leftTypeInfo->ToBasicTypeInfo();
+        leftBasicTypeInfo && leftBasicTypeInfo->qualifiedName == "string")
+    {
+        if (rightTypeInfo->ToBasicTypeInfo() == nullptr || rightTypeInfo->qualifiedName != "string")
         {
             top->object = nullptr;
         }
-        break;
-    default:
+    }
+    else
+    {
         top->object = nullptr;
-        break;
     }
 
     ++rip;

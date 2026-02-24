@@ -163,10 +163,6 @@ Texture::~Texture()
 
 }
 
-WordType Texture::GetType() const {
-    return WordType::Object;
-}
-
 void Texture::CreateTextureAsync(Program* program, Class& task, Graphics* graphics, std::string_view path)
 {
     Class* taskPtr = &task;

@@ -32,8 +32,6 @@ public:
     Buffer(const TypeInfo* typeInfo, Graphics* graphics, BufferType type, BufferUsage usage, BufferCPUAccess cpuAccess, const void* data, size_t size, size_t stride);
     ~Buffer();
 
-    virtual WordType GetType() const override;
-
     void SetData(const Array<>& data);
     size_t GetSize() const;
     size_t GetStride() const;

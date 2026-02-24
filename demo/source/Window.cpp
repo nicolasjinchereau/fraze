@@ -18,10 +18,6 @@ Window::~Window()
     Close();
 }
 
-WordType Window::GetType() const {
-    return WordType::Object;
-}
-
 void Window::Show()
 {
     if (!hWnd)

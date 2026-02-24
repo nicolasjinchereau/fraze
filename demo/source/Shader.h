@@ -43,8 +43,6 @@ public:
     Shader(const TypeInfo* typeInfo, Graphics* graphics, std::string_view src, std::string_view vertexEntry, std::string_view pixelEntry);
     ~Shader();
 
-    virtual WordType GetType() const override;
-
     template<class T> requires is_any_of_v<T, Mat4, Color>
     void SetUniform(std::string_view name, const T& value) {
         auto data = AsFloatArray(value);

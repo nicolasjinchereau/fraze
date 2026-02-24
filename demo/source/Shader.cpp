@@ -48,10 +48,6 @@ void Shader::CreateShaderAsync(Program* program, Class& task, Graphics* graphics
     });
 }
 
-WordType Shader::GetType() const {
-    return WordType::Object;
-}
-
 void Shader::SetUniform(std::string_view name, const void* data, size_t size)
 {
     auto it = resources.uniformInfo.find(name);

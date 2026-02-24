@@ -173,10 +173,6 @@ Graphics::~Graphics()
     device = nullptr;
 }
 
-WordType Graphics::GetType() const {
-    return WordType::Object;
-}
-
 void Graphics::SetRenderTarget(Window* window)
 {
     std::lock_guard<std::mutex> lk(mut);

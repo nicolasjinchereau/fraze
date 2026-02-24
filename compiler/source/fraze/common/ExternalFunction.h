@@ -73,7 +73,7 @@ public:
     virtual WordType GetReturnType() override {
         using ReturnType = std::remove_pointer_t<std::remove_cvref_t<Ret>>;
         if constexpr(!std::is_void_v<ReturnType>)
-            return Word::GetType<ReturnType>();
+            return Word::GetWordType<ReturnType>();
         else
             return WordType::Void;
     }
@@ -111,7 +111,7 @@ private:
     template<size_t... Is>
     std::span<WordType> GetParamTypesImpl(std::index_sequence<Is...>) {
         static std::array<WordType, sizeof...(Is)> types {
-            Word::GetType<std::remove_cvref_t<std::tuple_element_t<Is, ObjectArgs>>>()...
+            Word::GetWordType<std::remove_cvref_t<std::tuple_element_t<Is, ObjectArgs>>>()...
         };
         return types;
     }

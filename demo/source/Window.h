@@ -45,8 +45,6 @@ public:
     Window(const TypeInfo* typeInfo, Program* program, Object* window, std::string_view title, const IVec2& pos, const IVec2& size, bool resizable = true);
     ~Window();
 
-    virtual WordType GetType() const override;
-
     void Show();
     void Hide();
     void Close();

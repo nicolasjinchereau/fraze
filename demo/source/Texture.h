@@ -38,8 +38,6 @@ public:
     Texture(const TypeInfo* typeInfo, Graphics* graphics, std::string_view path);
     ~Texture();
 
-    virtual WordType GetType() const override;
-
     static void CreateTextureAsync(Program* program, Class& task, Graphics* graphics, std::string_view path);
 private:
     void UpdateSamplerState();

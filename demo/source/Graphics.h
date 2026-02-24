@@ -71,8 +71,6 @@ public:
     Graphics(const TypeInfo* typeInfo);
     ~Graphics();
 
-    virtual WordType GetType() const override;
-
     void SetRenderTarget(Window* window);
     void SetShader(Shader* shader);
     void SetVertexBuffer(Buffer* buffer);

@@ -86,8 +86,6 @@ public:
     Object(const Object&) = delete;
     Object& operator=(const Object&) = delete;
 
-    virtual WordType GetType() const = 0;
-
     const TypeInfo* GetTypeInfo() const {
         return info;
     }
@@ -228,38 +226,38 @@ public:
     const T& Get() const;
 
     template<class T> requires std::is_same_v<T, Boolean>
-    static WordType GetType() { return WordType::Boolean; }
+    static WordType GetWordType() { return WordType::Boolean; }
 
     template<class T> requires std::is_same_v<T, Integer>
-    static WordType GetType() { return WordType::Integer; }
+    static WordType GetWordType() { return WordType::Integer; }
 
     template<class T> requires std::is_same_v<T, Number>
-    static WordType GetType() { return WordType::Number; }
+    static WordType GetWordType() { return WordType::Number; }
 
     template<class T> requires std::is_same_v<T, String>
-    static WordType GetType() { return WordType::String; }
+    static WordType GetWordType() { return WordType::String; }
 
     template<class T> requires IsArray<T>
-    static WordType GetType() { return WordType::Array; }
+    static WordType GetWordType() { return WordType::Array; }
     
     template<class T> requires std::is_same_v<T, Class>
-    static WordType GetType() { return WordType::Class; }
+    static WordType GetWordType() { return WordType::Class; }
 
     template<class T> requires std::is_same_v<T, Object>
-    static WordType GetType() { return WordType::Object; }
+    static WordType GetWordType() { return WordType::Object; }
 
     template<class T> requires std::is_same_v<T, Reference>
-    static WordType GetType() { return WordType::Reference; }
+    static WordType GetWordType() { return WordType::Reference; }
 
     // struct
     template<class T> requires std::is_class_v<T> && std::is_trivially_copyable_v<T>
-    static WordType GetType() { return WordType::Reference; }
+    static WordType GetWordType() { return WordType::Reference; }
 
     template<class T> requires std::is_enum_v<T> && std::is_same_v<std::underlying_type_t<T>, Integer>
-    static WordType GetType() { return WordType::Integer; }
+    static WordType GetWordType() { return WordType::Integer; }
 
     template<class T> requires std::is_void_v<T>
-    static WordType GetType() { return WordType::Void; }
+    static WordType GetWordType() { return WordType::Void; }
 };
 
 template<class T>
@@ -276,10 +274,6 @@ public:
     Array(const ArrayInfo* info, size_t length);
 
     static Array<>* New(IAllocator& allocator, const ArrayInfo* info, size_t length);
-
-    virtual WordType GetType() const override {
-        return WordType::Array;
-    }
 
     size_t GetSize() const;
     size_t GetElementSize() const;
@@ -349,10 +343,6 @@ public:
 
     static Class* New(IAllocator& allocator, const ClassInfo* info);
 
-    virtual WordType GetType() const override {
-        return WordType::Class;
-    }
-
     std::string_view GetName() const;
     size_t GetFieldCount() const;
     Word GetField(size_t index) const;
@@ -400,10 +390,6 @@ public:
     
     // for static strings
     static std::unique_ptr<String, Object::Deleter> New(Program* program, std::string_view str);
-
-    virtual WordType GetType() const override {
-        return WordType::String;
-    }
 
     bool IsEmpty() const;
     char* GetChar(size_t i) const;
