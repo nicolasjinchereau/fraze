@@ -117,7 +117,6 @@ enum class OpCode : uint8_t
     Equal,
     EqualN,
     StringEqual,
-    IsInstance,
 
     // replaces stack top with result of equality operation on top two
     LessInt,
@@ -235,7 +234,6 @@ inline std::unordered_map<OpCode, std::string> OpCodeNames {
     { OpCode::Equal,           "Equal" },
     { OpCode::EqualN,          "EqualN" },
     { OpCode::StringEqual,     "StringEqual" },
-    { OpCode::IsInstance,      "IsInstance" },
 
     { OpCode::LessInt,         "LessInt" },
     { OpCode::LessNum,         "LessNum" },

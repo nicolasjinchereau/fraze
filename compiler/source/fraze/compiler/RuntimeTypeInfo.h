@@ -14,6 +14,7 @@ namespace fraze {
 class RuntimeTypeInfo
 {
 public:
+    const TypeInfo* typeInfoTypeInfo{};
     std::vector<sptr<TypeInfo>> allTypeInfo;
     std::unordered_map<const Type*, sptr<TypeInfo>> typeInfoByType;
     std::vector<IntrinsicFunction> intrinsics;

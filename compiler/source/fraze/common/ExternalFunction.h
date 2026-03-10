@@ -59,8 +59,12 @@ public:
     virtual void Invoke(Program* program, std::span<Word> result, std::span<Word*> args) override {
         assert(GetParamCount() == args.size());
 
-        if constexpr(!std::is_void_v<Ret>) {
-            assert((sizeof(Ret) / sizeof(Word)) == result.size());
+        using RetU = std::remove_cvref_t<Ret>;
+        if constexpr(!std::is_void_v<RetU>) {
+            if constexpr(std::is_same_v<RetU, Boolean>)
+                assert(result.size() == 1);
+            else
+                assert(result.size() == (sizeof(RetU) / sizeof(Word)));
         }
 
         InvokeImpl(program, result, args, std::make_index_sequence<ParamCount>());
@@ -95,15 +99,22 @@ private:
         }
         else
         {
+            Ret retVal;
+
             if constexpr(FirstArgIsProgram<Args...>)
+                retVal = func( program, args[Is]->Get<std::remove_cvref_t<std::tuple_element_t<Is, ObjectArgs>>>()... );
+            else
+                retVal = func( args[Is]->Get<std::remove_cvref_t<std::tuple_element_t<Is, ObjectArgs>>>()... );
+
+            if constexpr(std::is_same_v<std::remove_cvref_t<Ret>, Boolean>)
             {
-                Ret* returnAddress = reinterpret_cast<Ret*>(result.data());
-                *returnAddress = func( program, args[Is]->Get<std::remove_cvref_t<std::tuple_element_t<Is, ObjectArgs>>>()... );
+                assert(result.size() == 1);
+                result[0].Set(retVal);
             }
             else
             {
                 Ret* returnAddress = reinterpret_cast<Ret*>(result.data());
-                *returnAddress = func( args[Is]->Get<std::remove_cvref_t<std::tuple_element_t<Is, ObjectArgs>>>()... );
+                *returnAddress = retVal;
             }
         }
     }

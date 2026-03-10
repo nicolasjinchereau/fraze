@@ -296,6 +296,18 @@ section ConversionTests
         Test L36 = new Test{};
         assert(L36 is null == false);
         assert(L36 is Test);
+
+        num L37 = 1.5;
+        int R37 = L37 as int;
+        assert(R37 == 1);
+
+        int L38 = 2;
+        num R38 = L38 as num;
+        assert(R38 == 2.0);
+
+        int L39 = 1;
+        bool R39 = L39 as bool;
+        assert(R39 == true);
     }
 }
 

@@ -2120,6 +2120,10 @@ class ${}_Task
         {
             expr = ParseSizeOfExpression();
         }
+        else if(token.IsKeyword(Keyword::TypeOf))
+        {
+            expr = ParseTypeOfExpression();
+        }
         // must be after keywords because keywords are identifiers
         else if (token.type == TokenType::Identifier)
         {
@@ -2329,6 +2333,17 @@ class ${}_Task
         Consume(TokenType::RightParen);
 
         auto expr = spnew<SizeOfExpression>(loc, scopes.GetCurrent(), typeSpec);
+        return expr;
+    }
+
+    sptr<Expression> ParseTypeOfExpression()
+    {
+        auto loc = token.loc;
+        Consume(Keyword::TypeOf);
+        Consume(TokenType::LeftParen);
+        auto typeSpec = ParseTypeSpecifier();
+        Consume(TokenType::RightParen);
+        auto expr = spnew<TypeOfExpression>(loc, scopes.GetCurrent(), typeSpec);
         return expr;
     }
 

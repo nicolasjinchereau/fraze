@@ -86,6 +86,8 @@
     <ClInclude Include="source\fraze\ast\expr\StringLiteralExpression.h" />
     <ClInclude Include="source\fraze\ast\expr\PrefixExpression.h" />
     <ClInclude Include="source\fraze\ast\expr\TernaryExpression.h" />
+    <ClInclude Include="source\fraze\ast\expr\TypeLiteralExpression.h" />
+    <ClInclude Include="source\fraze\ast\expr\TypeOfExpression.h" />
     <ClInclude Include="source\fraze\ast\stmt\AssertStatement.h" />
     <ClInclude Include="source\fraze\ast\stmt\BlockStatement.h" />
     <ClInclude Include="source\fraze\ast\stmt\GotoStatement.h" />

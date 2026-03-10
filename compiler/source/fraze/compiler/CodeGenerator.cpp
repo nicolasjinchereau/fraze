@@ -1309,8 +1309,9 @@ void CodeGenerator::Visit(const sptr<IsExpression>& node)
 
     if (valueType->IsNullable())
     {
-        VisitChild(node->value);
-        Emit(node->loc, OpCode::IsInstance, typeInfo[targetType]->id);
+        // IsExpression for nullables should be converted to a
+        // call to Type.IsInstance() during semantic analysis.
+        assert(0);
     }
     else
     {
@@ -1486,6 +1487,98 @@ void CodeGenerator::Visit(const sptr<PostfixExpression>& node)
     // old value left on stack
 }
 
+void CodeGenerator::Visit(const sptr<PrefixExpression>& node)
+{
+    Type* type = node->arg->EvaluateType();
+    assert(type);
+
+    bool rmw = false;
+
+    switch (node->operation)
+    {
+    case TokenType::Add:
+        VisitChild(node->arg);
+        break;
+    case TokenType::Sub:
+        if (type->IsInteger())
+        {
+            Emit(node->loc, OpCode::PushInteger, 0);
+            VisitChild(node->arg);
+            Emit(node->loc, OpCode::SubInt);
+        }
+        else if (type->IsNumber())
+        {
+            Emit(node->loc, OpCode::PushNumber, 0.0);
+            VisitChild(node->arg);
+            Emit(node->loc, OpCode::SubNum);
+        }
+        else
+        {
+            assert(0);
+        }
+        break;
+    case TokenType::Increment:
+        if (type->IsInteger())
+        {
+            VisitChild(node->arg);
+            Emit(node->loc, OpCode::PushInteger, 1);
+            Emit(node->loc, OpCode::AddInt);
+        }
+        else if (type->IsNumber())
+        {
+            VisitChild(node->arg);
+            Emit(node->loc, OpCode::PushNumber, 1.0);
+            Emit(node->loc, OpCode::AddNum);
+        }
+        else
+        {
+            assert(0);
+        }
+        rmw = true;
+        break;
+    case TokenType::Decrement:
+        if (type->IsInteger())
+        {
+            VisitChild(node->arg);
+            Emit(node->loc, OpCode::PushInteger, 1);
+            Emit(node->loc, OpCode::SubInt);
+        }
+        else if (type->IsNumber())
+        {
+            VisitChild(node->arg);
+            Emit(node->loc, OpCode::PushNumber, 1.0);
+            Emit(node->loc, OpCode::SubNum);
+        }
+        else
+        {
+            assert(0);
+        }
+        rmw = true;
+        break;
+    case TokenType::BitNot:
+        VisitChild(node->arg);
+        Emit(node->loc, OpCode::BitNot);
+        break;
+    case TokenType::LogicalNot:
+        VisitChild(node->arg);
+        Emit(node->loc, OpCode::PushBoolean, 0);
+        Emit(node->loc, OpCode::Equal);
+        break;
+    }
+
+    if (rmw)
+    {
+        Emit(node->loc, OpCode::Dup);
+        PopExpression(node->arg, node->arg);
+    }
+}
+
+void CodeGenerator::Visit(const sptr<SizeOfExpression>& node)
+{
+    size_t size = typeInfo[node->typeSpec->type]->GetSize();
+    Emit(node->loc, OpCode::PushInteger, static_cast<Integer>(size));
+}
+
 void CodeGenerator::Visit(const sptr<StringLiteralExpression>& node) {
     program->staticObjects.push_back(String::New(program.get(), node->value));
     auto index = Emit((String*)program->staticObjects.back().get());
@@ -1509,96 +1602,15 @@ void CodeGenerator::Visit(const sptr<TernaryExpression>& node)
     program->code[jump2].arg1_u64 = program->code.size();
 }
 
-void CodeGenerator::Visit(const sptr<PrefixExpression>& node)
+void CodeGenerator::Visit(const sptr<TypeLiteralExpression>& node)
 {
-    Type* type = node->arg->EvaluateType();
-    assert(type);
-
-    bool rmw = false;
-
-    switch(node->operation)
-    {
-    case TokenType::Add:
-        VisitChild(node->arg);
-        break;
-    case TokenType::Sub:
-        if(type->IsInteger())
-        {
-            Emit(node->loc, OpCode::PushInteger, 0);
-            VisitChild(node->arg);
-            Emit(node->loc, OpCode::SubInt);
-        }
-        else if(type->IsNumber())
-        {
-            Emit(node->loc, OpCode::PushNumber, 0.0);
-            VisitChild(node->arg);
-            Emit(node->loc, OpCode::SubNum);
-        }
-        else
-        {
-            assert(0);
-        }
-        break;
-    case TokenType::Increment:
-        if(type->IsInteger())
-        {
-            VisitChild(node->arg);
-            Emit(node->loc, OpCode::PushInteger, 1);
-            Emit(node->loc, OpCode::AddInt);
-        }
-        else if(type->IsNumber())
-        {
-            VisitChild(node->arg);
-            Emit(node->loc, OpCode::PushNumber, 1.0);
-            Emit(node->loc, OpCode::AddNum);
-        }
-        else
-        {
-            assert(0);
-        }
-        rmw = true;
-        break;
-    case TokenType::Decrement:
-        if(type->IsInteger())
-        {
-            VisitChild(node->arg);
-            Emit(node->loc, OpCode::PushInteger, 1);
-            Emit(node->loc, OpCode::SubInt);
-        }
-        else if(type->IsNumber())
-        {
-            VisitChild(node->arg);
-            Emit(node->loc, OpCode::PushNumber, 1.0);
-            Emit(node->loc, OpCode::SubNum);
-        }
-        else
-        {
-            assert(0);
-        }
-        rmw = true;
-        break;
-    case TokenType::BitNot:
-        VisitChild(node->arg);
-        Emit(node->loc, OpCode::BitNot);
-        break;
-    case TokenType::LogicalNot:
-        VisitChild(node->arg);
-        Emit(node->loc, OpCode::PushBoolean, 0);
-        Emit(node->loc, OpCode::Equal);
-        break;
-    }
-
-    if(rmw)
-    {
-        Emit(node->loc, OpCode::Dup);
-        PopExpression(node->arg, node->arg);
-    }
+    TypeInfo* type = program->GetTypeInfo(node->value);
+    Emit(node->loc, OpCode::PushInteger, static_cast<Integer>(type->id));
 }
 
-void CodeGenerator::Visit(const sptr<SizeOfExpression>& node)
+void CodeGenerator::Visit(const sptr<TypeOfExpression>& node)
 {
-    size_t size = typeInfo[node->typeSpec->type]->GetSize();
-    Emit(node->loc, OpCode::PushInteger, static_cast<Integer>(size));
+    assert(false); // this should have been replaced by a TypeLiteralExpression during semantic analysis
 }
 
 /****************************

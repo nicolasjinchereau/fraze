@@ -34,6 +34,11 @@ Compiler::Compiler(std::string_view assetsPath)
     AddFunction("String.Split", &String_Split);
     AddFunction("GC.Collect", &GC_Collect);
     AddFunction("GC.Report", &GC_Report);
+    AddFunction("Type.Find", &Type_Find);
+    AddFunction("Type.GetName", &Type_GetName);
+    AddFunction("Type.IsInstance", &Type_IsInstance);
+    AddFunction("Type.AsInstance", &Type_AsInstance);
+
     AddFunction("Math.Fmod", &Math_Fmod);
     AddFunction("Math.Abs", &Math_Abs);
     AddFunction("Math.Sqrt", &Math_Sqrt);

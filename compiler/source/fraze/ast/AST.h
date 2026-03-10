@@ -46,6 +46,8 @@
 #include <fraze/ast/expr/SizeOfExpression.h>
 #include <fraze/ast/expr/StringLiteralExpression.h>
 #include <fraze/ast/expr/TernaryExpression.h>
+#include <fraze/ast/expr/TypeLiteralExpression.h>
+#include <fraze/ast/expr/TypeOfExpression.h>
 
 #include <fraze/ast/type/TypeSpecifier.h>
 

@@ -927,112 +927,178 @@ void SemanticAnalyzer::Visit(const sptr<VariableDefinition>& node)
     }
 }
 
+//std::optional<sptr<ASTNode>> SemanticAnalyzer::CreateAsInstanceCall(const sptr<AsExpression>& node)
+//{
+//    auto loc = node->loc;
+//    auto scope = node->scope;
+//    auto globalScope = astRoot->global->scope.get();
+//
+//    shared_string typeName = node->typeSpec->GetTypeName(true);
+//
+//    auto context = spnew<IdentifierExpression>(loc, globalScope, shared_string("Type"));
+//    auto targetFunc = spnew<IdentifierExpression>(loc, scope, context, shared_string("AsInstance"));
+//
+//    auto arg1 = node->value;
+//    auto arg2 = spnew<TypeOfExpression>(loc, scope, node->typeSpec);
+//
+//    auto callExpr = spnew<CallExpression>(loc, scope, targetFunc);
+//    callExpr->arguments.push_back(arg1);
+//    callExpr->arguments.push_back(arg2);
+//
+//    VisitChild(callExpr);
+//    return callExpr;
+//}
+
+std::optional<sptr<ASTNode>> SemanticAnalyzer::CreateAsInstanceCall(const sptr<AsExpression>& node)
+{
+    auto loc = node->loc;
+    auto scope = node->scope;
+    auto globalScope = astRoot->global->scope.get();
+
+    shared_string typeName = node->typeSpec->GetTypeName(true);
+
+    auto context = spnew<IdentifierExpression>(loc, globalScope, shared_string("Type"));
+    auto targetFunc = spnew<IdentifierExpression>(loc, scope, context, shared_string("IsInstance"));
+    // (Type.IsInstance(obj, type) ? obj : null)
+
+    auto arg1 = node->value;
+    auto arg2 = spnew<TypeOfExpression>(loc, scope, node->typeSpec);
+
+    auto callExpr = spnew<CallExpression>(loc, scope, targetFunc);
+    callExpr->arguments.push_back(arg1);
+    callExpr->arguments.push_back(arg2);
+
+    auto tern = spnew<TernaryExpression>(loc, scope, callExpr, arg1, spnew<NullLiteralExpression>(loc, scope));
+
+    VisitChild(tern);
+    return tern;
+}
+
 void SemanticAnalyzer::Visit(const sptr<AsExpression>& node)
 {
     ASTVisitor::Visit(node);
 
-    Type* valueType = node->value->EvaluateType();
-    Type* targetType = node->typeSpec->GetType();
+    Type* leftType = node->value->EvaluateType();
+    Type* rightType = node->typeSpec->GetType();
 
-    ENFORCE(valueType != nullptr, node->value->loc, "expression cannot be evaluated");
-    ENFORCE(targetType != nullptr, node->typeSpec->loc, "expression cannot be evaluated");
+    ENFORCE(leftType != nullptr, node->value->loc, "expression cannot be evaluated");
+    ENFORCE(rightType != nullptr, node->typeSpec->loc, "expression cannot be evaluated");
 
     bool valid = false;
 
-    if(valueType == targetType)
+    if(leftType == rightType)
     {
         valid = true;
     }
-    else if(valueType->IsObject())
+    else if(leftType->IsObject())
     {
-        if (targetType->IsBoolean() ||
-            targetType->IsInteger() ||
-            targetType->IsNumber() ||
-            targetType->IsArray() ||
-            targetType->IsString() ||
-            targetType->IsClass() ||
-            targetType->IsInterface())
+        if (rightType->IsBoolean() ||
+            rightType->IsInteger() ||
+            rightType->IsNumber() ||
+            rightType->IsArray() ||
+            rightType->IsString() ||
+            rightType->IsClass() ||
+            rightType->IsInterface())
+        {
+            valid = true;
+
+            if (rightType->IsNullable())
+            {
+                replacement = CreateAsInstanceCall(node);
+            }
+        }
+    }
+    else if(leftType->IsInterface())
+    {
+        if (rightType->IsObject() ||
+            rightType->IsClass() ||
+            rightType->IsInterface() ||
+            rightType->IsBoolean())
+        {
+            valid = true;
+        }
+
+        if (rightType->IsObject() || rightType->IsClass() || rightType->IsInterface())
+        {
+            replacement = CreateAsInstanceCall(node);
+        }
+    }
+    else if(leftType->IsClass())
+    {
+        if (rightType->IsObject() ||
+            rightType->IsInterface() ||
+            rightType->IsBoolean())
+        {
+            valid = true;
+        }
+
+        if (rightType->IsObject() || rightType->IsInterface())
+        {
+            replacement = CreateAsInstanceCall(node);
+        }
+    }
+    else if(leftType->IsArray() ||
+            leftType->IsString())
+    {
+        if (rightType->IsObject() ||
+            rightType->IsBoolean())
+        {
+            valid = true;
+        }
+
+        if (rightType->IsObject())
+        {
+            replacement = CreateAsInstanceCall(node);
+        }
+    }
+    else if(leftType->IsBoolean())
+    {
+        if (rightType->IsObject() ||
+            rightType->IsInteger() ||
+            rightType->IsNumber() ||
+            rightType->IsString())
         {
             valid = true;
         }
     }
-    else if(valueType->IsInterface())
+    else if(leftType->IsInteger())
     {
-        if (targetType->IsObject() ||
-            targetType->IsClass() ||
-            targetType->IsBoolean())
-        {
-            valid = true;
-        }
-        
-        valid = true;
-    }
-    else if(valueType->IsClass())
-    {
-        if (targetType->IsObject() ||
-            targetType->IsInterface() ||
-            targetType->IsBoolean())
+        if (rightType->IsObject() ||
+            rightType->IsBoolean() ||
+            rightType->IsNumber() ||
+            rightType->IsString())
         {
             valid = true;
         }
     }
-    else if(valueType->IsArray() ||
-            valueType->IsString())
+    else if(leftType->IsNumber())
     {
-        if (targetType->IsObject() ||
-            targetType->IsBoolean())
+        if (rightType->IsObject() ||
+            rightType->IsBoolean() ||
+            rightType->IsInteger() ||
+            rightType->IsString())
         {
             valid = true;
         }
     }
-    else if(valueType->IsBoolean())
+    else if(leftType->IsString())
     {
-        if (targetType->IsObject() ||
-            targetType->IsInteger() ||
-            targetType->IsNumber() ||
-            targetType->IsString())
+        if (rightType->IsBoolean() ||
+            rightType->IsInteger() ||
+            rightType->IsNumber())
         {
             valid = true;
         }
     }
-    else if(valueType->IsInteger())
+    else if(leftType->IsEnum())
     {
-        if (targetType->IsObject() ||
-            targetType->IsBoolean() ||
-            targetType->IsNumber() ||
-            targetType->IsString())
-        {
-            valid = true;
-        }
-    }
-    else if(valueType->IsNumber())
-    {
-        if (targetType->IsObject() ||
-            targetType->IsBoolean() ||
-            targetType->IsInteger() ||
-            targetType->IsString())
-        {
-            valid = true;
-        }
-    }
-    else if(valueType->IsString())
-    {
-        if (targetType->IsBoolean() ||
-            targetType->IsInteger() ||
-            targetType->IsNumber())
-        {
-            valid = true;
-        }
-    }
-    else if(valueType->IsEnum())
-    {
-        if (targetType->IsInteger())
+        if (rightType->IsInteger())
         {
             valid = true;
         }
     }
 
-    ENFORCE(valid, node->value->loc, "cannot convert from {} to {}", valueType->GetName(), targetType->GetName());
+    ENFORCE(valid, node->value->loc, "cannot convert from {} to {}", leftType->GetName(), rightType->GetName());
 }
 
 TokenType GetBinOpForAssignment(TokenType assignmentOperator)
@@ -2114,6 +2180,28 @@ void SemanticAnalyzer::Visit(const sptr<IsExpression>& node)
 
     ENFORCE(valueType != nullptr, node->value->loc, "expression cannot be evaluated");
     ENFORCE(targetType != nullptr, node->typeSpec->loc, "expression cannot be evaluated");
+
+    if (valueType->IsNullable())
+    {
+        auto loc = node->loc;
+        auto scope = node->scope;
+        auto globalScope = astRoot->global->scope.get();
+
+        shared_string typeName = node->typeSpec->GetTypeName(true);
+
+        auto context = spnew<IdentifierExpression>(loc, globalScope, shared_string("Type"));
+        auto targetFunc = spnew<IdentifierExpression>(loc, scope, context, shared_string("IsInstance"));
+        
+        auto arg1 = node->value;
+        auto arg2 = spnew<TypeOfExpression>(loc, scope, node->typeSpec);
+
+        auto callExpr = spnew<CallExpression>(loc, scope, targetFunc);
+        callExpr->arguments.push_back(arg1);
+        callExpr->arguments.push_back(arg2);
+
+        VisitChild(callExpr);
+        replacement = callExpr;
+    }
 }
 
 void SemanticAnalyzer::Visit(const sptr<NewExpression>& node)
@@ -2366,6 +2454,7 @@ void SemanticAnalyzer::Visit(const sptr<SizeOfExpression>& node) {
     ASTVisitor::Visit(node);
 }
 
+
 void SemanticAnalyzer::Visit(const sptr<StringLiteralExpression>& node) {
     ASTVisitor::Visit(node);
 }
@@ -2381,6 +2470,31 @@ void SemanticAnalyzer::Visit(const sptr<TernaryExpression>& node)
     ENFORCE(!!falseValueType, node->falseValue->loc, "expression cannot be evaluated");
 
     ProcessAssignment(node->loc, Type::Get("bool"), node->condition);
+}
+
+void SemanticAnalyzer::Visit(const sptr<TypeLiteralExpression>& node) {
+    ASTVisitor::Visit(node);
+}
+
+void SemanticAnalyzer::Visit(const sptr<TypeOfExpression>& node)
+{
+    ASTVisitor::Visit(node);
+
+    auto loc = node->loc;
+    auto scope = node->scope;
+    auto globalScope = astRoot->global->scope.get();
+
+    shared_string typeName = node->typeSpec->GetTypeName(true);
+    
+    auto context = spnew<IdentifierExpression>(loc, globalScope, shared_string("Type"));
+    auto targetFunc = spnew<IdentifierExpression>(loc, scope, context, shared_string("Find"));
+    auto arg = spnew<TypeLiteralExpression>(loc, globalScope, typeName);
+
+    auto callExpr = spnew<CallExpression>(loc, scope, targetFunc);
+    callExpr->arguments.push_back(arg);
+
+    VisitChild(callExpr);
+    replacement = callExpr;
 }
 
 void SemanticAnalyzer::Visit(const sptr<TypeSpecifier>& node)

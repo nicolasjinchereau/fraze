@@ -7,10 +7,34 @@
 
 namespace fraze {
 
+sptr<TypeInfo> MakeRootTypeInfo()
+{
+    void* storage = ::operator new(sizeof(TypeInfo));
+    TypeInfo* typeInfo = static_cast<TypeInfo*>(storage);
+
+    std::construct_at(typeInfo, typeInfo);
+
+    auto deleter = [](TypeInfo* p) {
+        std::destroy_at(p);
+        ::operator delete(p);
+    };
+
+    return sptr<TypeInfo>(typeInfo, deleter);
+}
+
 RuntimeTypeInfo::RuntimeTypeInfo(const sptr<ASTRoot>& root, const std::vector<sptr<Type>>& types)
 {
     globalSize = GetGlobalSize(root->global);
     CalculateSizesAndOffsets(root->global);
+
+    Type* typeOfType = Type::Get("Type");
+    sptr<TypeInfo> info = MakeRootTypeInfo();
+    info->id = allTypeInfo.size();
+    info->qualifiedName = typeOfType->GetName();
+    info->loc = SourceLocation();
+    allTypeInfo.push_back(info);
+    typeInfoByType[typeOfType] = info;
+    typeInfoTypeInfo = info.get();
 
     for(auto& type : types)
     {
@@ -256,7 +280,7 @@ sptr<TypeInfo> RuntimeTypeInfo::GetTypeInfo(Type* type)
 
     if(type->IsArray())
     {
-        sptr<ArrayInfo> info = spnew<ArrayInfo>();
+        sptr<ArrayInfo> info = spnew<ArrayInfo>(typeInfoTypeInfo);
         info->id = allTypeInfo.size();
         info->qualifiedName = type->GetName();
         info->loc = SourceLocation();
@@ -272,7 +296,7 @@ sptr<TypeInfo> RuntimeTypeInfo::GetTypeInfo(Type* type)
 
         if(auto basicType = def->ToBasicTypeDefinition())
         {
-            sptr<BasicTypeInfo> info = spnew<BasicTypeInfo>();
+            sptr<BasicTypeInfo> info = spnew<BasicTypeInfo>(typeInfoTypeInfo);
             info->id = allTypeInfo.size();
             info->qualifiedName = type->GetName();
             info->loc = basicType->loc;
@@ -282,7 +306,7 @@ sptr<TypeInfo> RuntimeTypeInfo::GetTypeInfo(Type* type)
         }
         else if(auto classDef = def->ToClassDefinition())
         {
-            sptr<ClassInfo> info = spnew<ClassInfo>();
+            sptr<ClassInfo> info = spnew<ClassInfo>(typeInfoTypeInfo);
             info->id = allTypeInfo.size();
             info->qualifiedName = type->GetName();
             info->loc = classDef->loc;
@@ -292,7 +316,7 @@ sptr<TypeInfo> RuntimeTypeInfo::GetTypeInfo(Type* type)
             typeInfoByType[type] = info;
             ret = info;
 
-            for(auto& itf : classDef->interfaces)
+            for (auto& itf : classDef->interfaces)
             {
                 auto itfTypeInfo = GetTypeInfo(itf->type);
                 info->interfaces.push_back(itfTypeInfo->id);
@@ -300,14 +324,14 @@ sptr<TypeInfo> RuntimeTypeInfo::GetTypeInfo(Type* type)
                 auto& impl = classDef->implementations[info->implementations.size()];
                 info->implementations.emplace_back();
 
-                for(auto* funcDef : impl)
+                for (auto* funcDef : impl)
                 {
                     auto funcTypeInfo = GetTypeInfo(funcDef->type);
                     info->implementations.back().push_back(funcTypeInfo->id);
                 }
             }
 
-            for(const auto& field : classDef->GetChildren<VariableDefinition>())
+            for (const auto& field : classDef->GetChildren<VariableDefinition>())
             {
                 assert(field->fieldType);
                 auto fieldTypeInfo = GetTypeInfo(field->fieldType);
@@ -316,7 +340,7 @@ sptr<TypeInfo> RuntimeTypeInfo::GetTypeInfo(Type* type)
         }
         else if(auto interfaceDef = def->ToInterfaceDefinition())
         {
-            sptr<InterfaceInfo> info = spnew<InterfaceInfo>();
+            sptr<InterfaceInfo> info = spnew<InterfaceInfo>(typeInfoTypeInfo);
             info->id = allTypeInfo.size();
             info->qualifiedName = type->GetName();
             info->loc = interfaceDef->loc;
@@ -326,7 +350,7 @@ sptr<TypeInfo> RuntimeTypeInfo::GetTypeInfo(Type* type)
         }
         else if(auto structDef = def->ToStructDefinition())
         {
-            sptr<StructInfo> info = spnew<StructInfo>();
+            sptr<StructInfo> info = spnew<StructInfo>(typeInfoTypeInfo);
             info->id = allTypeInfo.size();
             info->qualifiedName = type->GetName();
             info->loc = structDef->loc;
@@ -347,7 +371,7 @@ sptr<TypeInfo> RuntimeTypeInfo::GetTypeInfo(Type* type)
             auto owner = varDef->enclosingScope->owner;
             assert(owner->ToClassDefinition() || owner->ToStructDefinition());
 
-            sptr<FieldInfo> info = spnew<FieldInfo>();
+            sptr<FieldInfo> info = spnew<FieldInfo>(typeInfoTypeInfo);
             info->id = allTypeInfo.size();
             info->qualifiedName = type->GetName();
             info->loc = varDef->loc;
@@ -360,7 +384,7 @@ sptr<TypeInfo> RuntimeTypeInfo::GetTypeInfo(Type* type)
         }
         else if(auto enumDef = def->ToEnumDefinition())
         {
-            sptr<EnumInfo> info = spnew<EnumInfo>();
+            sptr<EnumInfo> info = spnew<EnumInfo>(typeInfoTypeInfo);
             info->id = allTypeInfo.size();
             info->qualifiedName = type->GetName();
             info->loc = enumDef->loc;
@@ -413,7 +437,7 @@ sptr<TypeInfo> RuntimeTypeInfo::GetTypeInfo(Type* type)
                 }
             }
 
-            sptr<FunctionInfo> info = spnew<FunctionInfo>();
+            sptr<FunctionInfo> info = spnew<FunctionInfo>(typeInfoTypeInfo);
             info->id = allTypeInfo.size();
             info->qualifiedName = type->GetName();
             info->loc = func->loc;
@@ -434,7 +458,7 @@ sptr<TypeInfo> RuntimeTypeInfo::GetTypeInfo(Type* type)
         }
         else if(auto sect = def->ToSectionDefinition())
         {
-            sptr<SectionInfo> info = spnew<SectionInfo>();
+            sptr<SectionInfo> info = spnew<SectionInfo>(typeInfoTypeInfo);
             info->id = allTypeInfo.size();
             info->qualifiedName = type->GetName();
             info->loc = sect->loc;
@@ -448,6 +472,5 @@ sptr<TypeInfo> RuntimeTypeInfo::GetTypeInfo(Type* type)
 
     return ret;
 }
-
 
 } // fraze

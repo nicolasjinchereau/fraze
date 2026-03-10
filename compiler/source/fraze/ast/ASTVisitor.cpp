@@ -244,6 +244,15 @@ void ASTVisitor::Visit(const sptr<TernaryExpression>& node)
     VisitChild(node->falseValue);
 }
 
+void ASTVisitor::Visit(const sptr<TypeLiteralExpression>& node)
+{
+}
+
+void ASTVisitor::Visit(const sptr<TypeOfExpression>& node)
+{
+    VisitChild(node->typeSpec);
+}
+
 void ASTVisitor::Visit(const sptr<TypeSpecifier>& node)
 {
     for(auto& arg : node->templateArgs)

@@ -127,6 +127,7 @@ enum class Keyword : uint8_t
     SizeOf,
     Await,
     Fold,
+    TypeOf,
 
     // property accessors
     Get,
@@ -180,6 +181,7 @@ const string_view_map<const Keyword> Keywords
     { "sizeof",    Keyword::SizeOf },
     { "await",     Keyword::Await },
     { "fold",      Keyword::Fold },
+    { "typeof",    Keyword::TypeOf },
 
     { "get",       Keyword::Get },
     { "set",       Keyword::Set },
@@ -229,6 +231,7 @@ const std::unordered_map<Keyword, const std::string> KeywordNames
     { Keyword::SizeOf,    "sizeof" },
     { Keyword::Await,     "await" },
     { Keyword::Fold,      "fold" },
+    { Keyword::TypeOf,    "typeof" },
 
     { Keyword::Get,       "get" },
     { Keyword::Set,       "set" },

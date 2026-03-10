@@ -4,6 +4,7 @@
 
 #include <fraze/common/Object.h>
 #include <fraze/ast/def/ClassDefinition.h>
+#include <fraze/program/TypeInfo.h>
 #include <memory>
 #include <algorithm>
 
@@ -54,6 +55,10 @@ Word& Array<>::GetWord(size_t i) const {
     return GetData()[i];
 }
 
+const ArrayInfo* Array<>::GetInfo() const
+{
+    return static_cast<const ArrayInfo*>(info);
+}
 // STRING
 
 std::unique_ptr<String, Object::Deleter> String::New(Program* program, std::string_view str)
@@ -261,6 +266,10 @@ size_t Class::GetFunctionID(size_t interfaceID, size_t offset)
 Word& Class::GetWord(size_t i) const {
     auto p = (Word*)(this + 1);
     return p[i];
+}
+
+const ClassInfo* Class::GetInfo() const {
+    return static_cast<const ClassInfo*>(info);
 }
 
 } // fraze

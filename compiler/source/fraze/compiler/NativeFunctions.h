@@ -167,4 +167,140 @@ inline Integer Object_GetHashCode(const Object& value)
     return u.integer;
 }
 
+inline Object* Type_Find(Program* program, const Integer& typeID)
+{
+    return program->typeInfo[typeID].get();
+}
+
+inline String* Type_GetName(Program* program, const TypeInfo& typeInfo)
+{
+    ScopedAllocator alloc(program);
+    return NEW_FRAZE_STRING(alloc, typeInfo.qualifiedName);
+}
+
+inline Boolean Type_IsInstance(const Object* obj, const TypeInfo& rightTypeInfo)
+{
+    bool isInstance = false;
+
+    if (obj == nullptr)
+    {
+        if (auto bt = rightTypeInfo.ToBasicTypeInfo(); bt && bt->qualifiedName == "null")
+            isInstance = true;
+
+        return isInstance;
+    }
+
+    const TypeInfo* leftTypeInfo = obj->GetTypeInfo();
+
+    if (auto leftClassInfo = leftTypeInfo->ToClassInfo()) // class or interface
+    {
+        if (leftClassInfo->qualifiedName == "Boolean")
+        {
+            if (auto bt = rightTypeInfo.ToBasicTypeInfo(); bt && bt->qualifiedName == "bool")
+                isInstance = true;
+            else if (auto ci = rightTypeInfo.ToClassInfo(); ci && ci->qualifiedName == "Boolean")
+                isInstance = true;
+        }
+        else if (leftClassInfo->qualifiedName == "Integer")
+        {
+            if (auto bt = rightTypeInfo.ToBasicTypeInfo(); bt && bt->qualifiedName == "int")
+                isInstance = true;
+            else if (auto ci = rightTypeInfo.ToClassInfo(); ci && ci->qualifiedName == "Integer")
+                isInstance = true;
+        }
+        else if (leftClassInfo->qualifiedName == "Number")
+        {
+            if (auto bt = rightTypeInfo.ToBasicTypeInfo(); bt && bt->qualifiedName == "num")
+                isInstance = true;
+            else if (auto ci = rightTypeInfo.ToClassInfo(); ci && ci->qualifiedName == "Number")
+                isInstance = true;
+        }
+        else if (auto rightClassInfo = rightTypeInfo.ToClassInfo())
+        {
+            if (leftClassInfo->id == rightClassInfo->id)
+                isInstance = true;
+        }
+        else if (auto rightInterfaceInfo = rightTypeInfo.ToInterfaceInfo())
+        {
+            for (auto& itf : leftClassInfo->interfaces)
+            {
+                if (itf == rightInterfaceInfo->id)
+                {
+                    isInstance = true;
+                    break;
+                }
+            }
+        }
+    }
+    else if (auto leftArrayInfo = leftTypeInfo->ToArrayInfo())
+    {
+        if (auto rightArrInfo = rightTypeInfo.ToArrayInfo())
+        {
+            if (leftArrayInfo->id == rightArrInfo->id)
+                isInstance = true;
+        }
+    }
+    else if (auto leftBasicTypeInfo = leftTypeInfo->ToBasicTypeInfo();
+        leftBasicTypeInfo && leftBasicTypeInfo->qualifiedName == "string")
+    {
+        if (auto bt = rightTypeInfo.ToBasicTypeInfo(); bt && bt->qualifiedName == "string")
+            isInstance = true;
+    }
+
+    return isInstance;
+}
+
+inline Object* Type_AsInstance(const Object* obj, const TypeInfo& rightTypeInfo)
+{
+    // for object to reference type conversions, we just need to
+    // check if the object is of the target type; if not, set to null
+    auto leftTypeInfo = obj->GetTypeInfo();
+
+    if (auto leftClassInfo = leftTypeInfo->ToClassInfo())
+    {
+        if (auto rightClassInfo = rightTypeInfo.ToClassInfo())
+        {
+            if (leftClassInfo->id != rightClassInfo->id)
+                obj = nullptr;
+        }
+        else if (auto rightInterfaceInfo = rightTypeInfo.ToInterfaceInfo())
+        {
+            bool match = false;
+
+            for (auto& implementedItf : leftClassInfo->interfaces)
+            {
+                if (implementedItf == rightInterfaceInfo->id)
+                {
+                    match = true;
+                    break;
+                }
+            }
+
+            if (!match)
+                obj = nullptr;
+        }
+    }
+    else if (auto leftArrayInfo = leftTypeInfo->ToArrayInfo())
+    {
+        if (leftArrayInfo->id != rightTypeInfo.id)
+        {
+            obj = nullptr;
+        }
+    }
+    else if (auto leftBasicTypeInfo = leftTypeInfo->ToBasicTypeInfo();
+        leftBasicTypeInfo && leftBasicTypeInfo->qualifiedName == "string")
+    {
+        if (rightTypeInfo.ToBasicTypeInfo() == nullptr || rightTypeInfo.qualifiedName != "string")
+        {
+            obj = nullptr;
+        }
+    }
+    else
+    {
+        obj = nullptr;
+    }
+
+    return const_cast<Object*>(obj);
+}
+
 } // fraze

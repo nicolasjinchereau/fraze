@@ -78,6 +78,8 @@ public:
     virtual void Visit(const sptr<SizeOfExpression>& node) override;
     virtual void Visit(const sptr<StringLiteralExpression>& node) override;
     virtual void Visit(const sptr<TernaryExpression>& node) override;
+    virtual void Visit(const sptr<TypeLiteralExpression>& node) override;
+    virtual void Visit(const sptr<TypeOfExpression>& node) override;
 
     /*****************************
     *            TYPES           *
@@ -104,6 +106,7 @@ private:
     std::pair<sptr<FunctionDefinition>, bool> GetBinaryOperatorOverload(Type* structType, TokenType operation, const sptr<Expression>& left, const sptr<Expression>& right);
     sptr<FunctionDefinition> CreateEqualityOperator(Type* structType, TokenType operation);
     sptr<FunctionDefinition> GetUnaryOperatorOverload(Type* structType, TokenType operation, const sptr<Expression>& value);
+    std::optional<sptr<ASTNode>> CreateAsInstanceCall(const sptr<AsExpression>& node);
 
     sptr<FunctionDefinition> FindDefinition(Scope* scope, const std::string& name, const std::vector<sptr<Expression>>& arguments);
     sptr<Definition> SearchUpward(Scope* scope, const std::string& name, const std::vector<sptr<Expression>>& arguments, Scope* toScope = nullptr);

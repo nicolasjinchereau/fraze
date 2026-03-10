@@ -476,6 +476,16 @@ void CodePrinter::Visit(const sptr<TernaryExpression>& node)
     VisitChild(node->falseValue);
 }
 
+void CodePrinter::Visit(const sptr<TypeLiteralExpression>& node)
+{
+    stream << "type(" << node->value << ")";
+}
+
+void CodePrinter::Visit(const sptr<TypeOfExpression>& node)
+{
+    stream << "typeof(" << node->typeSpec->GetTypeName() << ")";
+}
+
 /****************************
 *         SPECIFIERS        *
 ****************************/

@@ -81,6 +81,17 @@ inline std::string_view trim(std::string_view sv) {
     return trim_left(trim_right(sv));
 }
 
+template<class From, class To>
+using copy_const_t = std::conditional_t<
+    std::is_const_v<From>,
+    std::conditional_t<
+        std::is_pointer_v<To>,
+        std::add_pointer_t<std::add_const_t<std::remove_pointer_t<To>>>,
+        std::add_const_t<To>
+    >,
+    To
+>;
+
 template<std::ranges::input_range R>
 class CountableView : public std::ranges::view_interface<CountableView<R>>
 {

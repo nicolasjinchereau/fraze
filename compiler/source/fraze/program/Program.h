@@ -73,7 +73,7 @@ public:
         return InvokeImpl(qualifiedFuncName, words);
     }
 
-    TypeInfo* GetTypeInfo(const std::string& qualifiedName);
+    TypeInfo* GetTypeInfo(std::string_view qualifiedName);
     void Execute(const Operation& op);
     void PinMemory(const void* p);
     void UnpinMemory(const void* p);
@@ -151,7 +151,6 @@ private:
     void Execute_Equal(const Operation& op);
     void Execute_EqualN(const Operation& op);
     void Execute_StringEqual(const Operation& op);
-    void Execute_IsInstance(const Operation& op);
     void Execute_LessInt(const Operation& op);
     void Execute_LessNum(const Operation& op);
     void Execute_LessEqualInt(const Operation& op);
@@ -247,7 +246,6 @@ private:
         &Program::Execute_Equal,
         &Program::Execute_EqualN,
         &Program::Execute_StringEqual,
-        &Program::Execute_IsInstance,
         &Program::Execute_LessInt,
         &Program::Execute_LessNum,
         &Program::Execute_LessEqualInt,

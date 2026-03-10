@@ -104,7 +104,7 @@
                 },
                 {
                     "name": "keyword.other.fraze",
-                    "match": "\\b(?:as|is|new|sizeof|await|fold|get|set|section|expose|operator)\\b"
+                    "match": "\\b(?:as|is|new|sizeof|typeof|await|fold|get|set|section|expose|operator)\\b"
                 }
             ]
         },

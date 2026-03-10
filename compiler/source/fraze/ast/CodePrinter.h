@@ -70,6 +70,8 @@ public:
     virtual void Visit(const sptr<SizeOfExpression>& node) override;
     virtual void Visit(const sptr<StringLiteralExpression>& node) override;
     virtual void Visit(const sptr<TernaryExpression>& node) override;
+    virtual void Visit(const sptr<TypeLiteralExpression>& node) override;
+    virtual void Visit(const sptr<TypeOfExpression>& node) override;
 
     virtual void Visit(const sptr<TypeSpecifier>& node) override;
 

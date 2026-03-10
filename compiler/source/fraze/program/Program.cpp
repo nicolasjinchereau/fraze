@@ -23,7 +23,7 @@ Program::Program()
     rip = 0;
 }
 
-TypeInfo* Program::GetTypeInfo(const std::string& qualifiedName)
+TypeInfo* Program::GetTypeInfo(std::string_view qualifiedName)
 {
     for(auto& ti : typeInfo)
     {
@@ -333,7 +333,6 @@ void Program::VerifyHandlers()
     VERIFY_HANDLER_INDEX(Equal);
     VERIFY_HANDLER_INDEX(EqualN);
     VERIFY_HANDLER_INDEX(StringEqual);
-    VERIFY_HANDLER_INDEX(IsInstance);
     VERIFY_HANDLER_INDEX(LessInt);
     VERIFY_HANDLER_INDEX(LessNum);
     VERIFY_HANDLER_INDEX(LessEqualInt);
@@ -905,85 +904,6 @@ void Program::Execute_StringEqual(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_IsInstance(const Operation& op)
-{
-    auto rightTypeInfo = typeInfo[op.arg1_u64];
-    assert(rightTypeInfo);
-
-    Word* top = rsp;
-    Object* leftValue = top->object;
-
-    bool isInstance = false;
-
-    if(leftValue == nullptr)
-    {
-        if (auto bt = rightTypeInfo->ToBasicTypeInfo(); bt && bt->qualifiedName == "null")
-            isInstance = true;
-    }
-    else
-    {
-        const TypeInfo* leftTypeInfo = leftValue->GetTypeInfo();
-
-        if (auto leftClassInfo = leftTypeInfo->ToClassInfo()) // class or interface
-        {
-            if(leftClassInfo->qualifiedName == "Boolean")
-            {
-                if(auto bt = rightTypeInfo->ToBasicTypeInfo(); bt && bt->qualifiedName == "bool")
-                    isInstance = true;
-                else if(auto ci = rightTypeInfo->ToClassInfo(); ci && ci->qualifiedName == "Boolean")
-                    isInstance = true;
-            }
-            else if(leftClassInfo->qualifiedName == "Integer")
-            {
-                if(auto bt = rightTypeInfo->ToBasicTypeInfo(); bt && bt->qualifiedName == "int")
-                    isInstance = true;
-                else if(auto ci = rightTypeInfo->ToClassInfo(); ci && ci->qualifiedName == "Integer")
-                    isInstance = true;
-            }
-            else if(leftClassInfo->qualifiedName == "Number")
-            {
-                if(auto bt = rightTypeInfo->ToBasicTypeInfo(); bt && bt->qualifiedName == "num")
-                    isInstance = true;
-                else if(auto ci = rightTypeInfo->ToClassInfo(); ci && ci->qualifiedName == "Number")
-                    isInstance = true;
-            }
-            else if(auto rightClassInfo = rightTypeInfo->ToClassInfo())
-            {
-                if(leftClassInfo->id == rightClassInfo->id)
-                    isInstance = true;
-            }
-            else if(auto rightInterfaceInfo = rightTypeInfo->ToInterfaceInfo())
-            {
-                for (auto& itf : leftClassInfo->interfaces)
-                {
-                    if (itf == rightInterfaceInfo->id)
-                    {
-                        isInstance = true;
-                        break;
-                    }
-                }
-            }
-        }
-        else if(auto leftArrayInfo = leftTypeInfo->ToArrayInfo())
-        {
-            if (auto rightArrInfo = rightTypeInfo->ToArrayInfo())
-            {
-                if (leftArrayInfo->id == rightArrInfo->id)
-                    isInstance = true;
-            }
-        }
-        else if(auto leftBasicTypeInfo = leftTypeInfo->ToBasicTypeInfo();
-            leftBasicTypeInfo && leftBasicTypeInfo->qualifiedName == "string")
-        {
-            if (auto bt = rightTypeInfo->ToBasicTypeInfo(); bt && bt->qualifiedName == "string")
-                isInstance = true;
-        }
-    }
-
-    top->storage = isInstance ? 1 : 0;
-    ++rip;
-}
-
 void Program::Execute_LessInt(const Operation& op)
 {
     Word* top = rsp;
@@ -1356,7 +1276,7 @@ void Program::Execute_CallVirtual(const Operation& op)
 
     auto interfaceFuncInfo = typeInfo[interfaceFuncID]->ToFunctionInfo();
     assert(interfaceFuncInfo);
-
+    
     Class* obj = top->GetClass();
     size_t actualFuncID = obj->GetFunctionID(interfaceType, interfaceFuncInfo->offset);
 

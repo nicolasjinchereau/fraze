@@ -84,6 +84,8 @@ public:
     virtual sptr<SizeOfExpression> ToSizeOfExpression(){ return {}; }
     virtual sptr<StringLiteralExpression> ToStringLiteralExpression(){ return {}; }
     virtual sptr<TernaryExpression> ToTernaryExpression(){ return {}; }
+    virtual sptr<TypeLiteralExpression> ToTypeLiteralExpression(){ return {}; }
+    virtual sptr<TypeOfExpression> ToTypeOfExpression(){ return {}; }
 
     virtual sptr<TypeSpecifier> ToTypeSpecifier(){ return {}; }
     

@@ -77,6 +77,8 @@ public:
     virtual void Visit(const sptr<SizeOfExpression>& node);
     virtual void Visit(const sptr<StringLiteralExpression>& node);
     virtual void Visit(const sptr<TernaryExpression>& node);
+    virtual void Visit(const sptr<TypeLiteralExpression>& node);
+    virtual void Visit(const sptr<TypeOfExpression>& node);
 
     virtual void Visit(const sptr<TypeSpecifier>& node);
 

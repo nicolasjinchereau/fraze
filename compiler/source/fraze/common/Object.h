@@ -14,9 +14,9 @@
 #include <unordered_map>
 #include <variant>
 #include <fraze/common/Pointers.h>
+#include <fraze/common/Extensions.h>
 #include <fraze/memory/Heap.h>
 #include <fraze/memory/IAllocator.h>
-#include <fraze/program/TypeInfo.h>
 
 namespace fraze {
 
@@ -68,6 +68,17 @@ class Program;
 class Class;
 class String;
 class ScopedAllocator;
+
+struct TypeInfo;
+struct SectionInfo;
+struct BasicTypeInfo;
+struct FieldInfo;
+struct FunctionInfo;
+struct ClassInfo;
+struct InterfaceInfo;
+struct StructInfo;
+struct EnumInfo;
+struct ArrayInfo;
 
 class Object
 {
@@ -179,85 +190,30 @@ public:
 
     template<class T>
     const T* GetData() const { return reinterpret_cast<const T*>(this); }
-
-    template<class T> requires std::is_same_v<T, Boolean>
-    const T& Get() const { return *reinterpret_cast<const bool*>(&storage); }
-
-    template<class T> requires std::is_same_v<T, Integer>
-    const T& Get() const { return integer; }
-
-    template<class T> requires std::is_same_v<T, Number>
-    const T& Get() const { return number; }
-
-    template<class T> requires std::is_same_v<T, String>
-    const T& Get() const;
-
-    template<class T> requires std::is_same_v<T, Array<>>
-    const T& Get() const;
-
-    template<class T> requires IsArray<T>
-    const T& Get() const;
     
-    template<class T> requires IsArray<T>
-    T& Get();
+    template<class T>
+    static constexpr bool IsMutableGetType =
+        IsArray<T> ||
+        std::is_same_v<T, Class> ||
+        std::is_same_v<T, Reference> ||
+        (
+            !IsArray<T> &&
+            !std::is_same_v<T, String> &&
+            !std::is_same_v<T, Class> &&
+            std::is_base_of_v<Object, std::remove_cvref_t<T>>
+        );
 
-    template<class T> requires std::is_same_v<T, Class>
-    const T& Get() const;
+    template<class T, class Self>
+    static auto& GetImpl(Self& self);
 
-    template<class T> requires std::is_same_v<T, Class>
-    T& Get();
+    template<class T>
+    auto& Get() const;
 
-    template<class T> requires std::is_same_v<T, Object>
-    const T& Get() const;
+    template<class T> requires Word::IsMutableGetType<T>
+    auto& Get();
 
-    template<class T> requires std::is_same_v<T, Object>
-    T& Get();
-
-    template<class T> requires std::is_same_v<T, Reference>
-    const T& Get() const { return reference; }
-
-    template<class T> requires std::is_same_v<T, Reference>
-    T& Get() { return reference; }
-
-    template<class T> requires std::is_class_v<T> && std::is_trivially_copyable_v<T>
-    const T& Get() const;
-    
-    template<class T> requires std::is_enum_v<T> && std::is_same_v<std::underlying_type_t<T>, Integer>
-    const T& Get() const;
-
-    template<class T> requires std::is_same_v<T, Boolean>
-    static WordType GetWordType() { return WordType::Boolean; }
-
-    template<class T> requires std::is_same_v<T, Integer>
-    static WordType GetWordType() { return WordType::Integer; }
-
-    template<class T> requires std::is_same_v<T, Number>
-    static WordType GetWordType() { return WordType::Number; }
-
-    template<class T> requires std::is_same_v<T, String>
-    static WordType GetWordType() { return WordType::String; }
-
-    template<class T> requires IsArray<T>
-    static WordType GetWordType() { return WordType::Array; }
-    
-    template<class T> requires std::is_same_v<T, Class>
-    static WordType GetWordType() { return WordType::Class; }
-
-    template<class T> requires std::is_same_v<T, Object>
-    static WordType GetWordType() { return WordType::Object; }
-
-    template<class T> requires std::is_same_v<T, Reference>
-    static WordType GetWordType() { return WordType::Reference; }
-
-    // struct
-    template<class T> requires std::is_class_v<T> && std::is_trivially_copyable_v<T>
-    static WordType GetWordType() { return WordType::Reference; }
-
-    template<class T> requires std::is_enum_v<T> && std::is_same_v<std::underlying_type_t<T>, Integer>
-    static WordType GetWordType() { return WordType::Integer; }
-
-    template<class T> requires std::is_void_v<T>
-    static WordType GetWordType() { return WordType::Void; }
+    template<class T>
+    static constexpr WordType GetWordType();
 };
 
 template<class T>
@@ -282,7 +238,7 @@ public:
     Word& At(size_t index);
     const Word& At(size_t index) const;
 
-    const ArrayInfo* GetInfo() const { return static_cast<const ArrayInfo*>(info); }
+    const ArrayInfo* GetInfo() const;
 };
 
 template<class T>
@@ -353,7 +309,7 @@ public:
     void SetFields(size_t index, const std::span<Word>& values);
     void SetField(std::string_view name, const Word& val);
     void SetField(std::string_view name, const std::span<Word>& val);
-    const ClassInfo* GetInfo() const { return static_cast<const ClassInfo*>(info); }
+    const ClassInfo* GetInfo() const;
     size_t GetFunctionID(size_t interfaceID, size_t offset);
 
     void SetField(std::string_view name, Object* val) {
@@ -413,56 +369,108 @@ inline String* Word::GetString() const {
     return static_cast<String*>(object);
 }
 
-template<class T> requires std::is_same_v<T, String>
-inline const T& Word::Get() const {
-    return *static_cast<String*>(object);
+template<class T, class Self>
+inline auto& Word::GetImpl(Self& self)
+{
+    using U = std::remove_cvref_t<T>;
+
+    if constexpr (std::is_same_v<U, Boolean>) {
+        return *reinterpret_cast<copy_const_t<Self, Boolean>*>(&self.storage);
+    }
+    else if constexpr (std::is_same_v<U, Integer>) {
+        return self.integer;
+    }
+    else if constexpr (std::is_same_v<U, Number>) {
+        return self.number;
+    }
+    else if constexpr (std::is_same_v<U, String>) {
+        return *static_cast<copy_const_t<Self, String*>>(self.object);
+    }
+    else if constexpr (IsArray<U>) {
+        return *static_cast<copy_const_t<Self, U*>>(self.object);
+    }
+    else if constexpr (std::is_same_v<U, Class>) {
+        return *static_cast<copy_const_t<Self, Class*>>(self.object);
+    }
+    else if constexpr (std::is_same_v<U, Reference>) {
+        return self.reference;
+    }
+    else if constexpr (std::is_base_of_v<Object, U>) {
+        return *static_cast<copy_const_t<Self, U*>>(self.object);
+    }
+    else if constexpr (std::is_pointer_v<U> && std::is_base_of_v<Object, std::remove_cv_t<std::remove_pointer_t<U>>>) {
+        using PtrRef = std::conditional_t<
+            std::is_const_v<Self>,
+            std::add_lvalue_reference_t<std::add_const_t<U>>,
+            std::add_lvalue_reference_t<U>
+        >;
+        return reinterpret_cast<PtrRef>(self.object);
+    }
+    else if constexpr (std::is_class_v<U> && std::is_trivially_copyable_v<U>) {
+        return *reinterpret_cast<copy_const_t<Self, U>*>(&self);
+    }
+    else if constexpr (std::is_enum_v<U> && std::is_same_v<std::underlying_type_t<U>, Integer>) {
+        return *reinterpret_cast<copy_const_t<Self, U>*>(&self.integer);
+    }
+    else {
+        static_assert(!std::is_same_v<U, U>, "Unsupported type for Word::Get<T>().");
+    }
 }
 
-template<class T> requires std::is_same_v<T, Array<>>
-inline const T& Word::Get() const {
-    return *static_cast<Array<>*>(object);
+template<class T>
+inline auto& Word::Get() const {
+    return GetImpl<T>(*this);
 }
 
-template<class T> requires IsArray<T>
-inline const T& Word::Get() const {
-    Array<>* arr = static_cast<Array<>*>(object);
-    return *static_cast<T*>(object);
+template<class T> requires Word::IsMutableGetType<T>
+inline auto& Word::Get() {
+    return GetImpl<T>(*this);
 }
 
-template<class T> requires IsArray<T>
-inline T& Word::Get() {
-    Array<>* arr = static_cast<Array<>*>(object);
-    return *static_cast<T*>(object);
-}
+template<class T>
+constexpr WordType Word::GetWordType()
+{
+    using U = std::remove_cvref_t<T>;
 
-template<class T> requires std::is_same_v<T, Class>
-inline const T& Word::Get() const {
-    return *static_cast<const Class*>(object);
-}
-
-template<class T> requires std::is_same_v<T, Class>
-inline T& Word::Get() {
-    return *static_cast<Class*>(object);
-}
-
-template<class T> requires std::is_same_v<T, Object>
-inline const T& Word::Get() const {
-    return *static_cast<const Object*>(object);
-}
-
-template<class T> requires std::is_same_v<T, Object>
-inline T& Word::Get() {
-    return *static_cast<Object*>(object);
-}
-
-template<class T> requires std::is_class_v<T> && std::is_trivially_copyable_v<T>
-inline const T& Word::Get() const {
-    return *GetData<T>();
-}
-
-template<class T> requires std::is_enum_v<T> && std::is_same_v<std::underlying_type_t<T>, Integer>
-inline const T& Word::Get() const {
-    return *reinterpret_cast<const T*>(&integer);
+    if constexpr (std::is_same_v<U, Boolean>) {
+        return WordType::Boolean;
+    }
+    else if constexpr (std::is_same_v<U, Integer>) {
+        return WordType::Integer;
+    }
+    else if constexpr (std::is_same_v<U, Number>) {
+        return WordType::Number;
+    }
+    else if constexpr (std::is_same_v<U, String>) {
+        return WordType::String;
+    }
+    else if constexpr (IsArray<U>) {
+        return WordType::Array;
+    }
+    else if constexpr (std::is_same_v<U, Class>) {
+        return WordType::Class;
+    }
+    else if constexpr (std::is_base_of_v<Object, U> && !IsArray<U> && !std::is_same_v<U, String> && !std::is_same_v<U, Class>) {
+        return WordType::Object;
+    }
+    else if constexpr (std::is_pointer_v<U> && std::is_base_of_v<Object, std::remove_cv_t<std::remove_pointer_t<U>>>) {
+        return WordType::Object;
+    }
+    else if constexpr (std::is_same_v<U, Reference>) {
+        return WordType::Reference;
+    }
+    else if constexpr (std::is_class_v<U> && std::is_trivially_copyable_v<U>) {
+        return WordType::Reference; // struct
+    }
+    else if constexpr (std::is_enum_v<U> && std::is_same_v<std::underlying_type_t<U>, Integer>) {
+        return WordType::Integer;
+    }
+    else if constexpr (std::is_void_v<U>) {
+        return WordType::Void;
+    }
+    else {
+        static_assert(!std::is_same_v<U, U>, "Unsupported type for Word::GetWordType<T>().");
+    }
 }
 
 } // fraze

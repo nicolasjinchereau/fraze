@@ -49,6 +49,8 @@ class PrefixExpression;
 class SizeOfExpression;
 class StringLiteralExpression;
 class TernaryExpression;
+class TypeLiteralExpression;
+class TypeOfExpression;
 
 class TypeSpecifier;
 

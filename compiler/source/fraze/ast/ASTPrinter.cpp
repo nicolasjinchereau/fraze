@@ -264,6 +264,18 @@ void ASTPrinter::Visit(const sptr<TernaryExpression>& node)
     ASTVisitor::Visit(node);
 }
 
+void ASTPrinter::Visit(const sptr<TypeLiteralExpression>& node)
+{
+    stream << GetPreamble(node->loc) << "TypeLiteralExpression \"" << node->value << "\"" << std::endl;
+    ASTVisitor::Visit(node);
+}
+
+void ASTPrinter::Visit(const sptr<TypeOfExpression>& node)
+{
+    stream << GetPreamble(node->loc) << "TypeOfExpression" << std::endl;
+    ASTVisitor::Visit(node);
+}
+
 /****************************
 *         SPECIFIERS        *
 ****************************/
