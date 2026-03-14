@@ -340,6 +340,13 @@ void CodePrinter::Visit(const sptr<CachedExpression>& node)
     ASTVisitor::Visit(node);
 }
 
+void CodePrinter::Visit(const sptr<CastExpression>& node)
+{
+    stream << "cast<" << node->resultTypeSpec->GetTypeName(true) << ">(";
+    VisitChild(node->value);
+    stream << ")";
+}
+
 void CodePrinter::Visit(const sptr<CallExpression>& node)
 {
     VisitChild(node->target);

@@ -153,6 +153,11 @@ void ASTPrinter::Visit(const sptr<CachedExpression>& node)
     ASTVisitor::Visit(node);
 }
 
+void ASTPrinter::Visit(const sptr<CastExpression>& node)
+{
+    ASTVisitor::Visit(node);
+}
+
 void ASTPrinter::Visit(const sptr<CallExpression>& node)
 {
     stream << GetPreamble(node->loc) << "CallExpression" << std::endl;

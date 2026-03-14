@@ -386,11 +386,22 @@ class {}
         }
         else
         {
-            auto resultTypeSpec = spnew<TypeSpecifier>(right->loc, leftType);
-            auto convertExpr = spnew<ConvertExpression>(right->loc, right->scope, resultTypeSpec, right);
-            right = convertExpr;
-            VisitChild(right);
-            rightType = right->EvaluateType();
+            if (leftType->IsNullable() && rightType->IsNullable())
+            {
+                auto resultTypeSpec = spnew<TypeSpecifier>(right->loc, leftType);
+                auto castExpr = spnew<CastExpression>(right->loc, right->scope, resultTypeSpec, right);
+                right = castExpr;
+                VisitChild(right);
+                rightType = right->EvaluateType();
+            }
+            else
+            {
+                auto resultTypeSpec = spnew<TypeSpecifier>(right->loc, leftType);
+                auto convertExpr = spnew<ConvertExpression>(right->loc, right->scope, resultTypeSpec, right);
+                right = convertExpr;
+                VisitChild(right);
+                rightType = right->EvaluateType();
+            }
         }
     }
 }
@@ -527,7 +538,7 @@ void SemanticAnalyzer::ProcessBinaryOperation(const sptr<BinaryExpression>& expr
         else if(leftType->IsObject() && (rightType->IsArray() || rightType->IsClass() || rightType->IsInterface() || rightType->IsString()))
         {
             auto resultTypeSpec = spnew<TypeSpecifier>(expr->right->loc, Type::Get("object"));
-            expr->right = spnew<ConvertExpression>(expr->right->loc, expr->right->scope, resultTypeSpec, expr->right);
+            expr->right = spnew<CastExpression>(expr->right->loc, expr->right->scope, resultTypeSpec, expr->right);
             VisitChild(expr->right);
             valid = true;
         }
@@ -535,7 +546,7 @@ void SemanticAnalyzer::ProcessBinaryOperation(const sptr<BinaryExpression>& expr
         else if(rightType->IsObject() && (leftType->IsArray() || leftType->IsClass() || leftType->IsInterface() || leftType->IsString()))
         {
             auto resultTypeSpec = spnew<TypeSpecifier>(expr->left->loc, Type::Get("object"));
-            expr->left = spnew<ConvertExpression>(expr->left->loc, expr->left->scope, resultTypeSpec, expr->left);
+            expr->left = spnew<CastExpression>(expr->left->loc, expr->left->scope, resultTypeSpec, expr->left);
             VisitChild(expr->left);
             valid = true;
         }
@@ -543,7 +554,7 @@ void SemanticAnalyzer::ProcessBinaryOperation(const sptr<BinaryExpression>& expr
         else if(leftType->IsNullable() && rightType->IsNull())
         {
             auto resultTypeSpec = spnew<TypeSpecifier>(expr->right->loc, leftType);
-            expr->right = spnew<ConvertExpression>(expr->right->loc, expr->right->scope, resultTypeSpec, expr->right);
+            expr->right = spnew<CastExpression>(expr->right->loc, expr->right->scope, resultTypeSpec, expr->right);
             VisitChild(expr->right);
             valid = true;
         }
@@ -551,7 +562,7 @@ void SemanticAnalyzer::ProcessBinaryOperation(const sptr<BinaryExpression>& expr
         else if(rightType->IsNullable() && leftType->IsNull())
         {
             auto resultTypeSpec = spnew<TypeSpecifier>(expr->left->loc, rightType);
-            expr->left = spnew<ConvertExpression>(expr->left->loc, expr->left->scope, resultTypeSpec, expr->left);
+            expr->left = spnew<CastExpression>(expr->left->loc, expr->left->scope, resultTypeSpec, expr->left);
             VisitChild(expr->left);
             valid = true;
         }
@@ -927,39 +938,15 @@ void SemanticAnalyzer::Visit(const sptr<VariableDefinition>& node)
     }
 }
 
-//std::optional<sptr<ASTNode>> SemanticAnalyzer::CreateAsInstanceCall(const sptr<AsExpression>& node)
-//{
-//    auto loc = node->loc;
-//    auto scope = node->scope;
-//    auto globalScope = astRoot->global->scope.get();
-//
-//    shared_string typeName = node->typeSpec->GetTypeName(true);
-//
-//    auto context = spnew<IdentifierExpression>(loc, globalScope, shared_string("Type"));
-//    auto targetFunc = spnew<IdentifierExpression>(loc, scope, context, shared_string("AsInstance"));
-//
-//    auto arg1 = node->value;
-//    auto arg2 = spnew<TypeOfExpression>(loc, scope, node->typeSpec);
-//
-//    auto callExpr = spnew<CallExpression>(loc, scope, targetFunc);
-//    callExpr->arguments.push_back(arg1);
-//    callExpr->arguments.push_back(arg2);
-//
-//    VisitChild(callExpr);
-//    return callExpr;
-//}
-
+// cast<Result>(Type.AsInstance(obj, typeof(Result)))
 std::optional<sptr<ASTNode>> SemanticAnalyzer::CreateAsInstanceCall(const sptr<AsExpression>& node)
 {
     auto loc = node->loc;
     auto scope = node->scope;
     auto globalScope = astRoot->global->scope.get();
 
-    shared_string typeName = node->typeSpec->GetTypeName(true);
-
     auto context = spnew<IdentifierExpression>(loc, globalScope, shared_string("Type"));
-    auto targetFunc = spnew<IdentifierExpression>(loc, scope, context, shared_string("IsInstance"));
-    // (Type.IsInstance(obj, type) ? obj : null)
+    auto targetFunc = spnew<IdentifierExpression>(loc, scope, context, shared_string("AsInstance"));
 
     auto arg1 = node->value;
     auto arg2 = spnew<TypeOfExpression>(loc, scope, node->typeSpec);
@@ -968,10 +955,10 @@ std::optional<sptr<ASTNode>> SemanticAnalyzer::CreateAsInstanceCall(const sptr<A
     callExpr->arguments.push_back(arg1);
     callExpr->arguments.push_back(arg2);
 
-    auto tern = spnew<TernaryExpression>(loc, scope, callExpr, arg1, spnew<NullLiteralExpression>(loc, scope));
-
-    VisitChild(tern);
-    return tern;
+    auto castExpr = spnew<CastExpression>(loc, scope, spnew<TypeSpecifier>(*node->typeSpec), callExpr);
+    VisitChild(castExpr);
+    
+    return castExpr;
 }
 
 void SemanticAnalyzer::Visit(const sptr<AsExpression>& node)
@@ -1870,6 +1857,11 @@ void SemanticAnalyzer::VisitCallTarget(
 }
 
 void SemanticAnalyzer::Visit(const sptr<CachedExpression>& node)
+{
+    ASTVisitor::Visit(node);
+}
+
+void SemanticAnalyzer::Visit(const sptr<CastExpression>& node)
 {
     ASTVisitor::Visit(node);
 }

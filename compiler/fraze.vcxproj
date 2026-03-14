@@ -65,6 +65,7 @@
     <ClInclude Include="source\fraze\ast\expr\AsExpression.h" />
     <ClInclude Include="source\fraze\ast\expr\AwaitExpression.h" />
     <ClInclude Include="source\fraze\ast\expr\CachedExpression.h" />
+    <ClInclude Include="source\fraze\ast\expr\CastExpression.h" />
     <ClInclude Include="source\fraze\ast\expr\ConvertExpression.h" />
     <ClInclude Include="source\fraze\ast\expr\DefaultValueExpression.h" />
     <ClInclude Include="source\fraze\ast\expr\FoldExpression.h" />

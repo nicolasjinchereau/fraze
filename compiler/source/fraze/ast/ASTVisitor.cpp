@@ -148,6 +148,12 @@ void ASTVisitor::Visit(const sptr<CachedExpression>& node)
     VisitChild(node->value);
 }
 
+void ASTVisitor::Visit(const sptr<CastExpression>& node)
+{
+    VisitChild(node->resultTypeSpec);
+    VisitChild(node->value);
+}
+
 void ASTVisitor::Visit(const sptr<CallExpression>& node)
 {
     for(auto& arg : node->arguments)

@@ -66,6 +66,7 @@ public:
     virtual sptr<BinaryExpression> ToBinaryExpression(){ return {}; }
     virtual sptr<BooleanLiteralExpression> ToBooleanLiteralExpression(){ return {}; }
     virtual sptr<CachedExpression> ToCachedExpression(){ return {}; }
+    virtual sptr<CastExpression> ToCastExpression(){ return {}; }
     virtual sptr<CallExpression> ToCallExpression(){ return {}; }
     virtual sptr<ConvertExpression> ToConvertExpression(){ return {}; }
     virtual sptr<DefaultValueExpression> ToDefaultValueExpression(){ return {}; }

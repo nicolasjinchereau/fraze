@@ -147,7 +147,6 @@ enum class OpCode : uint8_t
     ConvIntToStr,
     ConvNumToStr,
     ConvEnumToStr,
-    ConvObjToType,
     ConvRefToStruct,
 
     // concatenate two strings
@@ -261,7 +260,6 @@ inline std::unordered_map<OpCode, std::string> OpCodeNames {
     { OpCode::ConvIntToStr,    "ConvIntToStr" },
     { OpCode::ConvNumToStr,    "ConvNumToStr" },
     { OpCode::ConvEnumToStr,   "ConvEnumToStr" },
-    { OpCode::ConvObjToType,   "ConvObjToType" },
     { OpCode::ConvRefToStruct, "ConvRefToStruct" },
 
     { OpCode::StringConcat,    "StringConcat" },

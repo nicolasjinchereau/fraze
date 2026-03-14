@@ -253,8 +253,8 @@ void CodeGenerator::EmitConversion(sptr<Expression>& value, const sptr<TypeSpeci
     {
         if (sourceType->IsObject())
         {
-            EmitNullCheck(value->loc);
-            Emit(value->loc, OpCode::ConvObjToType, typeInfo[resultType]->id);
+            // should be lowered to Type.AsInstance or a cast in semantic analyzer
+            assert(0);
         }
         else if (sourceType->IsBoolean())
         {
@@ -275,36 +275,26 @@ void CodeGenerator::EmitConversion(sptr<Expression>& value, const sptr<TypeSpeci
     }
     else if(resultType->IsInterface())
     {
-        if (sourceType->IsObject())
+        if (sourceType->IsObject() || sourceType->IsClass() || sourceType->IsInterface())
         {
-            EmitNullCheck(value->loc);
-            Emit(value->loc, OpCode::ConvObjToType, typeInfo[resultType]->id);
-        }
-        else if (sourceType->IsClass())
-        {
-            EmitNullCheck(value->loc);
-            Emit(value->loc, OpCode::ConvObjToType, typeInfo[resultType]->id);
-        }
-        else if (sourceType->IsInterface())
-        {
-            EmitNullCheck(value->loc);
-            Emit(value->loc, OpCode::ConvObjToType, typeInfo[resultType]->id);
+            // should be lowered to Type.AsInstance or a cast in semantic analyzer
+            assert(0);
         }
     }
     else if(resultType->IsClass())
     {
         if (sourceType->IsObject() || sourceType->IsInterface())
         {
-            EmitNullCheck(value->loc);
-            Emit(value->loc, OpCode::ConvObjToType, typeInfo[resultType]->id);
+            // should be lowered to Type.AsInstance or a cast in semantic analyzer
+            assert(0);
         }
     }
     else if(resultType->IsArray())
     {
         if (sourceType->IsObject())
         {
-            EmitNullCheck(value->loc);
-            Emit(value->loc, OpCode::ConvObjToType, typeInfo[resultType]->id);
+            // should be lowered to Type.AsInstance in semantic analyzer
+            assert(0);
         }
     }
 }
@@ -979,6 +969,11 @@ void CodeGenerator::Visit(const sptr<CallExpression>& node)
     {
         ENFORCE(false, node->loc, "invalid call target");
     }
+}
+
+void CodeGenerator::Visit(const sptr<CastExpression>& node)
+{
+    VisitChild(node->value);
 }
 
 void CodeGenerator::Visit(const sptr<ConvertExpression>& node)

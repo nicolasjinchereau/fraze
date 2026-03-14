@@ -357,7 +357,6 @@ void Program::VerifyHandlers()
     VERIFY_HANDLER_INDEX(ConvIntToStr);
     VERIFY_HANDLER_INDEX(ConvNumToStr);
     VERIFY_HANDLER_INDEX(ConvEnumToStr);
-    VERIFY_HANDLER_INDEX(ConvObjToType);
     VERIFY_HANDLER_INDEX(ConvRefToStruct);
     VERIFY_HANDLER_INDEX(StringConcat);
     VERIFY_HANDLER_INDEX(Dup);
@@ -1143,63 +1142,6 @@ void Program::Execute_ConvEnumToStr(const Operation& op)
     assert(it != enumInfo->members.end());
     DefaultAllocator alloc(this);
     top->object = String::New(alloc, it->first);
-    ++rip;
-}
-
-void Program::Execute_ConvObjToType(const Operation& op)
-{
-    // for object to reference type conversions, we just need to
-    // check if the object is of the target type; if not, set to null
-    Word* top = rsp;
-    Object* obj = top->object;
-    auto& rightTypeInfo = typeInfo[op.arg1_u64];
-
-    auto leftTypeInfo = obj->GetTypeInfo();
-    
-    if (auto leftClassInfo = leftTypeInfo->ToClassInfo())
-    {
-        if (auto rightClassInfo = rightTypeInfo->ToClassInfo())
-        {
-            if (leftClassInfo->id != rightClassInfo->id)
-                top->object = nullptr;
-        }
-        else if (auto rightInterfaceInfo = rightTypeInfo->ToInterfaceInfo())
-        {
-            bool match = false;
-
-            for (auto& implementedItf : leftClassInfo->interfaces)
-            {
-                if (implementedItf == rightInterfaceInfo->id)
-                {
-                    match = true;
-                    break;
-                }
-            }
-
-            if (!match)
-                top->object = nullptr;
-        }
-    }
-    else if (auto leftArrayInfo = leftTypeInfo->ToArrayInfo())
-    {
-        if (leftArrayInfo->id != rightTypeInfo->id)
-        {
-            top->object = nullptr;
-        }
-    }
-    else if(auto leftBasicTypeInfo = leftTypeInfo->ToBasicTypeInfo();
-        leftBasicTypeInfo && leftBasicTypeInfo->qualifiedName == "string")
-    {
-        if (rightTypeInfo->ToBasicTypeInfo() == nullptr || rightTypeInfo->qualifiedName != "string")
-        {
-            top->object = nullptr;
-        }
-    }
-    else
-    {
-        top->object = nullptr;
-    }
-
     ++rip;
 }
 

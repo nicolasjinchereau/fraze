@@ -270,7 +270,6 @@ private:
         &Program::Execute_ConvIntToStr,
         &Program::Execute_ConvNumToStr,
         &Program::Execute_ConvEnumToStr,
-        &Program::Execute_ConvObjToType,
         &Program::Execute_ConvRefToStruct,
         &Program::Execute_StringConcat,
         &Program::Execute_Dup,

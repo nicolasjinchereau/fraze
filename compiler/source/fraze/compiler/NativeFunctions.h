@@ -252,8 +252,6 @@ inline Boolean Type_IsInstance(const Object* obj, const TypeInfo& rightTypeInfo)
 
 inline Object* Type_AsInstance(const Object* obj, const TypeInfo& rightTypeInfo)
 {
-    // for object to reference type conversions, we just need to
-    // check if the object is of the target type; if not, set to null
     auto leftTypeInfo = obj->GetTypeInfo();
 
     if (auto leftClassInfo = leftTypeInfo->ToClassInfo())
@@ -282,7 +280,17 @@ inline Object* Type_AsInstance(const Object* obj, const TypeInfo& rightTypeInfo)
     }
     else if (auto leftArrayInfo = leftTypeInfo->ToArrayInfo())
     {
-        if (leftArrayInfo->id != rightTypeInfo.id)
+        if (auto rightArrayInfo = rightTypeInfo.ToArrayInfo())
+        {
+            if (leftArrayInfo->id != rightArrayInfo->id)
+                obj = nullptr;
+        }
+        else if (auto rightBasicTypeInfo = rightTypeInfo.ToBasicTypeInfo())
+        {
+            if(rightBasicTypeInfo->qualifiedName != "object")
+                obj = nullptr;
+        }
+        else
         {
             obj = nullptr;
         }
@@ -290,7 +298,12 @@ inline Object* Type_AsInstance(const Object* obj, const TypeInfo& rightTypeInfo)
     else if (auto leftBasicTypeInfo = leftTypeInfo->ToBasicTypeInfo();
         leftBasicTypeInfo && leftBasicTypeInfo->qualifiedName == "string")
     {
-        if (rightTypeInfo.ToBasicTypeInfo() == nullptr || rightTypeInfo.qualifiedName != "string")
+        if(auto rightBasicTypeInfo = rightTypeInfo.ToBasicTypeInfo())
+        {
+            if(rightBasicTypeInfo->qualifiedName != "string" && rightBasicTypeInfo->qualifiedName != "object")
+                obj = nullptr;
+        }
+        else
         {
             obj = nullptr;
         }

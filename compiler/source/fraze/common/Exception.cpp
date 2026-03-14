@@ -6,7 +6,7 @@
 
 namespace fraze {
 
-bool ENFORCE_BreakOnError = true;
+bool ENFORCE_BreakOnError = false;
 
 } // fraze
  
