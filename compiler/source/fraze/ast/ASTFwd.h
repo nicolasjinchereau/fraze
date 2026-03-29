@@ -57,6 +57,7 @@ class TypeSpecifier;
 
 class AssertStatement;
 class BlockStatement;
+class EmptyStatement;
 class ExposeStatement;
 class ExpressionStatement;
 class ForStatement;

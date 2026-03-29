@@ -61,6 +61,21 @@ String* ScopedAllocator::NewString(IAllocator& allocator, size_t length, SourceL
     return ret;
 }
 
+String* ScopedAllocator::NewString(IAllocator& allocator, std::string_view left, std::string_view right, SourceLocation* pLoc)
+{
+#if FRAZE_HEAP_DEBUG
+    program->heap.SetLocation(pLoc);
+#endif
+
+    String* ret = String::New(allocator, left, right);
+
+#if FRAZE_HEAP_DEBUG
+    program->heap.SetLocation(nullptr);
+#endif
+
+    return ret;
+}
+
 Array<>* ScopedAllocator::NewArray(IAllocator& allocator, const std::string& qualifiedTypeName, size_t count, SourceLocation* pLoc)
 {
 #if FRAZE_HEAP_DEBUG

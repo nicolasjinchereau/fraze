@@ -535,6 +535,11 @@ void CodePrinter::Visit(const sptr<BlockStatement>& node)
     stream << GetIndent() << "}\n";
 }
 
+void CodePrinter::Visit(const sptr<EmptyStatement>& node)
+{
+    stream << ";\n";
+}
+
 void CodePrinter::Visit(const sptr<ExposeStatement>& node)
 {
     stream << GetIndent() << "expose " << node->section->GetTypeName(true) << ";\n";

@@ -961,6 +961,54 @@ std::optional<sptr<ASTNode>> SemanticAnalyzer::CreateAsInstanceCall(const sptr<A
     return castExpr;
 }
 
+
+// String.FromBool(obj)
+// String.FromInt(obj)
+// String.FromNum(obj)
+// String.FromEnum(typeof(OBJ), cast<int>(obj))
+std::optional<sptr<ASTNode>> SemanticAnalyzer::CreateStringFromTypeCall(const sptr<AsExpression>& node)
+{
+    assert(node->typeSpec->type->IsString());
+
+    std::string_view convertFunc;
+
+    Type* valueType = node->value->EvaluateType();
+    if (valueType->IsBoolean())
+        convertFunc = "FromBool";
+    else if (valueType->IsInteger())
+        convertFunc = "FromInt";
+    else if (valueType->IsNumber())
+        convertFunc = "FromNum";
+    else if (valueType->IsEnum())
+        convertFunc = "FromEnum";
+
+    assert(!convertFunc.empty());
+    
+    if(convertFunc == "FromEnum")
+    {
+        auto enumType = spnew<TypeSpecifier>(node->loc, valueType);
+        auto arg1 = spnew<TypeOfExpression>(node->loc, node->scope, enumType);
+        auto arg2 = spnew<CastExpression>(node->loc, node->scope, spnew<TypeSpecifier>(node->loc, Type::Get("int")), node->value);
+
+        auto context = spnew<IdentifierExpression>(node->loc, astRoot->global->scope.get(), shared_string("String"));
+        auto targetFunc = spnew<IdentifierExpression>(node->loc, node->scope, context, shared_string("FromEnum"));
+        auto callExpr = spnew<CallExpression>(node->loc, node->scope, targetFunc);
+        callExpr->arguments.push_back(arg1);
+        callExpr->arguments.push_back(arg2);
+        VisitChild(callExpr);
+        return callExpr;
+    }
+    else
+    {
+        auto context = spnew<IdentifierExpression>(node->loc, astRoot->global->scope.get(), shared_string("String"));
+        auto targetFunc = spnew<IdentifierExpression>(node->loc, node->scope, context, shared_string(convertFunc));
+        auto callExpr = spnew<CallExpression>(node->loc, node->scope, targetFunc);
+        callExpr->arguments.push_back(node->value);
+        VisitChild(callExpr);
+        return callExpr;
+    }
+}
+
 void SemanticAnalyzer::Visit(const sptr<AsExpression>& node)
 {
     ASTVisitor::Visit(node);
@@ -1047,6 +1095,11 @@ void SemanticAnalyzer::Visit(const sptr<AsExpression>& node)
         {
             valid = true;
         }
+
+        if (rightType->IsString())
+        {
+            replacement = CreateStringFromTypeCall(node);
+        }
     }
     else if(leftType->IsInteger())
     {
@@ -1057,6 +1110,11 @@ void SemanticAnalyzer::Visit(const sptr<AsExpression>& node)
         {
             valid = true;
         }
+
+        if (rightType->IsString())
+        {
+            replacement = CreateStringFromTypeCall(node);
+        }
     }
     else if(leftType->IsNumber())
     {
@@ -1066,6 +1124,11 @@ void SemanticAnalyzer::Visit(const sptr<AsExpression>& node)
             rightType->IsString())
         {
             valid = true;
+        }
+
+        if (rightType->IsString())
+        {
+            replacement = CreateStringFromTypeCall(node);
         }
     }
     else if(leftType->IsString())
@@ -1079,9 +1142,15 @@ void SemanticAnalyzer::Visit(const sptr<AsExpression>& node)
     }
     else if(leftType->IsEnum())
     {
-        if (rightType->IsInteger())
+        if (rightType->IsInteger() ||
+            rightType->IsString())
         {
             valid = true;
+        }
+
+        if (rightType->IsString())
+        {
+            replacement = CreateStringFromTypeCall(node);
         }
     }
 
@@ -1387,6 +1456,57 @@ void SemanticAnalyzer::Visit(const sptr<BinaryExpression>& node)
     }
 
     ProcessBinaryOperation(node);
+    
+    // now that type checks and promotions have been done...
+
+    if (leftType->IsString() && rightType->IsString())
+    {
+        if(node->operation == TokenType::Equal || node->operation == TokenType::NotEqual)
+        {
+            // lower to String.Equals(left, right) or !String.Equals(left, right)
+
+            auto loc = node->loc;
+            auto scope = node->scope;
+            auto globalScope = astRoot->global->scope.get();
+
+            auto context = spnew<IdentifierExpression>(loc, globalScope, shared_string("String"));
+            auto targetFunc = spnew<IdentifierExpression>(loc, scope, context, shared_string("Equals"));
+
+            auto callExpr = spnew<CallExpression>(loc, scope, targetFunc);
+            callExpr->arguments.push_back(node->left);
+            callExpr->arguments.push_back(node->right);
+
+            sptr<Expression> expr = callExpr;
+
+            if (node->operation == TokenType::NotEqual)
+            {
+                expr = spnew<PrefixExpression>(loc, scope, TokenType::LogicalNot, expr);
+            }
+
+            VisitChild(expr);
+            replacement = expr;
+            return;
+        }
+        else if (node->operation == TokenType::Add)
+        {
+            // lower to String.Concat(left, right)
+
+            auto loc = node->loc;
+            auto scope = node->scope;
+            auto globalScope = astRoot->global->scope.get();
+
+            auto context = spnew<IdentifierExpression>(loc, globalScope, shared_string("String"));
+            auto targetFunc = spnew<IdentifierExpression>(loc, scope, context, shared_string("Concat"));
+
+            auto callExpr = spnew<CallExpression>(loc, scope, targetFunc);
+            callExpr->arguments.push_back(node->left);
+            callExpr->arguments.push_back(node->right);
+
+            VisitChild(callExpr);
+            replacement = callExpr;
+            return;
+        }
+    }
 }
 
 void SemanticAnalyzer::Visit(const sptr<BooleanLiteralExpression>& node) {
@@ -1930,8 +2050,49 @@ void SemanticAnalyzer::Visit(const sptr<CallExpression>& node)
     }
 }
 
-void SemanticAnalyzer::Visit(const sptr<ConvertExpression>& node) {
+void SemanticAnalyzer::Visit(const sptr<ConvertExpression>& node)
+{
     ASTVisitor::Visit(node);
+
+    if (node->resultTypeSpec->type->IsString())
+    {
+        std::string_view convertFunc;
+
+        Type* valueType = node->value->EvaluateType();
+        if (valueType->IsBoolean())
+            convertFunc = "FromBool";
+        else if (valueType->IsInteger())
+            convertFunc = "FromInt";
+        else if (valueType->IsNumber())
+            convertFunc = "FromNum";
+        else if (valueType->IsEnum())
+            convertFunc = "FromEnum";
+
+        if (convertFunc == "FromEnum")
+        {
+            auto enumType = spnew<TypeSpecifier>(node->loc, valueType);
+            auto arg1 = spnew<TypeOfExpression>(node->loc, node->scope, enumType);
+            auto arg2 = spnew<CastExpression>(node->loc, node->scope, spnew<TypeSpecifier>(node->loc, Type::Get("int")), node->value);
+
+            auto context = spnew<IdentifierExpression>(node->loc, astRoot->global->scope.get(), shared_string("String"));
+            auto targetFunc = spnew<IdentifierExpression>(node->loc, node->scope, context, shared_string("FromEnum"));
+            auto callExpr = spnew<CallExpression>(node->loc, node->scope, targetFunc);
+            callExpr->arguments.push_back(arg1);
+            callExpr->arguments.push_back(arg2);
+            replacement = callExpr;
+            return;
+        }
+        else if (!convertFunc.empty())
+        {
+            auto context = spnew<IdentifierExpression>(node->loc, astRoot->global->scope.get(), shared_string("String"));
+            auto targetFunc = spnew<IdentifierExpression>(node->loc, node->scope, context, shared_string(convertFunc));
+            auto callExpr = spnew<CallExpression>(node->loc, node->scope, targetFunc);
+            callExpr->arguments.push_back(node->value);
+            VisitChild(callExpr);
+            replacement = callExpr;
+            return;
+        }
+    }
 }
 
 void SemanticAnalyzer::Visit(const sptr<DefaultValueExpression>& node)
@@ -2476,7 +2637,7 @@ void SemanticAnalyzer::Visit(const sptr<TypeOfExpression>& node)
     auto scope = node->scope;
     auto globalScope = astRoot->global->scope.get();
 
-    shared_string typeName = node->typeSpec->GetTypeName(true);
+    shared_string typeName = node->typeSpec->type->GetName();
     
     auto context = spnew<IdentifierExpression>(loc, globalScope, shared_string("Type"));
     auto targetFunc = spnew<IdentifierExpression>(loc, scope, context, shared_string("Find"));
@@ -2585,15 +2746,44 @@ void SemanticAnalyzer::Visit(const sptr<AssertStatement>& node)
 {
     ASTVisitor::Visit(node);
     
-    assert(node->condition);
     Type* conditionType = node->condition->EvaluateType();
     ENFORCE(conditionType->IsBoolean(), node->condition->loc, "expected boolean condition");
 
-    if(node->message)
+    Type* messageType = node->message->EvaluateType();
+    ENFORCE(messageType->IsString() || messageType->IsNull(), node->message->loc, "expected string message or null");
+
+    auto compiler = Compiler::GetActiveCompiler();
+    if (!compiler)
+        throw Exception("no active compiler");
+
+    if (compiler->IsAssertEnabled())
     {
-        Type* messageType = node->message->EvaluateType();
-        ENFORCE(messageType->IsString(), node->message->loc, "expected string message");
+        auto context = spnew<IdentifierExpression>(node->loc, astRoot->global->scope.get(), shared_string("Debug"));
+        auto targetFunc = spnew<IdentifierExpression>(node->loc, node->enclosingScope, context, shared_string("Assert"));
+
+        auto callExpr = spnew<CallExpression>(node->loc, node->enclosingScope, targetFunc);
+        callExpr->arguments.push_back(node->condition);
+        callExpr->arguments.push_back(node->message);
+        callExpr->arguments.push_back(spnew<StringLiteralExpression>(node->loc, node->enclosingScope, node->loc.file));
+        callExpr->arguments.push_back(spnew<IntegerLiteralExpression>(node->loc, node->enclosingScope, (int64_t)node->loc.line));
+        callExpr->arguments.push_back(spnew<IntegerLiteralExpression>(node->loc, node->enclosingScope, (int64_t)node->loc.column));
+        callExpr->arguments.push_back(spnew<StringLiteralExpression>(node->loc, node->enclosingScope, node->loc.lineText));
+
+        auto exprStmt = spnew<ExpressionStatement>(callExpr, node->enclosingScope);
+        VisitChild(exprStmt);
+        replacement = exprStmt;
     }
+    else
+    {
+        auto emptyStmt = spnew<EmptyStatement>(node->loc, node->enclosingScope);
+        VisitChild(emptyStmt);
+        replacement = emptyStmt;
+    }
+}
+
+void SemanticAnalyzer::Visit(const sptr<EmptyStatement>& node)
+{
+    ASTVisitor::Visit(node);
 }
 
 void SemanticAnalyzer::Visit(const sptr<GotoStatement>& node)

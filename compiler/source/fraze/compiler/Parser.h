@@ -1766,6 +1766,8 @@ class ${}_Task
 
         if (TryConsume(TokenType::Comma))
             message = ParseExpression();
+        else
+            message = spnew<NullLiteralExpression>(tok.loc, scopes.GetCurrent());
 
         Consume(TokenType::RightParen);
         Consume(TokenType::Semicolon);

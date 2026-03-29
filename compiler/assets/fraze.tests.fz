@@ -127,6 +127,12 @@ section ConversionTests
     {
     }
 
+    enum TestEnum
+    {
+        One,
+        Two
+    }
+
     void Run()
     {
         // implicit boxing and conversion to object
@@ -284,7 +290,7 @@ section ConversionTests
         assert(("a" as object) is string);
         assert((new Test{} as object) is Test);
         
-        // check * is null comparisons
+        // check (x is null) comparisons
         object L34 = null;
         assert(L34 is null);
         assert(!(L34 is Test));
@@ -308,6 +314,15 @@ section ConversionTests
         int L39 = 1;
         bool R39 = L39 as bool;
         assert(R39 == true);
+
+        // check enum conversions
+        TestEnum L40 = TestEnum.One;
+        int R40 = L40 as int;
+        assert(R40 == 0);
+
+        TestEnum L41 = TestEnum.Two;
+        string R41 = L41 as string;
+        assert(R41 == "Two");
     }
 }
 
@@ -326,6 +341,12 @@ section ArrayTests
 
 section StringTests
 {
+    enum TestEnum
+    {
+        One,
+        Two
+    }
+
     void Run()
     {
         string s1 = "Hello" + " " + "World" + " " + 100;
@@ -344,6 +365,9 @@ section StringTests
         assert(parts[1] == "two");
         assert(parts[2] == "three");
         assert(parts[3] == "four");
+
+        string s3 = "Value: " + TestEnum.One;
+        assert(s3 == "Value: One");
     }
 }
 

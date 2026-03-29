@@ -85,6 +85,7 @@ public:
 
     virtual void Visit(const sptr<AssertStatement>& node);
     virtual void Visit(const sptr<BlockStatement>& node);
+    virtual void Visit(const sptr<EmptyStatement>& node);
     virtual void Visit(const sptr<ExposeStatement>& node);
     virtual void Visit(const sptr<ExpressionStatement>& node);
     virtual void Visit(const sptr<ForStatement>& node);

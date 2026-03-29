@@ -80,6 +80,7 @@ public:
 
     virtual void Visit(const sptr<AssertStatement>& node) override;
     virtual void Visit(const sptr<BlockStatement>& node) override;
+    virtual void Visit(const sptr<EmptyStatement>& node) override;
     virtual void Visit(const sptr<ExposeStatement>& node) override;
     virtual void Visit(const sptr<ExpressionStatement>& node) override;
     virtual void Visit(const sptr<ForStatement>& node) override;

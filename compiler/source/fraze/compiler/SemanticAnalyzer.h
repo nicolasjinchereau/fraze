@@ -94,6 +94,7 @@ public:
     ****************************/
 
     virtual void Visit(const sptr<AssertStatement>& node);
+    virtual void Visit(const sptr<EmptyStatement>& node);
     virtual void Visit(const sptr<GotoStatement>& node);
     virtual void Visit(const sptr<ReturnStatement>& node);
 
@@ -108,6 +109,7 @@ private:
     sptr<FunctionDefinition> CreateEqualityOperator(Type* structType, TokenType operation);
     sptr<FunctionDefinition> GetUnaryOperatorOverload(Type* structType, TokenType operation, const sptr<Expression>& value);
     std::optional<sptr<ASTNode>> CreateAsInstanceCall(const sptr<AsExpression>& node);
+    std::optional<sptr<ASTNode>> CreateStringFromTypeCall(const sptr<AsExpression>& node);
 
     sptr<FunctionDefinition> FindDefinition(Scope* scope, const std::string& name, const std::vector<sptr<Expression>>& arguments);
     sptr<Definition> SearchUpward(Scope* scope, const std::string& name, const std::vector<sptr<Expression>>& arguments, Scope* toScope = nullptr);

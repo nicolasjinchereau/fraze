@@ -156,6 +156,53 @@ inline Integer String_GetHashCode(const String& value)
     return hash;
 }
 
+inline String* String_Concat(Program* program, const String& left, const String& right)
+{
+    ScopedAllocator alloc(program);
+    return NEW_FRAZE_STRING_JOIN(alloc, left.GetView(), right.GetView());
+}
+
+inline Boolean String_Equals(const String* left, const String* right)
+{
+    return left == right || (left && right && left->GetView() == right->GetView());
+}
+
+inline String* String_FromBool(Program* program, const Boolean& value)
+{
+    ScopedAllocator alloc(program);
+    return NEW_FRAZE_STRING(alloc, value ? "true" : "false");
+}
+
+inline String* String_FromInt(Program* program, const Integer& value)
+{
+    std::array<char, 32> buffer;
+    auto ret = std::to_chars(buffer.data(), buffer.data() + buffer.size(), value);
+    assert(ret.ec == std::errc());
+
+    ScopedAllocator alloc(program);
+    return NEW_FRAZE_STRING(alloc, std::string_view(buffer.data(), ret.ptr));
+}
+
+inline String* String_FromNum(Program* program, const Number& value)
+{
+    std::array<char, 1080> buffer;
+    auto ret = std::to_chars(buffer.data(), buffer.data() + buffer.size(), value, std::chars_format::fixed);
+    assert(ret.ec == std::errc());
+
+    ScopedAllocator alloc(program);
+    return NEW_FRAZE_STRING(alloc, std::string_view(buffer.data(), ret.ptr));
+}
+
+inline String* String_FromEnum(Program* program, const TypeInfo& enumTypeInfo, const Integer& value)
+{
+    const EnumInfo* enumInfo = enumTypeInfo.ToEnumInfo();
+    auto it = std::ranges::find_if(enumInfo->members, [&](auto m) { return m.second == value; });
+    assert(it != enumInfo->members.end());
+
+    ScopedAllocator alloc(program);
+    return NEW_FRAZE_STRING(alloc, std::string_view(it->first));
+}
+
 inline Integer Object_GetHashCode(const Object& value)
 {
     union {
@@ -314,6 +361,18 @@ inline Object* Type_AsInstance(const Object* obj, const TypeInfo& rightTypeInfo)
     }
 
     return const_cast<Object*>(obj);
+}
+
+inline void Debug_Fail(const String* message, const String* file, Integer line, Integer column, const String* lineText)
+{
+    std::string msgText;
+
+    if (message)
+        msgText = std::format("assertion failed: {}", message->GetView());
+    else
+        msgText = "assertion failed.";
+
+    Throw(SourceLocation(line, column, shared_string(file->GetView()), shared_string(lineText->GetView())), "{}", msgText);
 }
 
 } // fraze

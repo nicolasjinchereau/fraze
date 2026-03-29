@@ -374,6 +374,9 @@
     <ClInclude Include="source\fraze\ast\expr\CastExpression.h">
       <Filter>source\fraze\ast\expr</Filter>
     </ClInclude>
+    <ClInclude Include="source\fraze\ast\stmt\EmptyStatement.h">
+      <Filter>source\fraze\ast\stmt</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="natvis\fraze.natvis">

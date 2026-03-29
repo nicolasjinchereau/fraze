@@ -54,6 +54,7 @@
 
 #include <fraze/ast/stmt/AssertStatement.h>
 #include <fraze/ast/stmt/BlockStatement.h>
+#include <fraze/ast/stmt/EmptyStatement.h>
 #include <fraze/ast/stmt/ExposeStatement.h>
 #include <fraze/ast/stmt/ExpressionStatement.h>
 #include <fraze/ast/stmt/ForStatement.h>

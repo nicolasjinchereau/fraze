@@ -258,19 +258,23 @@ void CodeGenerator::EmitConversion(sptr<Expression>& value, const sptr<TypeSpeci
         }
         else if (sourceType->IsBoolean())
         {
-            Emit(value->loc, OpCode::ConvBoolToStr);
+            //Emit(value->loc, OpCode::ConvBoolToStr);
+            assert(0);
         }
         else if (sourceType->IsInteger())
         {
-            Emit(value->loc, OpCode::ConvIntToStr);
+            //Emit(value->loc, OpCode::ConvIntToStr);
+            assert(0);
         }
         else if (sourceType->IsNumber())
         {
-            Emit(value->loc, OpCode::ConvNumToStr);
+            //Emit(value->loc, OpCode::ConvNumToStr);
+            assert(0);
         }
         else if (sourceType->IsEnum())
         {
-            Emit(value->loc, OpCode::ConvEnumToStr, typeInfo[sourceType]->id);
+            //Emit(value->loc, OpCode::ConvEnumToStr, typeInfo[sourceType]->id);
+            assert(0);
         }
     }
     else if(resultType->IsInterface())
@@ -498,12 +502,13 @@ void CodeGenerator::Visit(const sptr<AssignExpression>& node)
         VisitChild(node->left);
         VisitChild(node->right);
 
-        if(type->IsInteger())
+        if (type->IsInteger())
             Emit(node->loc, OpCode::AddInt);
-        else if(type->IsNumber())
+        else if (type->IsNumber())
             Emit(node->loc, OpCode::AddNum);
-        else if(type->IsString())
-            Emit(node->loc, OpCode::StringConcat);
+        else if (type->IsString())
+            // should have been lowered to (left = String.Concat(left, right))
+            assert(0);
         else
             assert(0);
         break;
@@ -711,7 +716,8 @@ void CodeGenerator::Visit(const sptr<BinaryExpression>& node)
         case TokenType::Equal:
             if(type->IsString())
             {
-                Emit(node->loc, OpCode::StringEqual);
+                // should have been lowered to String.Equals(left, right)
+                assert(0);
             }
             else
             {
@@ -726,7 +732,8 @@ void CodeGenerator::Visit(const sptr<BinaryExpression>& node)
         case TokenType::NotEqual:
             if(type->IsString())
             {
-                Emit(node->loc, OpCode::StringEqual);
+                // should have been lowered to !String.Equals(left, right)
+                assert(0);
             }
             else
             {
@@ -775,12 +782,13 @@ void CodeGenerator::Visit(const sptr<BinaryExpression>& node)
             break;
 
         case TokenType::Add:
-            if(type->IsInteger())
+            if (type->IsInteger())
                 Emit(node->loc, OpCode::AddInt);
-            else if(type->IsNumber())
+            else if (type->IsNumber())
                 Emit(node->loc, OpCode::AddNum);
-            else if(type->IsString())
-                Emit(node->loc, OpCode::StringConcat);
+            else if (type->IsString())
+                // should have been lowered to String.Concat(left, right)
+                assert(0);
             else
                 assert(0);
             break;
@@ -1620,31 +1628,17 @@ void CodeGenerator::Visit(const sptr<TypeSpecifier>& node) {
 *         STATEMENTS        *
 ****************************/
 
-void CodeGenerator::Visit(const sptr<AssertStatement>& node)
-{
-    auto compiler = Compiler::GetActiveCompiler();
-    if(!compiler)
-        throw Exception("no active compiler");
-
-    if(compiler->IsAssertEnabled())
-    {
-        VisitChild(node->condition);
-
-        size_t jumpOverAssertion = program->code.size();
-        Emit(node->loc, OpCode::JumpIf, -1);
-
-        if(node->message)
-            VisitChild(node->message);
-        else
-            Emit(node->loc, OpCode::PushNull);
-
-        Emit(node->loc, OpCode::Assert);
-
-        program->code[jumpOverAssertion].arg1_u64 = program->code.size();
-    }
+void CodeGenerator::Visit(const sptr<AssertStatement>& node) {
+    // should have been lowered to Debug.Assert() during semantic analysis
+    assert(0);
 }
 
 void CodeGenerator::Visit(const sptr<BlockStatement>& node) {
+    ASTVisitor::Visit(node);
+}
+
+void CodeGenerator::Visit(const sptr<EmptyStatement>& node)
+{
     ASTVisitor::Visit(node);
 }
 

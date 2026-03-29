@@ -277,6 +277,10 @@ void ASTVisitor::Visit(const sptr<BlockStatement>& node)
         VisitChild(stmt);
 }
 
+void ASTVisitor::Visit(const sptr<EmptyStatement>& node)
+{
+}
+
 void ASTVisitor::Visit(const sptr<ExposeStatement>& node)
 {
     VisitChild(node->section);

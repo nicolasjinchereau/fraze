@@ -150,7 +150,6 @@ private:
     void Execute_RightShift(const Operation& op);
     void Execute_Equal(const Operation& op);
     void Execute_EqualN(const Operation& op);
-    void Execute_StringEqual(const Operation& op);
     void Execute_LessInt(const Operation& op);
     void Execute_LessNum(const Operation& op);
     void Execute_LessEqualInt(const Operation& op);
@@ -171,13 +170,7 @@ private:
     void Execute_ModNum(const Operation& op);
     void Execute_ConvIntToNum(const Operation& op);
     void Execute_ConvNumToInt(const Operation& op);
-    void Execute_ConvBoolToStr(const Operation& op);
-    void Execute_ConvIntToStr(const Operation& op);
-    void Execute_ConvNumToStr(const Operation& op);
-    void Execute_ConvEnumToStr(const Operation& op);
-    void Execute_ConvObjToType(const Operation& op);
     void Execute_ConvRefToStruct(const Operation& op);
-    void Execute_StringConcat(const Operation& op);
     void Execute_Dup(const Operation& op);
     void Execute_DupN(const Operation& op);
     void Execute_Call(const Operation& op);
@@ -189,7 +182,6 @@ private:
     void Execute_JumpIf(const Operation& op);
     void Execute_JumpIfNot(const Operation& op);
     void Execute_Goto(const Operation& op);
-    void Execute_Assert(const Operation& op);
     void Execute_NullCheck(const Operation& op);
     void Execute_BoundsCheck(const Operation& op);
     void Execute_ObjectTypeCheck(const Operation& op);
@@ -245,7 +237,6 @@ private:
         &Program::Execute_RightShift,
         &Program::Execute_Equal,
         &Program::Execute_EqualN,
-        &Program::Execute_StringEqual,
         &Program::Execute_LessInt,
         &Program::Execute_LessNum,
         &Program::Execute_LessEqualInt,
@@ -266,12 +257,7 @@ private:
         &Program::Execute_ModNum,
         &Program::Execute_ConvIntToNum,
         &Program::Execute_ConvNumToInt,
-        &Program::Execute_ConvBoolToStr,
-        &Program::Execute_ConvIntToStr,
-        &Program::Execute_ConvNumToStr,
-        &Program::Execute_ConvEnumToStr,
         &Program::Execute_ConvRefToStruct,
-        &Program::Execute_StringConcat,
         &Program::Execute_Dup,
         &Program::Execute_DupN,
         &Program::Execute_Call,
@@ -283,7 +269,6 @@ private:
         &Program::Execute_JumpIf,
         &Program::Execute_JumpIfNot,
         &Program::Execute_Goto,
-        &Program::Execute_Assert,
         &Program::Execute_NullCheck,
         &Program::Execute_BoundsCheck,
         &Program::Execute_ObjectTypeCheck,

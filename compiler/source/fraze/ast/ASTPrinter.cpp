@@ -307,6 +307,12 @@ void ASTPrinter::Visit(const sptr<BlockStatement>& node)
     ASTVisitor::Visit(node);
 }
 
+void ASTPrinter::Visit(const sptr<EmptyStatement>& node)
+{
+    stream << GetPreamble(node->loc) << "EmptyStatement" << std::endl;
+    ASTVisitor::Visit(node);
+}
+
 void ASTPrinter::Visit(const sptr<ExposeStatement>& node)
 {
     stream << GetPreamble(node->loc) << "ExposeStatement" << std::endl;

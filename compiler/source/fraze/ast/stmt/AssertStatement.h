@@ -13,7 +13,7 @@ class AssertStatement : public Statement
 {
 public:
     sptr<Expression> condition; // must evaluate to a boolean
-    sptr<Expression> message; // must evaluate to a string 
+    sptr<Expression> message; // must evaluate to a string
 
     AssertStatement(const SourceLocation& loc, Scope* enclosingScope, const sptr<Expression>& condition, const sptr<Expression>& message)
         : Statement(loc, enclosingScope), condition(condition), message(message)

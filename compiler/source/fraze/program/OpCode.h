@@ -116,7 +116,6 @@ enum class OpCode : uint8_t
     // replaces stack top with result of equality operation on top two (any Word, arg=size)
     Equal,
     EqualN,
-    StringEqual,
 
     // replaces stack top with result of equality operation on top two
     LessInt,
@@ -143,14 +142,7 @@ enum class OpCode : uint8_t
     // converts stack top from one type to another
     ConvIntToNum,
     ConvNumToInt,
-    ConvBoolToStr,
-    ConvIntToStr,
-    ConvNumToStr,
-    ConvEnumToStr,
     ConvRefToStruct,
-
-    // concatenate two strings
-    StringConcat,
 
     // pushes another copy of current stack top
     Dup,
@@ -172,8 +164,6 @@ enum class OpCode : uint8_t
     Goto,
 
     // if stack[top] is false, terminate with message at stack[top]
-    Assert,
-    
     NullCheck, // if stack[top] is null, terminate with null reference error
     BoundsCheck, // if stack[top] is less than 0 or greater than stack[top - 1].Count, terminate with index range error
     ObjectTypeCheck, // if the object at stack[top] is not of the type 'arg', terminate with type error
@@ -232,7 +222,6 @@ inline std::unordered_map<OpCode, std::string> OpCodeNames {
 
     { OpCode::Equal,           "Equal" },
     { OpCode::EqualN,          "EqualN" },
-    { OpCode::StringEqual,     "StringEqual" },
 
     { OpCode::LessInt,         "LessInt" },
     { OpCode::LessNum,         "LessNum" },
@@ -256,13 +245,7 @@ inline std::unordered_map<OpCode, std::string> OpCodeNames {
 
     { OpCode::ConvIntToNum,    "ConvIntToNum" },
     { OpCode::ConvNumToInt,    "ConvNumToInt" },
-    { OpCode::ConvBoolToStr,   "ConvBoolToStr" },
-    { OpCode::ConvIntToStr,    "ConvIntToStr" },
-    { OpCode::ConvNumToStr,    "ConvNumToStr" },
-    { OpCode::ConvEnumToStr,   "ConvEnumToStr" },
     { OpCode::ConvRefToStruct, "ConvRefToStruct" },
-
-    { OpCode::StringConcat,    "StringConcat" },
 
     { OpCode::Dup,             "Dup" },
     { OpCode::DupN,            "DupN" },
@@ -275,7 +258,7 @@ inline std::unordered_map<OpCode, std::string> OpCodeNames {
     { OpCode::JumpIfNot,       "JumpIfNot" },
     { OpCode::Goto,            "Goto" },
     { OpCode::Return,          "Return" },
-    { OpCode::Assert,          "Assert" },
+
     { OpCode::NullCheck,       "NullCheck" },
     { OpCode::BoundsCheck,     "BoundsCheck" },
     { OpCode::ObjectTypeCheck, "ObjectTypeCheck" },

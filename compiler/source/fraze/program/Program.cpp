@@ -332,7 +332,6 @@ void Program::VerifyHandlers()
     VERIFY_HANDLER_INDEX(RightShift);
     VERIFY_HANDLER_INDEX(Equal);
     VERIFY_HANDLER_INDEX(EqualN);
-    VERIFY_HANDLER_INDEX(StringEqual);
     VERIFY_HANDLER_INDEX(LessInt);
     VERIFY_HANDLER_INDEX(LessNum);
     VERIFY_HANDLER_INDEX(LessEqualInt);
@@ -353,12 +352,7 @@ void Program::VerifyHandlers()
     VERIFY_HANDLER_INDEX(ModNum);
     VERIFY_HANDLER_INDEX(ConvIntToNum);
     VERIFY_HANDLER_INDEX(ConvNumToInt);
-    VERIFY_HANDLER_INDEX(ConvBoolToStr);
-    VERIFY_HANDLER_INDEX(ConvIntToStr);
-    VERIFY_HANDLER_INDEX(ConvNumToStr);
-    VERIFY_HANDLER_INDEX(ConvEnumToStr);
     VERIFY_HANDLER_INDEX(ConvRefToStruct);
-    VERIFY_HANDLER_INDEX(StringConcat);
     VERIFY_HANDLER_INDEX(Dup);
     VERIFY_HANDLER_INDEX(DupN);
     VERIFY_HANDLER_INDEX(Call);
@@ -370,7 +364,6 @@ void Program::VerifyHandlers()
     VERIFY_HANDLER_INDEX(JumpIf);
     VERIFY_HANDLER_INDEX(JumpIfNot);
     VERIFY_HANDLER_INDEX(Goto);
-    VERIFY_HANDLER_INDEX(Assert);
     VERIFY_HANDLER_INDEX(NullCheck);
     VERIFY_HANDLER_INDEX(BoundsCheck);
     VERIFY_HANDLER_INDEX(ObjectTypeCheck);
@@ -892,17 +885,6 @@ void Program::Execute_EqualN(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_StringEqual(const Operation& op)
-{
-    Word* top = rsp;
-    String* rhs = static_cast<String*>((top--)->object);
-    String* lhs = static_cast<String*>(top->object); // skip decrement
-    Word res = Word( lhs == rhs || (lhs && rhs && lhs->GetView() == rhs->GetView()) );
-    *top = res; // skip increment
-    rsp = top;
-    ++rip;
-}
-
 void Program::Execute_LessInt(const Operation& op)
 {
     Word* top = rsp;
@@ -1095,56 +1077,6 @@ void Program::Execute_ConvNumToInt(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_ConvBoolToStr(const Operation& op)
-{
-    bool value = static_cast<bool>(rsp->storage);
-    DefaultAllocator alloc(this);
-    rsp->object = String::New(alloc, value ? "true" : "false");
-    ++rip;
-}
-
-void Program::Execute_ConvIntToStr(const Operation& op)
-{
-    Word* top = rsp;
-    Integer value = top->integer;
-
-    std::array<char, 32> buffer;
-    auto ret = std::to_chars(
-        buffer.data(), buffer.data() + buffer.size(), value);
-    assert(ret.ec == std::errc());
-
-    DefaultAllocator alloc(this);
-    top->object = String::New(alloc, std::string_view(buffer.data(), ret.ptr));
-    ++rip;
-}
-
-void Program::Execute_ConvNumToStr(const Operation& op)
-{
-    Word* top = rsp;
-    Number value = top->number;
-
-    std::array<char, 1080> buffer;
-    auto ret = std::to_chars(
-        buffer.data(), buffer.data() + buffer.size(), value, std::chars_format::fixed);
-    assert(ret.ec == std::errc());
-
-    DefaultAllocator alloc(this);
-    top->object = String::New(alloc, std::string_view(buffer.data(), ret.ptr));
-    ++rip;
-}
-
-void Program::Execute_ConvEnumToStr(const Operation& op)
-{
-    Word* top = rsp;
-    Integer value = top->integer;
-    auto* enumInfo = typeInfo[op.arg1_u64]->ToEnumInfo();
-    auto it = std::ranges::find_if(enumInfo->members, [&](auto m){ return m.second == value; });
-    assert(it != enumInfo->members.end());
-    DefaultAllocator alloc(this);
-    top->object = String::New(alloc, it->first);
-    ++rip;
-}
-
 void Program::Execute_ConvRefToStruct(const Operation& op)
 {
     Word* top = rsp;
@@ -1155,20 +1087,6 @@ void Program::Execute_ConvRefToStruct(const Operation& op)
     for(size_t i = 0; i != op.arg1_u64; ++i)
         *(++top) = reference[i];
 
-    rsp = top;
-    ++rip;
-}
-
-void Program::Execute_StringConcat(const Operation& op)
-{
-    Word* top = rsp;
-
-    String* rhs = (top--)->GetString();
-    String* lhs = (top--)->GetString();
-    std::string_view lhsView = lhs->GetView();
-    std::string_view rhsView = rhs->GetView();
-    DefaultAllocator alloc(this);
-    (++top)->object = String::New(alloc, lhsView, rhsView);
     rsp = top;
     ++rip;
 }
@@ -1362,21 +1280,6 @@ void Program::Execute_JumpIfNot(const Operation& op)
 void Program::Execute_Goto(const Operation& op)
 {
     rip = (rsp--)->integer;
-}
-
-void Program::Execute_Assert(const Operation& op)
-{
-    String* message = (rsp--)->GetString();
-
-    std::string msgText;
-
-    if(message)
-        msgText = std::format("assertion failed: {}", message->GetView());
-    else
-        msgText = "assertion failed.";
-
-    Throw(locations[rip], "{}", msgText);
-    ++rip;
 }
 
 void Program::Execute_NullCheck(const Operation& op)
@@ -1582,13 +1485,7 @@ void Program::PrintOperation(size_t index, std::ostream& stream)
     case OpCode::ModNum:
     case OpCode::ConvIntToNum:
     case OpCode::ConvNumToInt:
-    case OpCode::ConvBoolToStr:
-    case OpCode::ConvIntToStr:
-    case OpCode::ConvNumToStr:
-    case OpCode::ConvEnumToStr:
     case OpCode::ConvRefToStruct:
-    case OpCode::StringConcat:
-    case OpCode::Assert:
     case OpCode::NullCheck:
     case OpCode::BoundsCheck:
         stream << OpCodeNames[op.code];

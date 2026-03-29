@@ -92,6 +92,7 @@ public:
     
     virtual sptr<AssertStatement> ToAssertStatement(){ return {}; }
     virtual sptr<BlockStatement> ToBlockStatement(){ return {}; }
+    virtual sptr<EmptyStatement> ToEmptyStatement(){ return {}; }
     virtual sptr<ExposeStatement> ToExposeStatement(){ return {}; }
     virtual sptr<ExpressionStatement> ToExpressionStatement(){ return {}; }
     virtual sptr<ForStatement> ToForStatement(){ return {}; }

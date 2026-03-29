@@ -49,6 +49,7 @@ public:
 
     static String* NewString(IAllocator& allocator, std::string_view value, SourceLocation* pLoc = nullptr);
     static String* NewString(IAllocator& allocator, size_t length, SourceLocation* pLoc = nullptr);
+    static String* NewString(IAllocator& allocator, std::string_view left, std::string_view right, SourceLocation* pLoc = nullptr);
     static Array<>* NewArray(IAllocator& allocator, const std::string& qualifiedTypeName, size_t count, SourceLocation* pLoc = nullptr);
     static Class* NewClass(IAllocator& allocator, const std::string& qualifiedTypeName, SourceLocation* pLoc = nullptr);
 
@@ -79,6 +80,11 @@ public:
     return fraze::ScopedAllocator::NewString((allocator), (length), &CONCAT(loc_, __LINE__)); \
 }()
 
+#define NEW_FRAZE_STRING_JOIN(allocator, left, right) \
+[&]{ static fraze::SourceLocation CONCAT(loc_, __LINE__) = fraze::SourceLocation(std::source_location::current()); \
+    return fraze::ScopedAllocator::NewString((allocator), (left), (right), &CONCAT(loc_, __LINE__)); \
+}()
+
 #define NEW_FRAZE_ARRAY(allocator, qualifiedTypeName, count) \
 [&]{ static fraze::SourceLocation CONCAT(loc_, __LINE__) = fraze::SourceLocation(std::source_location::current()); \
     return fraze::ScopedAllocator::NewArray((allocator), (qualifiedTypeName), (count), &CONCAT(loc_, __LINE__)); \
@@ -104,6 +110,9 @@ public:
 
 #define NEW_FRAZE_STRING_N(allocator, length) \
 (fraze::ScopedAllocator::NewString((allocator), (length)))
+
+#define NEW_FRAZE_STRING_JOIN(allocator, left, right) \
+(fraze::ScopedAllocator::NewString((allocator), (left), (right)))
 
 #define NEW_FRAZE_ARRAY(allocator, qualifiedTypeName, count) \
 (fraze::ScopedAllocator::NewArray((allocator), (qualifiedTypeName), (count)))
