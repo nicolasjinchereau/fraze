@@ -1,0 +1,45 @@
+# Fraze
+
+Fraze is a strongly typed, garbage-collected programming language. It is implemented in modern C++ (`stdcpplatest`, MSVC `v145`, Windows/`.vcxproj`). Goals: memory safety, simplicity, predictable behavior, fast execution.
+
+## Solution layout
+
+- `compiler/` — the language itself (lexer, parser, analyzer, codegen, VM). Source under `compiler/source/fraze/`, standard library under `compiler/assets/*.fz`.
+- `demo/` — sample 3D app that embeds Fraze, registers C++ extern functions (`demo/source/ExternFunctions.*`), and runs `.fz` scripts in `demo/assets/scripts/`.
+
+## Pipeline
+
+`Lexer -> Parser -> SemanticAnalyzer -> CodeGenerator -> Program` (the VM). The `Compiler` class drives all stages; `Compile()` returns an `sptr<Program>`.
+
+- **Lexer** (`compiler/Lexer.*`): source text -> `Token`s. See `TokenType` and the `Keyword` table.
+- **Parser** (`compiler/Parser.h`): tokens -> AST rooted at `ASTRoot`. Node types live in `ast/def` (definitions), `ast/expr` (expressions), `ast/stmt` (statements), `ast/type` (`Type`, `TypeSpecifier`).
+- **SemanticAnalyzer** (`compiler/SemanticAnalyzer.*`): AST visitor (`ASTVisitor`) that resolves types/scopes and validates.
+- **CodeGenerator** (`compiler/CodeGenerator.*`): AST -> stack-based bytecode held in `Program`.
+- **Program** (`program/Program.*`): the Fraze VM. Executes `Operation`s, owns the stack, `Heap`, globals, and `TypeInfo`. Async work is scheduled via `Dispatcher`; `program->Invoke("main", args)` runs an entry point inside a `ScopedAllocator`.
+
+## Intermediate language
+
+Stack-based bytecode, similar in spirit to C# IL. `OpCode` is a `uint8_t` enum (`program/OpCode.h`); each `Operation` pairs an opcode with an arg. Push/pop locals, arguments, fields, elements, globals; `NewArray`/`NewClass` allocate; arithmetic/logical/compare ops act on the stack top.
+
+## Type system
+
+Built-in keywords/types: `bool` (Boolean), `int` (Integer, 64-bit), `num` (Number, double), `string`, `object`. Composite: classes (`class`), `interface`, `struct`, `enum`, `functor`, generics (`List<T>`), and arrays written `T[]`. `WordType` enumerates the runtime value kinds.
+
+## Memory management
+
+Mark-and-sweep GC in `memory/Heap.*` using color marking, fixed-size blocks (`BlockSize = 16`) grouped into pages, and pinning for native interop. Allocators: `DefaultAllocator`, `ScopedAllocator` (`IAllocator`).
+
+## C++ conventions
+
+- Namespace `fraze`. Smart-pointer aliases from `common/Pointers.h`: `sptr`/`uptr`/`wptr` and `spnew`/`upnew`.
+- Types and methods: PascalCase. Locals/fields: camelCase.
+- Files: one primary type per file, `PascalCase.h`/`.cpp`. Fraze source files use the `.fz` extension.
+- Every source file starts with the project copyright banner (copy it verbatim when creating new files).
+
+## Fraze language conventions
+
+Classes/methods PascalCase, locals camelCase. `section` is equivalent to C#'s `namespace`. Async uses `await`/`Task`. See `compiler/assets/fraze.tests.fz` for canonical syntax examples.
+
+## Important facts (authoritative)
+
+- Safety checks (assert, null, bounds, type) are compile options on `Compiler` and can be disabled for release builds.
