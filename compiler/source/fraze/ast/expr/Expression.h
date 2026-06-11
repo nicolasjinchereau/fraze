@@ -37,6 +37,8 @@ public:
     }
 
     virtual Type* EvaluateType() = 0;
+
+    static bool IsValueExpression(const sptr<Expression>& expr);
 };
 
 } // fraze

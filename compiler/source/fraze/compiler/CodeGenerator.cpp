@@ -303,21 +303,6 @@ void CodeGenerator::EmitConversion(sptr<Expression>& value, const sptr<TypeSpeci
     }
 }
 
-bool CodeGenerator::IsValueExpression(const sptr<Expression> &expr)
-{
-    // null expression don't push a value
-    if(!expr)
-        return false;
-
-    auto ident = expr->ToIdentifierExpression();
-
-    return
-        ident == nullptr ||
-        ident->targetDef->ToVariableDefinition() ||
-        ident->targetDef->ToParameterDefinition() ||
-        ident->value == "this";
-}
-
 void CodeGenerator::EmitNullCheck(const SourceLocation& loc)
 {
     if(Compiler::GetActiveCompiler()->IsNullCheckEnabled())
@@ -860,7 +845,7 @@ void CodeGenerator::Visit(const sptr<CallExpression>& node)
         size_t interfaceID = size_t(-1);
         bool didPushContext = false;
 
-        if(IsValueExpression(ident->context)) // push context
+        if(Expression::IsValueExpression(ident->context)) // push context
         {
             auto contextType = ident->context->EvaluateType();
             if(contextType->IsInterface())

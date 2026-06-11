@@ -102,6 +102,9 @@
     <ClCompile Include="source\fraze\memory\DefaultAllocator.cpp">
       <Filter>source\fraze\memory</Filter>
     </ClCompile>
+    <ClCompile Include="source\fraze\ast\expr\Expression.cpp">
+      <Filter>source\fraze\ast\expr</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="source\fraze\ast\ASTNode.h">
@@ -402,5 +405,6 @@
     <None Include="assets\fraze.table.fz">
       <Filter>assets</Filter>
     </None>
+    <None Include="..\.github\copilot-instructions.md" />
   </ItemGroup>
 </Project>

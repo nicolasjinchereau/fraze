@@ -92,37 +92,21 @@ public:
         return this == Type::Get("num");
     }
 
-    bool IsFunction() const {
-        return def && (def->ToFunctionDefinition() != nullptr);
-    }
+    bool IsFunction() const;
 
-    bool IsFunctorInterface() const {
-        return def && (def->ToFunctorInterfaceDefinition() != nullptr);
-    }
+    bool IsFunctorInterface() const;
 
-    bool IsFunctorClass() const {
-        return def && (def->ToFunctorClassDefinition() != nullptr);
-    }
-    
-    bool IsClass() const {
-        return def && (def->ToClassDefinition() != nullptr);
-    }
+    bool IsFunctorClass() const;
 
-    bool IsStruct() const {
-        return def && (def->ToStructDefinition() != nullptr);
-    }
+    bool IsClass() const;
 
-    bool IsEnum() const {
-        return def && (def->ToEnumDefinition() != nullptr);
-    }
+    bool IsStruct() const;
 
-    bool IsInterface() const {
-        return def && (def->ToInterfaceDefinition() != nullptr);
-    }
+    bool IsEnum() const;
 
-    bool IsString() const {
-        return def && def->qualifiedName == "string";
-    }
+    bool IsInterface() const;
+
+    bool IsString() const;
 
     bool IsNullable() const {
         return IsObject() || IsArray() || IsClass() || IsInterface() || IsString();

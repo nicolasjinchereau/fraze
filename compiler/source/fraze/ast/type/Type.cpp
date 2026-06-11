@@ -140,4 +140,44 @@ Type* Type::Get(std::string_view typeName)
     return type;
 }
 
+bool Type::IsFunction() const
+{
+    return def && (def->ToFunctionDefinition() != nullptr);
+}
+
+bool Type::IsFunctorInterface() const
+{
+    return def && (def->ToFunctorInterfaceDefinition() != nullptr);
+}
+
+bool Type::IsFunctorClass() const
+{
+    return def && (def->ToFunctorClassDefinition() != nullptr);
+}
+
+bool Type::IsClass() const
+{
+    return def && (def->ToClassDefinition() != nullptr);
+}
+
+bool Type::IsStruct() const
+{
+    return def && (def->ToStructDefinition() != nullptr);
+}
+
+bool Type::IsEnum() const
+{
+    return def && (def->ToEnumDefinition() != nullptr);
+}
+
+bool Type::IsInterface() const
+{
+    return def && (def->ToInterfaceDefinition() != nullptr);
+}
+
+bool Type::IsString() const
+{
+    return def && def->qualifiedName == "string";
+}
+
 } // fraze
