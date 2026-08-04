@@ -4,8 +4,8 @@
 
 struct Time
 {
-    private extern int GetTicks();
-    private extern int GetTicksPerSecond();
+    private extern static int GetTicks();
+    private extern static int GetTicksPerSecond();
     
     private int ticks = 0;
     private int delta = 0;

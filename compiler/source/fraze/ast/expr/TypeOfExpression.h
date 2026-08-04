@@ -24,7 +24,7 @@ public:
             loc, scopes.GetCurrent(),
             typeSpec ? typeSpec->Clone(scopes, nullptr)->ToTypeSpecifier() : decltype(typeSpec){});
 
-        copy->isContext = isContext;
+        copy->pushAsRef = pushAsRef;
 
         return copy;
     }

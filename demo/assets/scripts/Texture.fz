@@ -32,7 +32,7 @@ extern class NativeTexture
 class Texture
 {
     private NativeTexture nativeTexture;
-    private extern Task<NativeTexture> CreateNativeTextureAsync(object graphicsObj, string path);
+    private extern static Task<NativeTexture> CreateNativeTextureAsync(object graphicsObj, string path);
 
     this(Graphics graphics, string path)
     {

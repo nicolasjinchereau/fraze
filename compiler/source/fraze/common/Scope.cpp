@@ -18,6 +18,7 @@ void Scope::AddDefinition(const sptr<Definition>& def)
         return d->name == def->name;
     });
 
+    // multiple definitions only allowed for functions
     ENFORCE(!!def->ToFunctionDefinition() || it == definitions.end(),
         def->loc, "multiple definitions found");
 
@@ -52,17 +53,17 @@ sptr<Definition> Scope::FindDefinition(std::string_view name)
     return ret;
 }
 
-sptr<Definition> Scope::SearchUpward(std::string_view name, Scope* toScope)
+sptr<Definition> Scope::SearchUpward(std::string_view name, sptr_view<Scope> fromScope, sptr_view<Scope> toScope)
 {
     sptr<Definition> ret;
 
-    for(auto sc = this; sc != nullptr; sc = sc->parent)
+    for (auto sc = fromScope; sc != nullptr; sc = sc->parent)
     {
         ret = sc->FindDefinition(name);
-        if(ret)
+        if (ret)
             break;
 
-        if(sc == toScope)
+        if (sc == toScope)
             break;
     }
 

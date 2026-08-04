@@ -27,7 +27,7 @@ public:
                 value->Clone(scopes, nullptr)->ToExpression(),
                 typeSpec->Clone(scopes, nullptr)->ToTypeSpecifier());
 
-        copy->isContext = isContext;
+        copy->pushAsRef = pushAsRef;
 
         return copy;
     }

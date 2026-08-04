@@ -77,9 +77,9 @@ class ModelNode
 
 class Model
 {
-    private extern object ImportModel(object graphicsObj, string path);
-    private extern object CreateSphereMesh(object graphicsObj, num radius, int segments, int rings, bool invert);
-    private extern Task<object> ImportModelObjectAsync(object graphicsObj, string path);
+    private extern static object ImportModel(object graphicsObj, string path);
+    private extern static object CreateSphereMesh(object graphicsObj, num radius, int segments, int rings, bool invert);
+    private extern static Task<object> ImportModelObjectAsync(object graphicsObj, string path);
     
     private ModelNode rootNode;
     private AnimationClip[] clips;

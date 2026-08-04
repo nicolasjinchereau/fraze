@@ -168,6 +168,15 @@ sptr<Program> Compiler::Compile()
         if(exportAST)
         {
             std::filesystem::path outputPath = !astOutputPath.empty() ? astOutputPath : ".";
+
+            std::error_code ec;
+            std::filesystem::create_directories(outputPath, ec);
+
+            if(ec)
+            {
+                Throw("Failed to create output path for AST: {}", ec.message());
+            }
+
             std::filesystem::path outputFile = outputPath;
             outputFile /= "AST.txt";
             outputFile.make_preferred();

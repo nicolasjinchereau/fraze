@@ -13,7 +13,7 @@ class Shader
 {
     private NativeShader nativeShader;
     
-    extern Task<NativeShader> CreateNativeShaderAsync(object graphicsObj, string src, string vertexEntry, string pixelEntry);
+    extern static Task<NativeShader> CreateNativeShaderAsync(object graphicsObj, string src, string vertexEntry, string pixelEntry);
 
     this(Graphics graphics, string src, string vertexEntry, string pixelEntry) {
         nativeShader = new NativeShader{graphics.NativeHandle, src, vertexEntry, pixelEntry};

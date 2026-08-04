@@ -100,7 +100,7 @@ public:
 
 private:
     Type* EvaluateTypeChecked(const sptr<Expression>& expr);
-    bool IsFunctionAssignable(const sptr<FunctionDefinition>& leftFunc, const sptr<FunctionDefinition>& rightFunc);
+    bool IsFunctionAssignable(const sptr<FunctionDefinition>& leftFunc, const sptr<FunctionDefinition>& rightFunc, bool skipImplicitThisParam = false);
     bool IsAssignable(Type* leftType, Type* rightType, TokenType operation = TokenType::Assign, bool* needsConversion = nullptr);
     void ProcessAssignment(const SourceLocation& leftLoc, Type* left, sptr<Expression>& right, TokenType operation = TokenType::Assign);
     void ProcessBinaryOperation(const sptr<BinaryExpression>& node);
@@ -114,9 +114,14 @@ private:
     sptr<FunctionDefinition> FindDefinition(Scope* scope, const std::string& name, const std::vector<sptr<Expression>>& arguments);
     sptr<Definition> SearchUpward(Scope* scope, const std::string& name, const std::vector<sptr<Expression>>& arguments, Scope* toScope = nullptr);
     
+    sptr<Definition> FindIdentifierTarget(const sptr<IdentifierExpression>& node);
+
+    sptr<FunctionDefinition> GetMatchingFunction(const sptr<ClassDefinition>& classDef, const sptr<InterfaceDefinition>& interfaceDef, const sptr<FunctionDefinition>& interfaceFunc);
     void FindCallTargets(std::string_view name, Scope* fromScope, Scope* toScope, std::vector<sptr<Definition>>& callTargets);
-    sptr<Definition> SelectCallTarget(const SourceLocation& loc, const Scope* scope, const std::vector<sptr<Definition>>& callTargets, const sptr<Expression>& context, const std::vector<sptr<Expression>>& arguments, bool suppressErrors = false);
+    std::vector<sptr<Definition>> FindAllCallTargets(const sptr<IdentifierExpression>& node);
+    sptr<Definition> SelectCallTarget(std::string_view name,const SourceLocation& loc, const Scope* scope, const std::vector<sptr<Definition>>& callTargets, const sptr<Expression>& context, const std::vector<sptr<Expression>>& arguments, bool suppressErrors = false);
     sptr<FunctionDefinition> GetCallTargetFunction(const sptr<Definition>& target);
+    sptr<ClassDefinition> GetCoroutineOriginalClass(const sptr<ClassDefinition>& coroutineState);
     void VisitCallTarget(const sptr<IdentifierExpression>& node, std::vector<sptr<Expression>>& arguments);
 
     size_t GetVarSize(Type* type);

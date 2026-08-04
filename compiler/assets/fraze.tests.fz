@@ -558,6 +558,18 @@ section StructTests
         num x;
         num y;
         num z;
+
+        Point Self() {
+            return this;
+        }
+
+        static num SumOf(Point p) {
+            return p.x + p.y + p.z;
+        }
+
+        num Sum() {
+            return SumOf(this);
+        }
     }
 
     void Run()
@@ -610,6 +622,14 @@ section StructTests
         assert(points2[0].x == 111);
         assert(points2[1].y == 222);
         assert(points2[2].z == 333);
+
+        // TODO: add struct equality tests
+
+        Point point3 = point1.Self();
+        assert(point3.x == 1);
+        assert(point3.y == 2);
+        assert(point3.z == 3);
+        assert(point1.Sum() == 6);
     }
 }
 
@@ -666,11 +686,79 @@ section FunctorTests
     }
 }
 
+class TopLevelAcc
+{
+    int total;
+
+    // a member coroutine on a class declared outside any section
+    Task<int> BumpAsync(int amount)
+    {
+        await WaitAsync(0.01);
+        total += amount;
+        return total;
+    }
+}
+
 section AsyncTests
 {
+    // NOTE: 'await' must be the whole of a statement or the whole of a variable
+    // initializer. Awaiting inside a larger expression (e.g. 'assert(await F() == 5)')
+    // silently corrupts the stack, because suspending discards any operands already
+    // pushed for the enclosing expression. See CodeGenerator::Visit(AwaitExpression).
+
+    // a non-static member coroutine: the receiver is captured by the coroutine
+    // state object and is used to reach fields and methods across suspension points
+    class Accumulator
+    {
+        int total;
+
+        int Add(int amount) {
+            total += amount;
+            return total;
+        }
+
+        Task<int> AccumulateAsync(int amount)
+        {
+            // a local declared before a suspension point is hoisted into the
+            // coroutine state object, so it must survive the suspension
+            int before = total;
+            await WaitAsync(0.01);
+            total = before + amount;
+            return total;
+        }
+
+        Task<int> AccumulateTwiceAsync(int amount)
+        {
+            // implicit receiver for a nested member coroutine
+            int once = await AccumulateAsync(amount);
+            // explicit receiver for a nested member coroutine
+            int twice = await this.AccumulateAsync(amount);
+            assert(once + amount == twice);
+            // a plain (non-coroutine) member call from within a coroutine
+            assert(Add(0) == twice);
+            return twice;
+        }
+    }
+
     void Run()
     {
         AsyncFunc1();
+        MemberCoroutineTest();
+    }
+
+    Task<void> MemberCoroutineTest()
+    {
+        // member coroutine on a section-nested class
+        Accumulator acc = new Accumulator{};
+        int total = await acc.AccumulateTwiceAsync(5);
+        assert(total == 10);
+        assert(acc.total == 10);
+
+        // member coroutine on a top-level class
+        TopLevelAcc top = new TopLevelAcc{};
+        int bumped = await top.BumpAsync(3);
+        assert(bumped == 3);
+        assert(top.total == 3);
     }
 
     Task<void> AsyncFunc1()
@@ -681,8 +769,294 @@ section AsyncTests
 
     Task<string> AsyncFunc2(string a, int b)
     {
-        await WaitAsync(0.1);
+        await WaitAsync(0.01);
         return a + b;
+    }
+}
+
+// the receiver ("this") of a non-static member is passed as the implicit first
+// argument, so these tests cover each way a receiver can be produced and consumed
+section ReceiverTests
+{
+    class Counter
+    {
+        int count;
+        Counter next;
+
+        int Increment() {
+            // implicit receiver
+            count += 1;
+            return count;
+        }
+
+        int IncrementExplicit() {
+            // explicit receiver
+            this.count += 1;
+            return this.count;
+        }
+
+        int IncrementTwice() {
+            // the receiver of a nested call is the current receiver
+            Increment();
+            return Increment();
+        }
+
+        Counter Chain() {
+            // the receiver may be returned and used as the receiver of another call
+            return this;
+        }
+
+        static int CountOf(Counter counter) {
+            // the receiver may be forwarded as an ordinary argument
+            return counter.count;
+        }
+
+        int CountViaStatic() {
+            return CountOf(this);
+        }
+    }
+
+    void Run()
+    {
+        Counter counter = new Counter{};
+        assert(counter.Increment() == 1);
+        assert(counter.IncrementExplicit() == 2);
+        assert(counter.IncrementTwice() == 4);
+        assert(counter.CountViaStatic() == 4);
+        assert(Counter.CountOf(counter) == 4);
+
+        // the receiver is an expression, not just a local
+        assert(counter.Chain().Chain().Increment() == 5);
+
+        // the receiver comes from a field
+        counter.next = new Counter{};
+        assert(counter.next.Increment() == 1);
+        assert(counter.count == 5);
+
+        // the receiver comes from an array element
+        Counter[] counters = new Counter[]{ new Counter{}, new Counter{} };
+        assert(counters[0].Increment() == 1);
+        assert(counters[1].Increment() == 1);
+        assert(counters[1].Increment() == 2);
+        assert(counters[0].count == 1);
+    }
+}
+
+// a struct receiver is passed by reference so that member functions can mutate
+// the caller's storage, but the struct itself is still a value type
+section StructReceiverTests
+{
+    struct Accumulator
+    {
+        int total;
+
+        void Add(int amount) {
+            // mutates the caller's storage through the implicit receiver
+            total += amount;
+        }
+
+        void AddTwice(int amount) {
+            // a nested call forwards the same receiver, so it also mutates the caller
+            Add(amount);
+            Add(amount);
+        }
+
+        Accumulator Copy() {
+            // the receiver is dereferenced to produce a value
+            return this;
+        }
+
+        static int TotalOf(Accumulator acc) {
+            // 'acc' is a by-value copy, so mutating it cannot affect the caller
+            acc.total = -1;
+            return acc.total;
+        }
+
+        int TotalViaStatic() {
+            return TotalOf(this);
+        }
+
+        int Total {
+            get { return total; }
+            set { total = value; }
+        }
+    }
+
+    class Holder
+    {
+        Accumulator acc;
+    }
+
+    static Accumulator MakeAccumulator(int total) {
+        return new Accumulator{ total };
+    }
+
+    void Run()
+    {
+        // a local receiver is mutated in place
+        Accumulator acc = new Accumulator{ 1 };
+        acc.Add(2);
+        assert(acc.total == 3);
+        acc.AddTwice(10);
+        assert(acc.total == 23);
+
+        // property accessors take a receiver too
+        acc.Total = 5;
+        assert(acc.Total == 5);
+        assert(acc.total == 5);
+
+        // 'this' returned from a struct member is a copy, not an alias
+        Accumulator copy = acc.Copy();
+        copy.Add(1);
+        assert(copy.total == 6);
+        assert(acc.total == 5);
+
+        // passing 'this' to a by-value parameter must copy
+        assert(acc.TotalViaStatic() == -1);
+        assert(acc.total == 5);
+
+        // assignment copies, so the copy has an independent receiver
+        Accumulator assigned = acc;
+        assigned.Add(100);
+        assert(assigned.total == 105);
+        assert(acc.total == 5);
+
+        // a struct field of a class is mutated in place
+        Holder holder = new Holder{};
+        holder.acc.Add(7);
+        holder.acc.Add(7);
+        assert(holder.acc.total == 14);
+
+        // a struct array element is mutated in place
+        Accumulator[] accs = new Accumulator[2];
+        accs[0].Add(3);
+        accs[1].Add(4);
+        accs[1].Add(4);
+        assert(accs[0].total == 3);
+        assert(accs[1].total == 8);
+
+        // an r-value receiver has no stable address, so it is stored in a temporary first
+        assert(MakeAccumulator(9).Copy().total == 9);
+        assert(MakeAccumulator(9).Total == 9);
+    }
+}
+
+// a functor is the receiver of its own 'invoke' function, including when the
+// functor expression is not a plain identifier
+section CallableTests
+{
+    functor int IntFunctor(int value);
+
+    class Adder
+    {
+        int amount;
+
+        int Add(int value) {
+            return value + amount;
+        }
+
+        IntFunctor Callback;
+
+        IntFunctor GetAdder() {
+            return Add;
+        }
+    }
+
+    static int Double(int value) {
+        return value * 2;
+    }
+
+    static IntFunctor GetDoubler() {
+        return Double;
+    }
+
+    static IntFunctor[] GetFunctors() {
+        return new IntFunctor[]{ Double, Double };
+    }
+
+    void Run()
+    {
+        // a functor bound to a member function keeps its own receiver
+        Adder adder = new Adder{};
+        adder.amount = 10;
+        IntFunctor bound = adder.Add;
+        assert(bound(1) == 11);
+
+        // a functor held in a field is called through the field
+        Adder withCallback = new Adder{ 0, Double };
+        assert(withCallback.Callback(4) == 8);
+
+        // a function assigned (rather than used as an initializer) to a functor
+        IntFunctor reassigned;
+        reassigned = Double;
+        assert(reassigned(4) == 8);
+        reassigned = adder.Add;
+        assert(reassigned(4) == 14);
+        withCallback.Callback = adder.Add;
+        assert(withCallback.Callback(4) == 14);
+
+        // a member function used as a value infers 'this' as its receiver
+        assert(adder.GetAdder()(5) == 15);
+
+        // the callee is returned by a function, so the call target is not an identifier
+        assert(GetDoubler()(3) == 6);
+        assert(adder.GetAdder()(5) == 15);
+
+        // the callee is an array element, so the call target is not an identifier
+        IntFunctor[] functors = new IntFunctor[]{ Double, Double };
+        assert(functors[0](6) == 12);
+        assert(GetFunctors()[1](7) == 14);
+
+        // a functor literal is called through a local
+        IntFunctor tripler = functor int(int value) {
+            return value * 3;
+        };
+        assert(tripler(3) == 9);
+    }
+}
+
+// a virtual call reads its type from the receiver, which is now the first argument
+section VirtualReceiverTests
+{
+    interface IShape {
+        int Sides();
+        int DoubleSides();
+    }
+
+    class Triangle : IShape
+    {
+        int Sides() { return 3; }
+
+        // dispatches through the receiver from inside a member function
+        int DoubleSides() { return Sides() * 2; }
+    }
+
+    class Square : IShape
+    {
+        int Sides() { return 4; }
+        int DoubleSides() { return Sides() * 2; }
+    }
+
+    static int SidesOf(IShape shape) {
+        return shape.Sides();
+    }
+
+    void Run()
+    {
+        IShape shape = new Triangle{};
+        assert(shape.Sides() == 3);
+        assert(shape.DoubleSides() == 6);
+        assert(SidesOf(shape) == 3);
+
+        shape = new Square{};
+        assert(shape.Sides() == 4);
+        assert(shape.DoubleSides() == 8);
+        assert(SidesOf(shape) == 4);
+
+        // the receiver comes from an array element of interface type
+        IShape[] shapes = new IShape[]{ new Triangle{}, new Square{} };
+        assert(shapes[0].DoubleSides() == 6);
+        assert(shapes[1].DoubleSides() == 8);
     }
 }
 
@@ -697,5 +1071,9 @@ void RunAllTests()
     InterfaceTests.Run();
     StructTests.Run();
     FunctorTests.Run();
-    //AsyncTests.Run();
+    ReceiverTests.Run();
+    StructReceiverTests.Run();
+    CallableTests.Run();
+    VirtualReceiverTests.Run();
+    AsyncTests.Run();
 }

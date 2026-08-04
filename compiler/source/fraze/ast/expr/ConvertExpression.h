@@ -30,7 +30,7 @@ public:
                 resultTypeSpec->Clone(scopes, nullptr)->ToTypeSpecifier(),
                 value->Clone(scopes, nullptr)->ToExpression());
         
-        copy->isContext = isContext;
+        copy->pushAsRef = pushAsRef;
 
         return copy;
     }

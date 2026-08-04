@@ -107,6 +107,9 @@ size_t RuntimeTypeInfo::GetVariableSize(const sptr<VariableDefinition>& varDef)
 
 size_t RuntimeTypeInfo::GetParameterSize(const sptr<ParameterDefinition>& paramDef)
 {
+    if(paramDef->isReference)
+        return 1;
+
     return GetTypeSize(paramDef->typeSpec->type);
 }
 
@@ -448,7 +451,6 @@ sptr<TypeInfo> RuntimeTypeInfo::GetTypeInfo(Type* type)
             info->codeEnd = 0;
             info->externalFunction = func->externalFunction;
             info->intrinsicID = intrinsicID;
-            info->hasContext = !func->isStatic;
             info->isExternal = func->isExternal;
             info->offset = static_cast<uint32_t>(func->offset);
             info->params = std::move(params);

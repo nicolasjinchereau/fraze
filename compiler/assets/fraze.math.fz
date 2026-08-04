@@ -4,16 +4,16 @@
 
 class Math
 {
-    extern num Fmod(num x, num y);
-    extern num Abs(num value);
-    extern num Sqrt(num value);
-    extern num Sin(num value);
-    extern num Cos(num value);
-    extern num Tan(num value);
-    extern num Asin(num value);
-    extern num Acos(num value);
-    extern num Atan(num value);
-    extern num Atan2(num y, num x);
+    extern static num Fmod(num x, num y);
+    extern static num Abs(num value);
+    extern static num Sqrt(num value);
+    extern static num Sin(num value);
+    extern static num Cos(num value);
+    extern static num Tan(num value);
+    extern static num Asin(num value);
+    extern static num Acos(num value);
+    extern static num Atan(num value);
+    extern static num Atan2(num y, num x);
 
     static num Epsilon { get { return 2.2204460492503131e-16; } }
     static int IntMin { get { return 9223372036854775807; } }

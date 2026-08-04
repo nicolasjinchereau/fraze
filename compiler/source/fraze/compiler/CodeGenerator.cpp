@@ -63,38 +63,20 @@ void CodeGenerator::PopExpression(const sptr<Expression>& node, const sptr<Expre
             bool hasContext = false;
             bool isContextStruct = false;
 
-            if(ident->context)
+            if(ident->context && Expression::IsValueExpression(ident->context))
             {
                 // IdentifierExpression: emits Push(Local|Global|Argument) or nothing for SectionDefinition
-                auto contextIdent = ident->context->ToIdentifierExpression();
-                if( !contextIdent ||
-                    contextIdent->targetDef->ToVariableDefinition() ||
-                    contextIdent->targetDef->ToParameterDefinition() ||
-                    contextIdent->value == "this")
+                auto sz = program->code.size();
+                VisitChild(ident->context);
+                assert(program->code.size() > sz);
+                hasContext = true;
+
+                EmitNullCheck(ident->context->loc);
+
+                if(ident->context->EvaluateType()->IsStruct())
                 {
-                    auto sz = program->code.size();
-                    VisitChild(ident->context);
-                    assert(program->code.size() > sz);
-                    hasContext = true;
-
-                    EmitNullCheck(ident->context->loc);
-
-                    if(ident->context->EvaluateType()->IsStruct())
-                        isContextStruct = true;
+                    isContextStruct = true;
                 }
-            }
-            else if(!varDef->isStatic && varDef->parent->ToClassDefinition())
-            {
-                hasContext = true;
-                Emit(node->loc, OpCode::PushContext);
-                EmitNullCheck(node->loc);
-            }
-            else if(!varDef->isStatic && varDef->parent->ToStructDefinition())
-            {
-                hasContext = true;
-                isContextStruct = true;
-                Emit(node->loc, OpCode::PushContext);
-                EmitNullCheck(node->loc);
             }
 
             if(hasContext)
@@ -126,6 +108,7 @@ void CodeGenerator::PopExpression(const sptr<Expression>& node, const sptr<Expre
         }
         else if(auto paramDef = ident->targetDef->ToParameterDefinition())
         {
+            ENFORCE(!paramDef->isReference, ident->loc, "cannot assign to '{}'", paramDef->name);
             Emit(node->loc, OpCode::PopArgument, paramDef->offset, varSize);
         }
         else
@@ -831,6 +814,16 @@ void CodeGenerator::Visit(const sptr<CallExpression>& node)
         auto ident = node->target->ToIdentifierExpression();
         auto func = ident->targetDef->ToFunctionDefinition();
         auto funcInfo = typeInfo[func->type]->ToFunctionInfo();
+        auto interfaceID = size_t(-1);
+
+        if(func->HasImplicitThisParam())
+        {
+            Type* contextType = node->arguments[0]->EvaluateType();
+            if(contextType->IsInterface())
+            {
+                interfaceID = typeInfo[contextType]->ToInterfaceInfo()->id;
+            }
+        }
 
         // return storage
         Emit(node->loc, OpCode::Reserve, funcInfo->returnSize);
@@ -841,45 +834,11 @@ void CodeGenerator::Visit(const sptr<CallExpression>& node)
             VisitChild(arg);
         }
 
-        // context pointer
-        size_t interfaceID = size_t(-1);
-        bool didPushContext = false;
-
-        if(Expression::IsValueExpression(ident->context)) // push context
+        if(func->HasImplicitThisParam() && !node->arguments[0]->EvaluateType()->IsStruct())
         {
-            auto contextType = ident->context->EvaluateType();
-            if(contextType->IsInterface())
-            {
-                interfaceID = typeInfo[contextType]->ToInterfaceInfo()->id;
-            }
-
-            auto sz = program->code.size();
-            VisitChild(ident->context);
-            assert(program->code.size() > sz);
-            
-            EmitNullCheck(ident->context->loc);
-
-            didPushContext = true;
-        }
-        else if(!func->isStatic && func->parent->ToClassDefinition()) // ident is a class field
-        {
-            Emit(node->loc, OpCode::PushContext);
-            EmitNullCheck(node->loc);
-            didPushContext = true;
-        }
-        else if(!func->isStatic && func->parent->ToStructDefinition()) // ident is a class field
-        {
-            Emit(node->loc, OpCode::PushContext);
-            EmitNullCheck(node->loc);
-            didPushContext = true;
-        }
-        else
-        {
-            Emit(node->loc, OpCode::PushNull);
+            EmitNullCheck(node->arguments[0]->loc);
         }
 
-        assert(didPushContext || func->isStatic || func->isUFC);
-        
         // call
         if(interfaceID != size_t(-1))
         {
@@ -930,9 +889,6 @@ void CodeGenerator::Visit(const sptr<CallExpression>& node)
             VisitChild(arg);
         }
 
-        // context pointer (functor object)
-        VisitChild(node->target);
-
         // call invoke function for this functor type
         Emit(node->loc, OpCode::CallVirtual, invokeFuncInfo->id, interfaceTypeInfo->id);
     }
@@ -951,9 +907,6 @@ void CodeGenerator::Visit(const sptr<CallExpression>& node)
             // emit data and emit Push(literal)
             VisitChild(arg);
         }
-
-        // context pointer (functor object)
-        VisitChild(node->target);
 
         // call invoke function for this functor type
         Emit(node->loc, OpCode::Call, invokeFuncInfo->id);
@@ -1027,7 +980,7 @@ void CodeGenerator::Visit(const sptr<IdentifierExpression>& node)
     if(targetType->IsStruct())
     {
         auto structDef = targetType->GetDefinition()->ToStructDefinition();
-        pushSize = node->isContext ? 0 : structDef->size;
+        pushSize = node->pushAsRef ? 0 : structDef->size;
     }
 
     if(auto varDef = node->targetDef->ToVariableDefinition())
@@ -1035,37 +988,19 @@ void CodeGenerator::Visit(const sptr<IdentifierExpression>& node)
         bool hasContext = false;
         bool isContextStruct = false;
 
-        if(node->context)
+        if(node->context && Expression::IsValueExpression(node->context))
         {
-            auto ident = node->context->ToIdentifierExpression();
-            if(!ident ||
-                ident->targetDef->ToVariableDefinition() ||
-                ident->targetDef->ToParameterDefinition() ||
-                ident->value == "this")
+            auto sz = program->code.size();
+            VisitChild(node->context);
+            assert(program->code.size() > sz);
+            hasContext = true;
+
+            EmitNullCheck(node->context->loc);
+
+            if(node->context->EvaluateType()->IsStruct())
             {
-                auto sz = program->code.size();
-                VisitChild(node->context);
-                assert(program->code.size() > sz);
-                hasContext = true;
-
-                EmitNullCheck(node->context->loc);
-
-                if(node->context->EvaluateType()->IsStruct())
-                    isContextStruct = true;
+                isContextStruct = true;
             }
-        }
-        else if(!varDef->isStatic && varDef->parent->ToClassDefinition()) // ident is a class field
-        {
-            hasContext = true;
-            Emit(node->loc, OpCode::PushContext);
-            EmitNullCheck(node->loc);
-        }
-        else if(!varDef->isStatic && varDef->parent->ToStructDefinition()) // ident is a class field
-        {
-            hasContext = true;
-            isContextStruct = true;
-            Emit(node->loc, OpCode::PushContext);
-            EmitNullCheck(node->loc);
         }
 
         if(hasContext)
@@ -1124,7 +1059,16 @@ void CodeGenerator::Visit(const sptr<IdentifierExpression>& node)
     }
     else if(auto paramDef = node->targetDef->ToParameterDefinition())
     {
-        if(pushSize == 0)
+        if(paramDef->isReference)
+        {
+            // the parameter holds the address of the struct, so it is one word
+            Emit(node->loc, OpCode::PushArgument, paramDef->offset);
+
+            // dereference it unless the address itself is what's wanted
+            if(pushSize > 0)
+                Emit(node->loc, OpCode::ConvRefToStruct, pushSize);
+        }
+        else if(pushSize == 0)
         {
             Emit(node->loc, OpCode::PushArgumentAddr, paramDef->offset, paramDef->size);
         }
@@ -1137,29 +1081,13 @@ void CodeGenerator::Visit(const sptr<IdentifierExpression>& node)
             Emit(node->loc, OpCode::PushArgumentN, paramDef->offset, pushSize);
         }
     }
-    else if(auto classDef = node->targetDef->ToClassDefinition())
-    {
-        if(node->value == "this")
-        {
-            bool isContext = node->isContext;
-            Emit(node->loc, OpCode::PushContext);
-            EmitNullCheck(node->loc);
-        }
-    }
-    else if(auto structDef = node->targetDef->ToStructDefinition())
-    {
-        if(node->value == "this")
-        {
-            Emit(node->loc, OpCode::PushContext);
-            EmitNullCheck(node->loc);
-
-            if(!node->isContext)
-                Emit(node->loc, OpCode::ConvRefToStruct, structDef->size);
-        }
-    }
     else if(auto enumMemberDef = node->targetDef->ToEnumMemberDefinition())
     {
         VisitChild(enumMemberDef->value);
+    }
+    else if(node->targetDef->ToClassDefinition() || node->targetDef->ToStructDefinition())
+    {
+        // a type name used to qualify a static member emits nothing
     }
     else
     {
@@ -1176,7 +1104,7 @@ void CodeGenerator::Visit(const sptr<IndexExpression>& node)
     auto elementType = arrayType->GetElementType();
     if(elementType->IsStruct())
     {
-        pushSize = node->isContext ? 0 : typeInfo[elementType]->ToStructInfo()->size;
+        pushSize = node->pushAsRef ? 0 : typeInfo[elementType]->ToStructInfo()->size;
     }
 
     // should leave an Array on the stack which can be indexed
@@ -1194,6 +1122,12 @@ void CodeGenerator::Visit(const sptr<IndexExpression>& node)
         Emit(node->loc, OpCode::PushElementAddr);
 }
 
+// NOTE: 'await' must be the whole of a statement or the whole of a variable
+// initializer. Suspending emits a Return that discards the operand stack, so any
+// values already pushed for an enclosing expression are lost and the resumed code
+// runs with an underflowed stack. Locals are safe because Parser hoists a
+// coroutine's locals into fields of the state object, but partially evaluated
+// expressions are not. There is currently no diagnostic for this.
 void CodeGenerator::Visit(const sptr<AwaitExpression>& node)
 {
     auto awaitableType = Type::Get("Awaitable");
@@ -1206,11 +1140,12 @@ void CodeGenerator::Visit(const sptr<AwaitExpression>& node)
     auto taskDef = exprType->GetDefinition()->ToInterfaceDefinition();
     size_t taskInterfaceID = typeInfo[exprType]->ToInterfaceInfo()->id;
 
-    auto awaited = node->context->targetDef->GetVariable("$awaited");
+    auto contextDef = node->context->EvaluateType()->GetDefinition();
+    auto awaited = contextDef->GetVariable("$awaited");
 
     // push Task<T> and save to temporary
     VisitChild(node->expression);
-    Emit(node->loc, OpCode::PushContext);
+    VisitChild(node->context);
     Emit(node->loc, OpCode::PopField, awaited->offset, 1);
 
     // if( awaitable.IsDone() )
@@ -1218,7 +1153,7 @@ void CodeGenerator::Visit(const sptr<AwaitExpression>& node)
     auto isDoneFuncInfo = typeInfo[isDoneFunc->type]->ToFunctionInfo();
     auto isDoneFuncID = isDoneFuncInfo->id;
     Emit(node->loc, OpCode::Reserve, isDoneFuncInfo->returnSize);
-    Emit(node->loc, OpCode::PushContext);
+    VisitChild(node->context);
     Emit(node->loc, OpCode::PushField, awaited->offset, 1);
     Emit(node->loc, OpCode::CallVirtual, isDoneFuncID, taskInterfaceID);
     size_t jump1 = program->code.size();
@@ -1231,7 +1166,7 @@ void CodeGenerator::Visit(const sptr<AwaitExpression>& node)
     if(!getValueFunc->returnType->IsVoid())
     {
         Emit(node->loc, OpCode::Reserve, getvalueFuncInfo->returnSize);
-        Emit(node->loc, OpCode::PushContext);
+        VisitChild(node->context);
         Emit(node->loc, OpCode::PushField, awaited->offset, 1);
         Emit(node->loc, OpCode::CallVirtual, getValueFuncID, taskInterfaceID);
     }
@@ -1249,8 +1184,8 @@ void CodeGenerator::Visit(const sptr<AwaitExpression>& node)
     auto setAwaiterFuncInfo = typeInfo[setAwaiterType]->ToFunctionInfo();
     auto setAwaiterFuncID = setAwaiterFuncInfo->id;
     Emit(node->loc, OpCode::Reserve, setAwaiterFuncInfo->returnSize);
-    Emit(node->loc, OpCode::PushContext); // push parent frame task as arg
-    Emit(node->loc, OpCode::PushContext);
+    VisitChild(node->context); // push this frame's task as the 'awaiter' arg
+    VisitChild(node->context);
     Emit(node->loc, OpCode::PushField, awaited->offset, 1);
     Emit(node->loc, OpCode::CallVirtual, setAwaiterFuncID, awaitableInterfaceID);
 
@@ -1265,8 +1200,8 @@ void CodeGenerator::Visit(const sptr<AwaitExpression>& node)
     // store the resume location in $position and return
     size_t resumeLocation = program->code.size();
     Emit(node->loc, OpCode::PushInteger, -1);
-    Emit(node->loc, OpCode::PushContext);
-    Emit(node->loc, OpCode::PopField, node->context->targetDef->GetVariable("$position")->offset, 1);
+    VisitChild(node->context);
+    Emit(node->loc, OpCode::PopField, contextDef->GetVariable("$position")->offset, 1);
     Emit(node->loc, OpCode::PushNull);
     Emit(node->loc, OpCode::Return, paramSize, returnSize);
     program->code[resumeLocation].arg1_u64 = program->code.size();
@@ -1275,7 +1210,7 @@ void CodeGenerator::Visit(const sptr<AwaitExpression>& node)
     if(!getValueFunc->returnType->IsVoid())
     {
         Emit(node->loc, OpCode::Reserve, getvalueFuncInfo->returnSize);
-        Emit(node->loc, OpCode::PushContext);
+        VisitChild(node->context);
         Emit(node->loc, OpCode::PushField, awaited->offset, 1);
         Emit(node->loc, OpCode::CallVirtual, getValueFuncID, taskInterfaceID);
     }
@@ -1749,27 +1684,28 @@ void CodeGenerator::Visit(const sptr<ReturnStatement>& node)
         auto resumeAwaiterFuncType = Type::Get("Awaitable.ResumeAwaiter");
         auto resumeAwaiterFuncInfo = typeInfo[resumeAwaiterFuncType]->ToFunctionInfo();
         auto resumeAwaiterFuncID = resumeAwaiterFuncInfo->id;
+        auto contextDef = node->context->EvaluateType()->GetDefinition();
 
         // this.$value = node.expression;
         if(node->expression)
         {
-            auto valueField = node->context->targetDef->GetVariable("$value");
+            auto valueField = contextDef->GetVariable("$value");
             VisitChild(node->expression);
-            Emit(node->loc, OpCode::PushContext);
+            VisitChild(node->context);
             EmitNullCheck(node->loc);
             Emit(node->loc, OpCode::PopField, valueField->offset, valueField->size);
         }
 
         // this.$position = -1;
-        auto positionField = node->context->targetDef->GetVariable("$position");
+        auto positionField = contextDef->GetVariable("$position");
         Emit(node->loc, OpCode::PushInteger, -1);
-        Emit(node->loc, OpCode::PushContext);
+        VisitChild(node->context);
         EmitNullCheck(node->loc);
         Emit(node->loc, OpCode::PopField, positionField->offset, 1);
 
         // this.ResumeAwaiter();
         Emit(node->loc, OpCode::Reserve, resumeAwaiterFuncInfo->returnSize);
-        Emit(node->loc, OpCode::PushContext);
+        VisitChild(node->context);
         EmitNullCheck(node->loc);
         Emit(node->loc, OpCode::CallVirtual, resumeAwaiterFuncID, awaitableInterfaceID);
 

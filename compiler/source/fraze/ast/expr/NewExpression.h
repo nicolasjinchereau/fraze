@@ -25,7 +25,7 @@ public:
     {
         auto copy = spnew<NewExpression>(loc, scopes.GetCurrent());
 
-        copy->isContext = isContext;
+        copy->pushAsRef = pushAsRef;
         copy->typeSpec = typeSpec ? typeSpec->Clone(scopes, nullptr)->ToTypeSpecifier() : decltype(typeSpec){};
 
         for(auto& arg : arguments)

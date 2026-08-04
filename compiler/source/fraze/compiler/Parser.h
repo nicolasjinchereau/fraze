@@ -30,10 +30,11 @@ class Parser
     ScopeStack scopes;
     sptr<ASTRoot> astRoot;
     int nextUniqueId = 0;
+    bool allowInternalSymbols = false;
 public:
 
-    Parser(const std::vector<Token>& tokens)
-        : tokens(tokens)
+    Parser(const std::vector<Token>& tokens, bool allowInternalSymbols = false )
+        : tokens(tokens), allowInternalSymbols(allowInternalSymbols)
     {
         assert(!tokens.empty());
         token = tokens[0];
@@ -694,7 +695,7 @@ private:
             return false;
 
         // variable name
-        if(it->type != TokenType::Identifier || it->IsKeyword())
+        if (it->type != TokenType::Identifier || (it->IsKeyword() && !(it->IsKeyword(Keyword::This) && allowInternalSymbols)))
             return false;
 
         ++it;
@@ -956,7 +957,7 @@ interface {}
 
         Scope* scopeOfParse = scopes.GetCurrent();
 
-        Parser parser(tokens);
+        Parser parser(tokens, true);
         parser.Parse(astRoot, scopes);
 
         if(forceSectionScope)
@@ -971,27 +972,42 @@ interface {}
         return scopeOfParse;
     }
 
+    void AddImplicitThisParam(const SourceLocation& loc, Definition* owner)
+    {
+        auto contextTypeSpec = spnew<TypeSpecifier>(loc, scopes.GetCurrent(), owner->name);
+
+        for(const auto& param : owner->GetChildren<TemplateParameterDefinition>())
+        {
+            auto arg = spnew<TypeSpecifier>(loc, scopes.GetCurrent(), param->name);
+            contextTypeSpec->templateArgs.push_back(arg);
+        }
+
+        auto contextParam = spnew<ParameterDefinition>(loc, scopes.GetCurrent(), contextTypeSpec, shared_string("this"));
+
+        contextParam->isReference = owner->ToStructDefinition() != nullptr;
+
+        scopes.GetCurrent()->AddDefinition(contextParam);
+    }
+
     sptr<FunctionDefinition> ParseFunctionDefinition(const std::string& overrideName = {})
     {
         auto loc = token.loc;
         auto owner = scopes.GetCurrent()->owner;
 
         bool isExternal = false;
-        bool isAbstract = false;
         bool isStatic = false;
-        bool isDeclaredStatic = false;
         bool isPrivate = false;
         bool isMember = false;
+        bool isAbstract = false;
         bool isConstructor = false;
 
+        // ** Storage Classes and Access Specifiers **
         while(true)
         {
             if(TryConsume(Keyword::Extern)) {
                 isExternal = true;
-                isStatic = true;
             }
             else if(TryConsume(Keyword::Static)) {
-                isDeclaredStatic = true;
                 isStatic = true;
             }
             else if(TryConsume(Keyword::Private)) {
@@ -1002,15 +1018,33 @@ interface {}
             }
         }
 
+        if (owner->ToClassDefinition() != nullptr)
+        {
+            isMember = true;
+        }
+        else if (owner->ToStructDefinition() != nullptr)
+        {
+            isMember = true;
+        }
+        else if (owner->ToInterfaceDefinition() != nullptr)
+        {
+            isMember = true;
+            isAbstract = true;
+        }
+
+        // ** Return Type and Name **
         sptr<TypeSpecifier> returnType;
         std::string name;
 
         if(token.IsKeyword(Keyword::This))
         {
             assert(overrideName.empty());
-            ENFORCE(owner->ToClassDefinition() || owner->ToStructDefinition(), token.loc,
-                "constructors are only valid inside a class or struct");
+            ENFORCE(owner->ToClassDefinition() || owner->ToStructDefinition(), token.loc, "constructors are only valid inside a class or struct");
+            ENFORCE(!isStatic, token.loc, "constructors cannot be marked static");
 
+            isConstructor = true;
+
+            name = "#this";
             returnType = spnew<TypeSpecifier>(token.loc, scopes.GetCurrent(), owner->name);
 
             auto templateParams = owner->GetChildren<TemplateParameterDefinition>();
@@ -1023,9 +1057,7 @@ interface {}
                 }
             }
 
-            name = "#this";
             Consume(Keyword::This);
-            isConstructor = true;
         }
         else
         {
@@ -1065,52 +1097,27 @@ interface {}
             }
         }
         
-        bool isOwnerExternClass = false;
-
-        if(auto ownerClassDef = owner->ToClassDefinition())
-        {
-            isMember = true;
-            isOwnerExternClass = ownerClassDef->isExternal;
-        }
-        else if(owner->ToStructDefinition() != nullptr)
-        {
-            isMember = true;
-        }
-        else if(owner->ToInterfaceDefinition() != nullptr)
-        {
-            isMember = true;
-            isAbstract = true;
-        }
-        else
-        {
-            isStatic = true;
-        }
-
-        bool isTask = (returnType->baseTypeName == "Task");
-        ENFORCE(!isConstructor || !isStatic || isExternal, loc, "invalid storage class for constructor");
-
         auto def = spnew<FunctionDefinition>(loc, scopes.GetCurrent(), shared_string(name));
         def->isExternal = isExternal;
-        def->isAbstract = isAbstract;
         def->isStatic = isStatic;
         def->isPrivate = isPrivate;
         def->isMember = isMember;
+        def->isAbstract = isAbstract;
         def->isConstructor = isConstructor;
         def->returnType = returnType;
         scopes.GetCurrent()->AddDefinition(def);
 
+        // ** Parameters **
         auto& leftParenTok = Consume(TokenType::LeftParen);
         scopes.Push(def->scope.get());
 
-        // if function is a non-static extern member function, add context as first parameter
-        if(isOwnerExternClass && isExternal && !isDeclaredStatic && name != "#this")
+        // add context parameter for non-static members and non-extern constructors
+        if(isMember && !isStatic && !(isExternal && isConstructor))
         {
-            auto contextTypeSpec = spnew<TypeSpecifier>(leftParenTok.loc, scopes.GetCurrent(), owner->qualifiedName);
-            auto contextParam = spnew<ParameterDefinition>(leftParenTok.loc, scopes.GetCurrent(), contextTypeSpec, shared_string("$this"));
-            scopes.GetCurrent()->AddDefinition(contextParam);
-            def->isUFC = true;
+            AddImplicitThisParam(leftParenTok.loc, owner);
         }
 
+        // add user-specified parameters
         while (token.type != TokenType::RightParen)
         {
             ParseParameterDefinition();
@@ -1121,7 +1128,8 @@ interface {}
         
         Consume(TokenType::RightParen);
         
-        if(isTask)
+        // ** Function Body **
+        if(returnType->baseTypeName == "Task")
         {
             auto bodyLoc = token.loc;
             auto externFuncLoc = scopes.GetCurrent()->owner->loc;
@@ -1144,7 +1152,8 @@ interface {}
 
                     paramList += param->typeSpec->GetTypeName(true) + " " + param->name;
                 }
-                std::string mixinCode = std::format("extern void ${}({}, {});", name, taskParam, paramList);
+                const char* storage = isMember && isStatic ? " static" : "";
+                std::string mixinCode = std::format("extern{} void ${}({}, {});", storage, name, taskParam, paramList);
                 ParseCodeString(mixinCode, externFuncLoc.line);
             }
 
@@ -1166,25 +1175,38 @@ interface {}
             }
             else
             {
-                for(const auto& param : def->GetChildren<ParameterDefinition>())
+                if(isMember && !isStatic)
+                {
+                    paramAssignments += "$ret.$this = this;\n";
+                }
+
+                auto params = def->GetChildren<ParameterDefinition>();
+                auto paramIt = params.begin();
+
+                // the receiver is captured as '$this', so skip the implicit 'this' parameter
+                if(def->HasImplicitThisParam())
+                    ++paramIt;
+
+                for( ; paramIt != params.end(); ++paramIt)
                 {
                     //$ret.param = param;
-                    std::string paramTypeName { param->typeSpec->GetTypeName(true) };
-                    paramAssignments += "$ret." + param->name + " = " + param->name + ";\n    ";
+                    paramAssignments += std::format("$ret.{} = {};\n", (*paramIt)->name, (*paramIt)->name);
                 }
             }
 
             // create function body
             constexpr const char* mixinFormat = R""""(
+// create the task object
 {} $ret = new {}{{}};
 
-// non-external
-{}$ret.$this = this;
+// assign func args to task fields (including $this)
 {}
+
+// non-external
 {}$ret.Resume();
-    
+
 // external
-{}${}($ret, {});
+{}${}($ret{}{});
 
 return $ret;
 )"""";
@@ -1192,13 +1214,20 @@ return $ret;
             const char* comment = "// ";
 
             std::string mixinCode = std::format(mixinFormat,
-                task->name, // $ret instantiation
+                // create the task object
                 task->name,
-                !isExternal && !def->isStatic ? "" : comment, // $this assignment
+                task->name,
+                
+                // assign func args to task fields (including $this)
                 paramAssignments,
-                !isExternal ? "" : comment, // Resume call
-                isExternal ? "" : comment, // external function call
+
+                // non-external
+                !isExternal ? "" : comment,
+
+                // external
+                isExternal ? "" : comment,
                 name,
+                !argList.empty() ? ", " : "",
                 argList
             );
 
@@ -1218,26 +1247,21 @@ return $ret;
         else
         {
             def->body = spnew<BlockStatement>(token.loc, scopes.GetCurrent());
-            ParseBlockStmt(def->body);
-
+            const Token* closingBrace = nullptr;
+            ParseBlockStmt(def->body, &closingBrace);
+            
             if(def->returnType->IsVoid())
             {
                 if(def->body->statements.empty() || !def->body->statements.back()->ToReturnStatement())
                 {
-                    auto loc = def->body->statements.empty() ?
-                        def->body->loc : def->body->statements.back()->loc;
-
-                    auto ret = spnew<ReturnStatement>(loc, scopes.GetCurrent());
+                    auto ret = spnew<ReturnStatement>(closingBrace->loc, scopes.GetCurrent());
                     def->body->statements.push_back(ret);
                 }
             }
             else if(isConstructor)
             {
-                auto loc = def->body->statements.empty() ?
-                    def->body->loc : def->body->statements.back()->loc;
-
-                auto val = spnew<IdentifierExpression>(loc, scopes.GetCurrent(), shared_string("this"));
-                auto ret = spnew<ReturnStatement>(loc, scopes.GetCurrent(), val);
+                auto val = spnew<IdentifierExpression>(closingBrace->loc, scopes.GetCurrent(), shared_string("this"));
+                auto ret = spnew<ReturnStatement>(closingBrace->loc, scopes.GetCurrent(), val);
                 def->body->statements.push_back(ret);
             }
         }
@@ -1266,8 +1290,16 @@ return $ret;
             }
 
             // params
-            for(const auto& param : func->GetChildren<ParameterDefinition>())
+            auto params = func->GetChildren<ParameterDefinition>();
+            auto paramIt = params.begin();
+
+            // the receiver is captured as '$this', so skip the implicit 'this' parameter
+            if(func->HasImplicitThisParam())
+                ++paramIt;
+
+            for( ; paramIt != params.end(); ++paramIt)
             {
+                const auto& param = *paramIt;
                 paramList += param->typeSpec->GetTypeName(true) + " " + param->name + ";\n    ";
             }
         }
@@ -1323,17 +1355,34 @@ class ${}_Task
         const char* comment = "// ";
 
         std::string mixinCode = std::format(mixinFormat,
-            func->name, //  {}_Task
-            yieldTypeName, //  Task<{}>
-            !isExternal ? "" : comment, //  {}, Awaiter
-            !yieldTypeIsVoid ? "" : comment, //  {}{} $value;
-            yieldTypeName, // ...
-            !instanceTypeName.empty() ? "" : comment, //  {}{} $this;
-            !instanceTypeName.empty() ? instanceTypeName : "void", // ...
-            paramList, //  {}
-            !isExternal ? "" : comment, //  {}if($position != 0) goto $position;
-            yieldTypeName, //  {} GetValue()
-            !yieldTypeIsVoid ? "" : comment //  {}return $value;
+            // {}_Task
+            func->name,
+
+            //  Task<{}>
+            yieldTypeName,
+
+            // {}, Awaiter
+            !isExternal ? "" : comment,
+
+            // {}{} $value;
+            !yieldTypeIsVoid ? "" : comment,
+            yieldTypeName,
+
+            // {}{} $this;
+            !instanceTypeName.empty() ? "" : comment,
+            !instanceTypeName.empty() ? instanceTypeName : "void",
+
+            // {}
+            paramList,
+
+            // {}if($position != 0) goto $position;
+            !isExternal ? "" : comment,
+
+            // {} GetValue()
+            yieldTypeName,
+
+            // {}return $value;
+            !yieldTypeIsVoid ? "" : comment
         );
 
         Scope* scopeOfParse = ParseCodeString(mixinCode, func->parent->loc.line, true);
@@ -1364,16 +1413,14 @@ class ${}_Task
 
             scopes.Push(taskObject->scope.get());
             scopes.Push(resumeFunc->scope.get());
-            ParseBlockStmt(resumeFunc->body);
+            const Token* closingBrace = nullptr;
+            ParseBlockStmt(resumeFunc->body, &closingBrace);
 
             if(yieldType->IsVoid())
             {
                 if(resumeFunc->body->statements.empty() || !resumeFunc->body->statements.back()->ToReturnStatement())
                 {
-                    auto loc = resumeFunc->body->statements.empty() ?
-                        resumeFunc->body->loc : resumeFunc->body->statements.back()->loc;
-
-                    auto ret = spnew<ReturnStatement>(loc, scopes.GetCurrent());
+                    auto ret = spnew<ReturnStatement>(closingBrace->loc, scopes.GetCurrent());
                     resumeFunc->body->statements.push_back(ret);
                 }
             }
@@ -1392,8 +1439,10 @@ class ${}_Task
         auto typeSpec = ParseTypeSpecifier();
 
         const Token& nameTok = Consume(TokenType::Identifier);
+        auto name = nameTok.GetIdentifier();
+        ENFORCE(name != "this" || allowInternalSymbols, nameTok.loc, "'this' cannot be used as a parameter name");
 
-        auto def = spnew<ParameterDefinition>(nameTok.loc, scopes.GetCurrent(), typeSpec, nameTok.GetIdentifier());
+        auto def = spnew<ParameterDefinition>(nameTok.loc, scopes.GetCurrent(), typeSpec, name);
         scopes.GetCurrent()->AddDefinition(def);
 
         return def;
@@ -1449,6 +1498,8 @@ class ${}_Task
 
     sptr<PropertyDefinition> ParsePropertyDefinition()
     {
+        auto owner = scopes.GetCurrent()->owner;
+
         bool isStatic = false;
         bool isPrivate = false;
 
@@ -1485,12 +1536,18 @@ class ${}_Task
                 const Token& getTok = Consume(Keyword::Get);
 
                 auto getterFunc = spnew<FunctionDefinition>(getTok.loc, scopes.GetCurrent(), shared_string("$get_" + propertyName));
-                getterFunc->isStatic = isStatic;
                 getterFunc->isMember = true;
+                getterFunc->isStatic = isStatic;
                 getterFunc->returnType = spnew<TypeSpecifier>(*propertyTypeSpec);
                 scopes.GetCurrent()->AddDefinition(getterFunc);
                 
                 scopes.Push(getterFunc->scope.get());
+
+                // add context parameter
+                if (!isStatic)
+                {
+                    AddImplicitThisParam(getTok.loc, owner);
+                }
 
                 getterFunc->body = spnew<BlockStatement>(token.loc, scopes.GetCurrent());
                 ParseBlockStmt(getterFunc->body);
@@ -1504,13 +1561,19 @@ class ${}_Task
                 const Token& setTok = Consume(Keyword::Set);
 
                 auto setterFunc = spnew<FunctionDefinition>(setTok.loc, scopes.GetCurrent(), shared_string("$set_" + propertyName));
-                setterFunc->isStatic = isStatic;
                 setterFunc->isMember = true;
+                setterFunc->isStatic = isStatic;
                 setterFunc->returnType = spnew<TypeSpecifier>(setTok.loc, scopes.GetCurrent(), shared_string("void"));
                 scopes.GetCurrent()->AddDefinition(setterFunc);
 
                 // enter function param scope
                 scopes.Push(setterFunc->scope.get());
+
+                // add context parameter
+                if (!isStatic)
+                {
+                    AddImplicitThisParam(setTok.loc, owner);
+                }
 
                 // add value param
                 auto argTypeSpec = spnew<TypeSpecifier>(*propertyTypeSpec);
@@ -1519,15 +1582,13 @@ class ${}_Task
 
                 // parse function body
                 setterFunc->body = spnew<BlockStatement>(token.loc, scopes.GetCurrent());
-                ParseBlockStmt(setterFunc->body);
+                const Token* closingBrace = nullptr;
+                ParseBlockStmt(setterFunc->body, &closingBrace);
 
                 // add implicit return statement if needed
                 if(setterFunc->body->statements.empty() || !setterFunc->body->statements.back()->ToReturnStatement())
                 {
-                    auto loc = setterFunc->body->statements.empty() ?
-                        setterFunc->body->loc : setterFunc->body->statements.back()->loc;
-
-                    auto ret = spnew<ReturnStatement>(loc, scopes.GetCurrent());
+                    auto ret = spnew<ReturnStatement>(closingBrace->loc, scopes.GetCurrent());
                     setterFunc->body->statements.push_back(ret);
                 }
 
@@ -1544,7 +1605,7 @@ class ${}_Task
         return def;
     }
 
-    sptr<BlockStatement> ParseBlockStmt(sptr<BlockStatement> body = {})
+    sptr<BlockStatement> ParseBlockStmt(sptr<BlockStatement> body = {}, const Token** out_closingBrace = nullptr)
     {
         auto block = body ? body : spnew<BlockStatement>(token.loc, scopes.GetCurrent());
 
@@ -1554,7 +1615,10 @@ class ${}_Task
         while (token.type != TokenType::RightBrace)
             block->statements.push_back( ParseStatement() );
 
-        Consume(TokenType::RightBrace);
+        const Token& closingBraceTok =  Consume(TokenType::RightBrace);
+        if(out_closingBrace)
+            *out_closingBrace = &closingBraceTok;
+
         scopes.Pop();
         return block;
     }
@@ -1592,11 +1656,11 @@ class ${}_Task
         sptr<Statement> stmt;
 
         auto scope = scopes.GetCurrent();
-        if(scope->owner->parent &&
-            scope->owner->parent->ToClassDefinition() &&
-            scope->owner->parent->ToClassDefinition()->isCoroutineState)
+        auto ownerParent = scope->owner->parent;
+        if(ownerParent && ownerParent->ToClassDefinition() &&
+            ownerParent->ToClassDefinition()->isCoroutineState)
         {
-            stmt = ParseCoroutineFieldStmt(scope->owner->parent->ToClassDefinition());
+            stmt = ParseCoroutineFieldStmt(ownerParent->ToClassDefinition());
         }
         else
         {
@@ -1786,7 +1850,7 @@ class ${}_Task
         Lexer lexer(tok.loc.file.view(), mixinCode.str(), tok.loc.line, false);
         std::vector<Token> tokens = lexer.Tokenize();
 
-        Parser parser(tokens);
+        Parser parser(tokens, false);
         parser.Parse(astRoot, scopes);
 
         // return empty expr since code was added by parser
@@ -2168,7 +2232,7 @@ class ${}_Task
 
     sptr<Expression> ParseMemberExpr(const sptr<Expression>& context)
     {
-        context->isContext = true;
+        context->pushAsRef = true;
         Consume(TokenType::Dot);
         const Token& memberTok = Consume(TokenType::Identifier);
         return spnew<IdentifierExpression>(
@@ -2177,6 +2241,11 @@ class ${}_Task
 
     sptr<CallExpression> ParseCallExpr(const sptr<Expression>& target)
     {
+        if(auto ident = target->ToIdentifierExpression())
+        {
+            ENFORCE(ident->value != "#this", ident->loc, "a constructor cannot be called directly");
+        }
+
         auto expr = spnew<CallExpression>(token.loc, scopes.GetCurrent(), target);
 
         Consume(TokenType::LeftParen);
@@ -2196,7 +2265,7 @@ class ${}_Task
 
     sptr<Expression> ParseIndexExpr(const sptr<Expression>& target)
     {
-        target->isContext = true;
+        target->pushAsRef = true;
         auto expr = spnew<IndexExpression>(token.loc, scopes.GetCurrent(), target);
 
         Consume(TokenType::LeftBracket);
@@ -2239,19 +2308,21 @@ class ${}_Task
     {
         const Token& identTok = Consume(TokenType::Identifier);
 
-        bool isCoroutine = false;
+        shared_string name;
 
         if(identTok.IsKeyword(Keyword::This))
         {
             auto owningFunc = scopes.GetCurrent()->owner->ToFunctionDefinition();
-            ENFORCE(owningFunc && !owningFunc->isStatic &&
-                ( owningFunc->parent->ToClassDefinition() || owningFunc->parent->ToStructDefinition() ),
+            ENFORCE(owningFunc && owningFunc->isMember && !owningFunc->isStatic,
                 identTok.loc, "'this' can only be used in a non-static member function");
 
-            isCoroutine = owningFunc->isCoroutine;
+            name = shared_string(owningFunc->isCoroutine ? "$this" : "this");
+        }
+        else
+        {
+            name = identTok.GetIdentifier();
         }
 
-        shared_string name = isCoroutine ? shared_string("$this") : identTok.GetIdentifier();
         return spnew<IdentifierExpression>(identTok.loc, scopes.GetCurrent(), name);
     }
 

@@ -20,12 +20,18 @@ public:
     {
     }
 
+    template<class Args>
+    CallExpression(const SourceLocation& loc, Scope* scope, const sptr<Expression>& target, Args&& args)
+        : Expression(loc, scope), target(target), arguments(std::forward<Args>(args))
+    {
+    }
+
     virtual sptr<ASTNode> Clone(ScopeStack& scopes, const sptr<TypeSpecifier>& templateType) override
     {
         auto copy = spnew<CallExpression>(loc, scopes.GetCurrent(),
                 target->Clone(scopes, nullptr)->ToExpression());
 
-        copy->isContext = isContext;
+        copy->pushAsRef = pushAsRef;
 
         for(auto& arg : arguments)
         {

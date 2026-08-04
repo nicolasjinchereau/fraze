@@ -18,9 +18,6 @@ enum class OpCode : uint8_t
     // Push a literal at DATA[arg] onto stack
     PushLiteral,
 
-    // Push STACK[frameStart - paramCount - 1] onto stack
-    PushContext,
-
     // Push STACK[rbp + arg] onto stack
     PushLocal,
     PushLocalN,
@@ -175,7 +172,6 @@ enum class OpCode : uint8_t
 inline std::unordered_map<OpCode, std::string> OpCodeNames {
     { OpCode::NoOp,            "NoOp" },
     { OpCode::PushLiteral,     "PushLiteral" },
-    { OpCode::PushContext,     "PushContext" },
     { OpCode::PushArgument,    "PushArgument" },
     { OpCode::PushArgumentN,   "PushArgumentN" },
     { OpCode::PushArgumentAddr,"PushArgumentAddr" },

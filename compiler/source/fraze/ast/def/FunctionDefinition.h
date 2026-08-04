@@ -29,7 +29,6 @@ public:
     bool isMember = false;
     bool isCoroutine = false;
     bool isConstructor = false;
-    bool isUFC = false;
     sptr<IExternalFunction> externalFunction;
     IntrinsicFunction externalIntrinsic{};
     sptr<BlockStatement> body;
@@ -67,7 +66,6 @@ public:
         copy->isMember = isMember;
         copy->isCoroutine = isCoroutine;
         copy->isConstructor = isConstructor;
-        copy->isUFC = isUFC;
         copy->externalFunction = externalFunction;
         copy->offset = offset;
         copy->paramSize = paramSize;
@@ -90,12 +88,15 @@ public:
         return self();
     }
 
-    bool HasContext() const {
-        return isMember && !isStatic;
-    }
-
     virtual bool IsPrivate() const override {
         return isPrivate;
+    }
+
+    bool HasImplicitThisParam() const
+    {
+        bool hasImplicitThis = isMember && !isStatic && !(isExternal && isConstructor);
+        assert(!hasImplicitThis || GetFirstChild<ParameterDefinition>( "this" ) != nullptr);
+        return hasImplicitThis;
     }
 };
 

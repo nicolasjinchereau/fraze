@@ -10,26 +10,25 @@ interface IPredicate
 class Boolean
 {
     bool value;
-    extern int GetHashCode(bool value);
+    extern static int GetHashCode(bool value);
 }
 
 class Integer
 {
     int value;
-    extern int GetHashCode(int value);
+    extern static int GetHashCode(int value);
 }
 
 class Number
 {
     num value;
-    extern int GetHashCode(num value);
+    extern static int GetHashCode(num value);
 }
 
 class String
 {
-    extern string[] Split(string input, string delim);
-    extern int GetHashCode(string value);
-
+    extern static int GetHashCode(string value);
+    extern static string[] Split(string input, string delim);
     extern static string Concat(string left, string right);
     extern static bool Equals(string left, string right);
     extern static string FromBool(bool value);
@@ -40,19 +39,19 @@ class String
 
 class Object
 {
-    extern int GetHashCode(object value);
+    extern static int GetHashCode(object value);
 }
 
 class Console
 {
-    extern void Write(string msg);
-    extern void WriteLine(string msg);
+    extern static void Write(string msg);
+    extern static void WriteLine(string msg);
 }
 
 class GC
 {
-    extern void Collect();
-    extern void Report();
+    extern static void Collect();
+    extern static void Report();
 }
 
 extern class Type

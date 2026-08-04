@@ -66,7 +66,7 @@ public:
                 context ? context->Clone(scopes, nullptr)->ToExpression() : decltype(context){},
                 emissions);
 
-        copy->isContext = isContext;
+        copy->pushAsRef = pushAsRef;
 
         return copy;
     }

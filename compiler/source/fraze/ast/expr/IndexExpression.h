@@ -24,7 +24,7 @@ public:
     {
         auto copy = spnew<IndexExpression>(loc, scopes.GetCurrent(), target->Clone(scopes, nullptr)->ToExpression());
 
-        copy->isContext = isContext;
+        copy->pushAsRef = pushAsRef;
         copy->arg = arg ? arg->Clone(scopes, nullptr)->ToExpression() : decltype(arg){};
 
         return copy;

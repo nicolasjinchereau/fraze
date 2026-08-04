@@ -27,7 +27,7 @@ public:
                 scopes.GetCurrent(),
                 body->Clone(scopes, nullptr)->ToBlockStatement());
 
-        copy->isContext = isContext;
+        copy->pushAsRef = pushAsRef;
 
         return copy;
     }

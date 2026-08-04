@@ -21,7 +21,7 @@ public:
     {
         auto copy = spnew<TypeLiteralExpression>(loc, scopes.GetCurrent(), value);
 
-        copy->isContext = isContext;
+        copy->pushAsRef = pushAsRef;
 
         return copy;
     }

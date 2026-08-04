@@ -90,6 +90,12 @@ public:
 
     template<class T>
     auto GetChildren(std::string_view name) const;
+
+    template<class T>
+    auto GetFirstChild() const;
+
+    template<class T>
+    auto GetFirstChild(std::string_view name) const;
 private:
     shared_string GetQualifiedName()
     {
@@ -160,6 +166,24 @@ inline auto Definition::GetChildren(std::string_view name) const
         | std::views::transform([](const sptr<Definition>& d) { return DefinitionCast<T>(d); })
         | std::views::filter([=](const sptr<T>& p) { return p != nullptr && p->name == name; })
         | countable;
+}
+
+template<class T>
+inline auto Definition::GetFirstChild() const
+{
+    auto r = children
+        | std::views::transform([](const sptr<Definition>& d) { return DefinitionCast<T>(d); })
+        | std::views::filter([](const sptr<T>& p) { return p != nullptr; });
+    return !r.empty() ? r.front() : sptr<T>{};
+}
+
+template<class T>
+inline auto Definition::GetFirstChild(std::string_view name) const
+{
+    auto r = children
+        | std::views::transform([](const sptr<Definition>& d) { return DefinitionCast<T>(d); })
+        | std::views::filter([=](const sptr<T>& p) { return p != nullptr && p->name == name; });
+    return !r.empty() ? r.front() : sptr<T>{};
 }
 
 } // fraze

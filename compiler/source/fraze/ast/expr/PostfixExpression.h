@@ -25,7 +25,7 @@ public:
                 arg ? arg->Clone(scopes, nullptr)->ToExpression() : decltype(arg){},
                 operation);
 
-        copy->isContext = isContext;
+        copy->pushAsRef = pushAsRef;
 
         return copy;
     }

@@ -105,7 +105,6 @@ private:
     using Handler = void (Program::*)(const Operation& op);
     void Execute_NoOp(const Operation& op);
     void Execute_PushLiteral(const Operation& op);
-    void Execute_PushContext(const Operation& op);
     void Execute_PushLocal(const Operation& op);
     void Execute_PushLocalN(const Operation& op);
     void Execute_PushLocalAddr(const Operation& op);
@@ -192,7 +191,6 @@ private:
     static constexpr Handler handlers[static_cast<size_t>(OpCode::COUNT)] = {
         &Program::Execute_NoOp,
         &Program::Execute_PushLiteral,
-        &Program::Execute_PushContext,
         &Program::Execute_PushLocal,
         &Program::Execute_PushLocalN,
         &Program::Execute_PushLocalAddr,

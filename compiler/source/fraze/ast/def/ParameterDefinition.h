@@ -15,6 +15,7 @@ public:
     sptr<TypeSpecifier> typeSpec;
     size_t offset = 0;
     size_t size = 0;
+    bool isReference = false;
 
     ParameterDefinition(const SourceLocation& loc, Scope* enclosingScope, const sptr<TypeSpecifier> typeSpec, const shared_string& name)
         : Definition(loc, enclosingScope, name), typeSpec(typeSpec)
@@ -29,6 +30,7 @@ public:
 
         copy->offset = offset;
         copy->size = size;
+        copy->isReference = isReference;
 
         return copy;
     }

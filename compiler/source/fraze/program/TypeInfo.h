@@ -104,7 +104,6 @@ struct FunctionInfo : TypeInfo
     uint32_t offset;
     sptr<IExternalFunction> externalFunction;
     int intrinsicID;
-    bool hasContext;
     bool isExternal;
     std::vector<ParamInfo> params;
 

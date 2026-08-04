@@ -26,7 +26,7 @@ public:
                 left->Clone(scopes, nullptr)->ToExpression(),
                 right->Clone(scopes, nullptr)->ToExpression());
         
-        copy->isContext = isContext;
+        copy->pushAsRef = pushAsRef;
 
         return copy;
     }

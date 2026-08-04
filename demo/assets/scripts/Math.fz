@@ -334,7 +334,7 @@ struct Vec4
         return left.x != right.x || left.y != right.y || left.z != right.z || left.w != right.w;
     }
 
-    extern Vec4 operator*(Vec4 v, Mat4 m);
+    extern static Vec4 operator*(Vec4 v, Mat4 m);
 
     num Dot(Vec4 v) {
         return x * v.x + y * v.y + z * v.z + w * v.w;
@@ -729,9 +729,9 @@ struct Mat4
         };
     }
 
-    extern Mat4 operator+(Mat4 left, Mat4 right);
-    extern Mat4 operator-(Mat4 left, Mat4 right);
-    extern Mat4 operator*(Mat4 left, Mat4 right);
+    extern static Mat4 operator+(Mat4 left, Mat4 right);
+    extern static Mat4 operator-(Mat4 left, Mat4 right);
+    extern static Mat4 operator*(Mat4 left, Mat4 right);
 
     static Mat4 operator+(Mat4 m, num s)
     {
@@ -753,7 +753,7 @@ struct Mat4
         };
     }
 
-    extern Mat4 operator*(Mat4 m, num s);
+    extern static Mat4 operator*(Mat4 m, num s);
 
     static Mat4 operator/(Mat4 m, num s)
     {

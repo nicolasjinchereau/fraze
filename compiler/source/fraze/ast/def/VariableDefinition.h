@@ -19,6 +19,8 @@ public:
     sptr<Expression> initializer;
     size_t offset = 0;
     size_t size = 0;
+    // TODO: hook this up in the parser so it follows the same convention as functions and properties
+    //bool isMember = false;
     bool isStatic = false;
     bool isPrivate = false;
     Type* fieldType{};

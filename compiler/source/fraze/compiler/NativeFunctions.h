@@ -219,10 +219,10 @@ inline Object* Type_Find(Program* program, const Integer& typeID)
     return program->typeInfo[typeID].get();
 }
 
-inline String* Type_GetName(Program* program, const TypeInfo& typeInfo)
+inline String* Type_GetName(Program* program, const TypeInfo& self)
 {
     ScopedAllocator alloc(program);
-    return NEW_FRAZE_STRING(alloc, typeInfo.qualifiedName);
+    return NEW_FRAZE_STRING(alloc, self.qualifiedName);
 }
 
 inline Boolean Type_IsInstance(const Object* obj, const TypeInfo& rightTypeInfo)

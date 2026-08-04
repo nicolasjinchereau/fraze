@@ -20,7 +20,7 @@ public:
     {
         auto copy = spnew<StringLiteralExpression>(loc, scopes.GetCurrent(), value);
 
-        copy->isContext = isContext;
+        copy->pushAsRef = pushAsRef;
 
         return copy;
     }

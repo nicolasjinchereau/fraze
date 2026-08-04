@@ -4,6 +4,6 @@
 
 class File
 {
-    extern string ReadAllText(string path);
-    extern Task<string> ReadAllTextAsync(string path);
+    extern static string ReadAllText(string path);
+    extern static Task<string> ReadAllTextAsync(string path);
 }

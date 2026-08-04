@@ -133,33 +133,33 @@ Object* NativeWindow_this(Program* program, Object& window, const String& title,
     );
 }
 
-void NativeWindow_Show(Object& windowObj) {
-    auto window = static_cast<Window*>(&windowObj);
+void NativeWindow_Show(Object& self) {
+    auto window = static_cast<Window*>(&self);
     window->Show();
 }
 
-void NativeWindow_Hide(Object& windowObj) {
-    auto window = static_cast<Window*>(&windowObj);
+void NativeWindow_Hide(Object& self) {
+    auto window = static_cast<Window*>(&self);
     window->Hide();
 }
 
-void NativeWindow_Close(Object& windowObj) {
-    auto window = static_cast<Window*>(&windowObj);
+void NativeWindow_Close(Object& self) {
+    auto window = static_cast<Window*>(&self);
     window->Close();
 }
 
-Integer NativeWindow_GetWidth(Object& windowObj) {
-    auto window = static_cast<Window*>(&windowObj);
+Integer NativeWindow_GetWidth(Object& self) {
+    auto window = static_cast<Window*>(&self);
     return window->GetSize().x;
 }
 
-Integer NativeWindow_GetHeight(Object& windowObj) {
-    auto window = static_cast<Window*>(&windowObj);
+Integer NativeWindow_GetHeight(Object& self) {
+    auto window = static_cast<Window*>(&self);
     return window->GetSize().y;
 }
 
-Integer NativeWindow_PumpMessage(Object& windowObj) {
-    auto window = static_cast<Window*>(&windowObj);
+Integer NativeWindow_PumpMessage(Object& self) {
+    auto window = static_cast<Window*>(&self);
     return window->PumpMessage();
 }
 
@@ -169,112 +169,112 @@ Object* NativeGraphics_this(Program* program) {
     return NEW_FRAZE_EXTERN_CLASS(allocator, Graphics, "NativeGraphics");
 }
 
-void NativeGraphics_SetRenderTarget(Object& graphicsObj, Object& windowObj) {
-    auto graphics = static_cast<Graphics*>(&graphicsObj);
+void NativeGraphics_SetRenderTarget(Object& self, Object& windowObj) {
+    auto graphics = static_cast<Graphics*>(&self);
     auto window = static_cast<Window*>(&windowObj);
     graphics->SetRenderTarget(window);
 }
 
-void NativeGraphics_SetShader(Object& graphicsObj, Object& shaderObj) {
-    auto graphics = static_cast<Graphics*>(&graphicsObj);
+void NativeGraphics_SetShader(Object& self, Object& shaderObj) {
+    auto graphics = static_cast<Graphics*>(&self);
     auto shader = static_cast<Shader*>(&shaderObj);
     graphics->SetShader(shader);
 }
 
-void NativeGraphics_SetVertexBuffer(Object& graphicsObj, Object& bufferObj) {
-    auto graphics = static_cast<Graphics*>(&graphicsObj);
+void NativeGraphics_SetVertexBuffer(Object& self, Object& bufferObj) {
+    auto graphics = static_cast<Graphics*>(&self);
     auto buffer = static_cast<Buffer*>(&bufferObj);
     graphics->SetVertexBuffer(buffer);
 }
 
-void NativeGraphics_SetIndexBuffer(Object& graphicsObj, Object& bufferObj) {
-    auto graphics = static_cast<Graphics*>(&graphicsObj);
+void NativeGraphics_SetIndexBuffer(Object& self, Object& bufferObj) {
+    auto graphics = static_cast<Graphics*>(&self);
     auto buffer = static_cast<Buffer*>(&bufferObj);
     graphics->SetIndexBuffer(buffer);
 }
 
-void NativeGraphics_SetClearColor(Object& graphicsObj, const Color& color) {
-    auto graphics = static_cast<Graphics*>(&graphicsObj);
+void NativeGraphics_SetClearColor(Object& self, const Color& color) {
+    auto graphics = static_cast<Graphics*>(&self);
     graphics->SetClearColor(color);
 }
 
-void NativeGraphics_SetViewport(Object& graphicsObj, IntRect rect) {
-    auto graphics = static_cast<Graphics*>(&graphicsObj);
+void NativeGraphics_SetViewport(Object& self, IntRect rect) {
+    auto graphics = static_cast<Graphics*>(&self);
     graphics->SetViewport(rect);
 }
 
-IntRect NativeGraphics_GetViewport(Object& graphicsObj) {
-    auto graphics = static_cast<Graphics*>(&graphicsObj);
+IntRect NativeGraphics_GetViewport(Object& self) {
+    auto graphics = static_cast<Graphics*>(&self);
     return graphics->GetViewport();
 }
 
-void NativeGraphics_SetCullMode(Object& graphicsObj, CullMode mode) {
-    auto graphics = static_cast<Graphics*>(&graphicsObj);
+void NativeGraphics_SetCullMode(Object& self, CullMode mode) {
+    auto graphics = static_cast<Graphics*>(&self);
     graphics->SetCullMode(mode);
 }
 
-void NativeGraphics_SetScissorTestEnabled(Object& graphicsObj, bool enabled) {
-    auto graphics = static_cast<Graphics*>(&graphicsObj);
+void NativeGraphics_SetScissorTestEnabled(Object& self, bool enabled) {
+    auto graphics = static_cast<Graphics*>(&self);
     graphics->SetScissorTestEnabled(enabled);
 }
 
-void NativeGraphics_SetScissorRect(Object& graphicsObj, IntRect rect) {
-    auto graphics = static_cast<Graphics*>(&graphicsObj);
+void NativeGraphics_SetScissorRect(Object& self, IntRect rect) {
+    auto graphics = static_cast<Graphics*>(&self);
     graphics->SetScissorRect(rect);
 }
 
-void NativeGraphics_SetDepthTest(Object& graphicsObj, DepthTest test) {
-    auto graphics = static_cast<Graphics*>(&graphicsObj);
+void NativeGraphics_SetDepthTest(Object& self, DepthTest test) {
+    auto graphics = static_cast<Graphics*>(&self);
     graphics->SetDepthTest(test);
 }
 
-void NativeGraphics_SetDepthWriteEnabled(Object& graphicsObj, bool enabled) {
-    auto graphics = static_cast<Graphics*>(&graphicsObj);
+void NativeGraphics_SetDepthWriteEnabled(Object& self, bool enabled) {
+    auto graphics = static_cast<Graphics*>(&self);
     graphics->SetDepthWriteEnabled(enabled);
 }
 
-void NativeGraphics_SetBlendingEnabled(Object& graphicsObj, bool enabled) {
-    auto graphics = static_cast<Graphics*>(&graphicsObj);
+void NativeGraphics_SetBlendingEnabled(Object& self, bool enabled) {
+    auto graphics = static_cast<Graphics*>(&self);
     graphics->SetBlendingEnabled(enabled);
 }
 
-void NativeGraphics_SetBlendOperations(Object& graphicsObj, BlendOperation colorBlendOp, BlendOperation alphaBlendOp) {
-    auto graphics = static_cast<Graphics*>(&graphicsObj);
+void NativeGraphics_SetBlendOperations(Object& self, BlendOperation colorBlendOp, BlendOperation alphaBlendOp) {
+    auto graphics = static_cast<Graphics*>(&self);
     graphics->SetBlendOperations(colorBlendOp, alphaBlendOp);
 }
 
-void NativeGraphics_SetBlendFactors(Object& graphicsObj, BlendFactor sourceColor, BlendFactor destColor, BlendFactor sourceAlpha, BlendFactor destAlpha) {
-    auto graphics = static_cast<Graphics*>(&graphicsObj);
+void NativeGraphics_SetBlendFactors(Object& self, BlendFactor sourceColor, BlendFactor destColor, BlendFactor sourceAlpha, BlendFactor destAlpha) {
+    auto graphics = static_cast<Graphics*>(&self);
     graphics->SetBlendFactors(sourceColor, destColor, sourceAlpha, destAlpha);
 }
 
-void NativeGraphics_SetColorMask(Object& graphicsObj, bool red, bool green, bool blue, bool alpha) {
-    auto graphics = static_cast<Graphics*>(&graphicsObj);
+void NativeGraphics_SetColorMask(Object& self, bool red, bool green, bool blue, bool alpha) {
+    auto graphics = static_cast<Graphics*>(&self);
     graphics->SetColorMask(red, green, blue, alpha);
 }
 
-void NativeGraphics_SetBlendColor(Object& graphicsObj, const Color& color) {
-    auto graphics = static_cast<Graphics*>(&graphicsObj);
+void NativeGraphics_SetBlendColor(Object& self, const Color& color) {
+    auto graphics = static_cast<Graphics*>(&self);
     graphics->SetBlendColor(color);
 }
 
-void NativeGraphics_Clear(Object& graphicsObj) {
-    auto graphics = static_cast<Graphics*>(&graphicsObj);
+void NativeGraphics_Clear(Object& self) {
+    auto graphics = static_cast<Graphics*>(&self);
     graphics->Clear();
 }
 
-void NativeGraphics_Present(Object& graphicsObj) {
-    auto graphics = static_cast<Graphics*>(&graphicsObj);
+void NativeGraphics_Present(Object& self) {
+    auto graphics = static_cast<Graphics*>(&self);
     graphics->Present();
 }
 
-void NativeGraphics_DrawArray(Object& graphicsObj, Integer start, Integer count, DrawMode mode) {
-    auto graphics = static_cast<Graphics*>(&graphicsObj);
+void NativeGraphics_DrawArray(Object& self, Integer start, Integer count, DrawMode mode) {
+    auto graphics = static_cast<Graphics*>(&self);
     graphics->DrawArray(static_cast<int>(start), static_cast<int>(count), mode);
 }
 
-void NativeGraphics_DrawIndexed(Object& graphicsObj, Integer start, Integer count, DrawMode mode) {
-    auto graphics = static_cast<Graphics*>(&graphicsObj);
+void NativeGraphics_DrawIndexed(Object& self, Integer start, Integer count, DrawMode mode) {
+    auto graphics = static_cast<Graphics*>(&self);
     graphics->DrawIndexed(static_cast<int>(start), static_cast<int>(count), mode);
 }
 
@@ -285,13 +285,13 @@ Object* NativeShader_this(Program* program, Object& graphicsObj, const String& s
     return NEW_FRAZE_EXTERN_CLASS(allocator, Shader, "NativeShader", graphics, src.GetView(), vertexEntry.GetView(), pixelEntry.GetView());
 }
 
-void NativeShader_SetUniformMat4(Object& shaderObj, const String& name, const Mat4& value) {
-    auto shader = static_cast<Shader*>(&shaderObj);
+void NativeShader_SetUniformMat4(Object& self, const String& name, const Mat4& value) {
+    auto shader = static_cast<Shader*>(&self);
     shader->SetUniform(name, value);
 }
 
-void NativeShader_SetUniformTex(Object& shaderObj, const String& name, Object& textureObj) {
-    auto shader = static_cast<Shader*>(&shaderObj);
+void NativeShader_SetUniformTex(Object& self, const String& name, Object& textureObj) {
+    auto shader = static_cast<Shader*>(&self);
     auto texture = static_cast<Texture*>(&textureObj);
     shader->SetUniform(name, texture);
 }
@@ -344,21 +344,21 @@ Object* NativeBuffer_this_data(Program* program, Object& graphicsObj, BufferType
     return NEW_FRAZE_EXTERN_CLASS(allocator, Buffer, "NativeBuffer", graphics, type, usage, cpuAccess, data);
 }
 
-void NativeBuffer_SetData(Object& bufferObj, const Array<>& data)
+void NativeBuffer_SetData(Object& self, const Array<>& data)
 {
-    auto buffer = static_cast<Buffer*>(&bufferObj);
+    auto buffer = static_cast<Buffer*>(&self);
     buffer->SetData(data);
 }
 
-Integer NativeBuffer_GetSize(Object& bufferObj)
+Integer NativeBuffer_GetSize(Object& self)
 {
-    auto buffer = static_cast<Buffer*>(&bufferObj);
+    auto buffer = static_cast<Buffer*>(&self);
     return static_cast<Integer>(buffer->GetSize());
 }
 
-Integer NativeBuffer_GetStride(Object& bufferObj)
+Integer NativeBuffer_GetStride(Object& self)
 {
-    auto buffer = static_cast<Buffer*>(&bufferObj);
+    auto buffer = static_cast<Buffer*>(&self);
     return static_cast<Integer>(buffer->GetStride());
 }
 
@@ -381,7 +381,7 @@ void Intrinsic_Mat4Add(Word* rbp)
     constexpr uint64_t wordSizeRet = 16;
     constexpr uint64_t totalArgSize = wordSizeArg0 + wordSizeArg1;
 
-    Word* argsEnd = rbp - 3;
+    Word* argsEnd = rbp - 2;
     Mat4& arg0 = *reinterpret_cast<Mat4*>(argsEnd - wordSizeArg0);
     Mat4& arg1 = *reinterpret_cast<Mat4*>(argsEnd - wordSizeArg0 - wordSizeArg1);
     Mat4* result = reinterpret_cast<Mat4*>(argsEnd - totalArgSize - wordSizeRet);
@@ -411,7 +411,7 @@ void Intrinsic_Mat4Sub(Word* rbp)
     constexpr uint64_t wordSizeRet = 16;
     constexpr uint64_t totalArgSize = wordSizeArg0 + wordSizeArg1;
 
-    Word* argsEnd = rbp - 3;
+    Word* argsEnd = rbp - 2;
     Mat4& arg0 = *reinterpret_cast<Mat4*>(argsEnd - wordSizeArg0);
     Mat4& arg1 = *reinterpret_cast<Mat4*>(argsEnd - wordSizeArg0 - wordSizeArg1);
     Mat4* result = reinterpret_cast<Mat4*>(argsEnd - totalArgSize - wordSizeRet);
@@ -441,7 +441,7 @@ void Intrinsic_Mat4Mul(Word* rbp)
     constexpr uint64_t wordSizeRet = 16;
     constexpr uint64_t totalArgSize = wordSizeArg0 + wordSizeArg1;
 
-    Word* argsEnd = rbp - 3;
+    Word* argsEnd = rbp - 2;
     Mat4& arg0 = *reinterpret_cast<Mat4*>(argsEnd - wordSizeArg0);
     Mat4& arg1 = *reinterpret_cast<Mat4*>(argsEnd - wordSizeArg0 - wordSizeArg1);
     Mat4* result = reinterpret_cast<Mat4*>(argsEnd - totalArgSize - wordSizeRet);
@@ -474,7 +474,7 @@ void Intrinsic_Mat4NumMul(Word* rbp)
     constexpr uint64_t wordSizeRet = 16;
     constexpr uint64_t totalArgSize = wordSizeArg0 + wordSizeArg1;
 
-    Word* argsEnd = rbp - 3;
+    Word* argsEnd = rbp - 2;
     Mat4& arg0 = *reinterpret_cast<Mat4*>(argsEnd - wordSizeArg0);
     Number& arg1 = *reinterpret_cast<Number*>(argsEnd - wordSizeArg0 - wordSizeArg1);
     Mat4* result = reinterpret_cast<Mat4*>(argsEnd - totalArgSize - wordSizeRet);
@@ -507,7 +507,7 @@ void Intrinsic_Vec4Mat4Mul(Word* rbp)
     constexpr uint64_t wordSizeRet = 4;
     constexpr uint64_t totalArgSize = wordSizeArg0 + wordSizeArg1;
     
-    Word* argsEnd = rbp - 3;
+    Word* argsEnd = rbp - 2;
     Vec4& arg0 = *reinterpret_cast<Vec4*>(argsEnd - wordSizeArg0);
     Mat4& arg1 = *reinterpret_cast<Mat4*>(argsEnd - wordSizeArg0 - wordSizeArg1);
     Vec4* result = reinterpret_cast<Vec4*>(argsEnd - totalArgSize - wordSizeRet);

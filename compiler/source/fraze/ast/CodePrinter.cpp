@@ -125,7 +125,7 @@ void CodePrinter::Visit(const sptr<FunctionDefinition>& node)
     if(node->isExternal)
         stream << "extern ";
 
-    if(node->isMember && node->isStatic)
+    if(node->isStatic)
         stream << "static ";
 
     stream << node->returnType->GetTypeName(true) << " " << node->name << "(";

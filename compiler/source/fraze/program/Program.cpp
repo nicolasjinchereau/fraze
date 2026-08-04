@@ -80,9 +80,6 @@ void Program::Initialize()
 
             // no args to push
 
-            // context
-            *(++rsp) = Word(nullptr);
-
 // Call + Prologue
             // Push a sentinel value instead of the instruction pointer
             // since we have no real return address here in C++.
@@ -109,7 +106,7 @@ void Program::Initialize()
 #endif
             }
 
-            // OpCode::Return will pop rbp, context and args
+            // OpCode::Return will pop rbp and args
             
             // OpCode::Return restored the sentinel from the stack,
             // so restore the real instruction pointer here.
@@ -151,9 +148,6 @@ Word Program::InvokeImpl(const std::string& qualifiedFuncName, const std::span<W
     // args
     for(auto& arg : std::views::reverse(args))
         *(++rsp) = arg;
-
-    // context
-    *(++rsp) = Word(nullptr);
 
 // Call + Prologue
     // Push a sentinel value instead of the instruction pointer
@@ -212,7 +206,7 @@ Word Program::InvokeImpl(const std::string& qualifiedFuncName, const std::span<W
 
     assert(rbp == previousBasePointer);
 
-    // OpCode::Return will pop rbp, context and args
+    // OpCode::Return will pop rbp and args
     
     Word result = *(rsp--); // assume 1-word return value for now
 
@@ -288,7 +282,6 @@ void Program::VerifyHandlers()
 
     VERIFY_HANDLER_INDEX(NoOp);
     VERIFY_HANDLER_INDEX(PushLiteral);
-    VERIFY_HANDLER_INDEX(PushContext);
     VERIFY_HANDLER_INDEX(PushLocal);
     VERIFY_HANDLER_INDEX(PushLocalN);
     VERIFY_HANDLER_INDEX(PushLocalAddr);
@@ -380,14 +373,6 @@ void Program::Execute_PushLiteral(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_PushContext(const Operation& op)
-{
-    Word* top = rsp;
-    *(++top) = *(rbp - 3);
-    rsp = top;
-    ++rip;
-}
-
 void Program::Execute_PushLocal(const Operation& op)
 {
     assert(op.arg2_u64 == 0);
@@ -474,7 +459,7 @@ void Program::Execute_PushArgument(const Operation& op)
     
     assert(argSize == 0);
 
-    *(++rsp) = *(rbp - 4 - argIndex);
+    *(++rsp) = *(rbp - 3 - argIndex);
     ++rip;
 }
 
@@ -485,7 +470,7 @@ void Program::Execute_PushArgumentN(const Operation& op)
 
     assert(argSize != 0);
 
-    Word* src = rbp - 4 - argIndex - (argSize - 1);
+    Word* src = rbp - 3 - argIndex - (argSize - 1);
     Word* dest = rsp + 1;
 
     for(std::size_t i = 0; i != argSize; ++i)
@@ -500,7 +485,7 @@ void Program::Execute_PushArgumentAddr(const Operation& op)
     const uint64_t argIndex = op.arg1_u64;
     const uint64_t argSize = op.arg2_u64;
 
-    *(++rsp) = { rbp - 4 - argIndex - (argSize - 1) };
+    *(++rsp) = { rbp - 3 - argIndex - (argSize - 1) };
     ++rip;
 }
 
@@ -512,7 +497,7 @@ void Program::Execute_PopArgument(const Operation& op)
     assert(argSize != 0);
 
     Word* top = rsp;
-    auto arg = rbp - 4 - argIndex - (argSize - 1);
+    auto arg = rbp - 3 - argIndex - (argSize - 1);
     auto value = top + 1 - argSize;
 
     for(size_t i = 0; i != argSize; ++i)
@@ -1158,7 +1143,7 @@ void Program::Execute_Return(const Operation& op)
 
     Word* top = rsp;
 
-    Word* returnStorageStart = rbp - 3 - argsSize - returnSize;
+    Word* returnStorageStart = rbp - 2 - argsSize - returnSize;
     Word* returnValueEnd = top + 1;
     Word* returnValueStart = returnValueEnd - returnSize;
 
@@ -1172,7 +1157,7 @@ void Program::Execute_Return(const Operation& op)
 
     rip = (top--)->storage;
 
-    rsp = top - 1 - argsSize;
+    rsp = top - argsSize;
 
     if(rip != DONE_INSTR)
         ++rip;
@@ -1183,7 +1168,7 @@ void Program::Execute_CallExternal(const Operation& op)
     auto info = typeInfo[op.arg1_u64]->ToFunctionInfo();
     assert(info);
 
-    Word* top = rsp; // context pointer
+    Word* top = rsp; // last argument
 
     *(++top) = Word::Raw(rip);
     rip = 0; // no code address for external function
@@ -1201,12 +1186,12 @@ void Program::Execute_CallExternal(const Operation& op)
     {
         int i = 0;
         for(auto& param : info->params)
-            argPointerBuffer[i++] = rbp - 3 - param.offset - param.size;
+            argPointerBuffer[i++] = rbp - 2 - param.offset - param.size;
 
         argPointers = std::span<Word*>(argPointerBuffer.begin(), argPointerBuffer.begin() + i);
     }
 
-    Word* returnStorageStart = rbp - 3 - info->paramSize - info->returnSize;
+    Word* returnStorageStart = rbp - 2 - info->paramSize - info->returnSize;
     Word* returnStorageEnd = returnStorageStart + info->returnSize;
     result = std::span<Word>(returnStorageStart, returnStorageEnd);
 
@@ -1219,7 +1204,7 @@ void Program::Execute_CallExternal(const Operation& op)
 
     rip = (top--)->storage;
 
-    rsp = top - 1 - info->paramSize;
+    rsp = top - info->paramSize;
 
     ++rip;
 }
@@ -1249,7 +1234,7 @@ void Program::Execute_CallIntrinsic(const Operation& op)
 
     rip = (top--)->storage;
 
-    rsp = top - 1 - argsSize;
+    rsp = top - argsSize;
 
     ++rip;
 }
@@ -1452,7 +1437,6 @@ void Program::PrintOperation(size_t index, std::ostream& stream)
                << " [" << typeInfo[op.arg1_u64]->ToArrayInfo()->elementType->qualifiedName << "]";
         break;
 
-    case OpCode::PushContext:
     case OpCode::PushNull:
     case OpCode::PushSize:
     case OpCode::Dup:

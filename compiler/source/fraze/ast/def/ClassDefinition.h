@@ -20,7 +20,7 @@ class ClassDefinition : public TemplateDefinition
 {
 public:
     std::vector<sptr<TypeSpecifier>> interfaces;
-    sptr<TypeSpecifier> originalClassType;
+    sptr<TypeSpecifier> originalClassType; // original class of a task enclosure
     bool isCoroutineState = false;
     bool isFunctor = false;
     bool isExternal = false;

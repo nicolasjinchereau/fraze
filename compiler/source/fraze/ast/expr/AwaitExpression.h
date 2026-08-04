@@ -27,7 +27,7 @@ public:
     {
         auto copy = spnew<AwaitExpression>(loc, scope, expression->Clone(scopes, nullptr)->ToAwaitExpression());
 
-        copy->isContext = isContext;
+        copy->pushAsRef = pushAsRef;
 
         return copy;
     }

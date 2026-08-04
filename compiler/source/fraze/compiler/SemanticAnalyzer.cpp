@@ -26,25 +26,42 @@ Type* SemanticAnalyzer::EvaluateTypeChecked(const sptr<Expression>& expr)
     return type;
 }
 
-bool SemanticAnalyzer::IsFunctionAssignable(const sptr<FunctionDefinition>& leftFunc, const sptr<FunctionDefinition>& rightFunc)
+bool SemanticAnalyzer::IsFunctionAssignable(const sptr<FunctionDefinition>& leftFunc, const sptr<FunctionDefinition>& rightFunc, bool skipImplicitThisParam)
 {
     auto leftParams = leftFunc->GetChildren<ParameterDefinition>();
     auto rightParams = rightFunc->GetChildren<ParameterDefinition>();
     
-    if(leftParams.count() != rightParams.count())
+    auto leftParam = leftParams.begin();
+    auto rightParam = rightParams.begin();
+
+    if(skipImplicitThisParam)
+    {
+        if(leftFunc->HasImplicitThisParam())
+            ++leftParam;
+
+        if(rightFunc->HasImplicitThisParam())
+            ++rightParam;
+    }
+
+    size_t leftParamCount = std::distance(leftParam, leftParams.end());
+    size_t rightParamCount = std::distance(rightParam, rightParams.end());
+
+    if(leftParamCount != rightParamCount)
         return false;
 
     VisitChild(leftFunc->returnType);
     VisitChild(rightFunc->returnType);
 
-    if(leftFunc->returnType->type != rightFunc->returnType->type)
+    Type* leftReturnType = leftFunc->returnType->type;
+    Type* rightReturnType = rightFunc->returnType->type;
+
+    if(leftReturnType != rightReturnType)
         return false;
 
-    for(auto lp = leftParams.begin(), rp = rightParams.begin();
-        lp != leftParams.end(); ++lp, ++rp)
+    for( ; leftParam != leftParams.end(); ++leftParam, ++rightParam)
     {
-        auto& leftParamTypeSpec = (*lp)->typeSpec;
-        auto& rightParamTypeSpec = (*rp)->typeSpec;
+        auto& leftParamTypeSpec = (*leftParam)->typeSpec;
+        auto& rightParamTypeSpec = (*rightParam)->typeSpec;
 
         VisitChild(leftParamTypeSpec);
         VisitChild(rightParamTypeSpec);
@@ -81,11 +98,11 @@ bool SemanticAnalyzer::IsAssignable(Type* leftType, Type* rightType, TokenType o
         }
         else if(leftType->IsFunctorInterface() && rightType->IsFunction())
         {
-            auto leftClass = leftType->GetDefinition()->ToInterfaceDefinition();
-            auto leftFunc = leftClass->GetFunction("invoke");
-            auto rightFunc = rightType->GetDefinition()->ToFunctionDefinition();
+            auto leftInterface = leftType->GetDefinition()->ToInterfaceDefinition();
+            sptr<FunctionDefinition> leftFunc = leftInterface->GetFunction("invoke");
+            sptr<FunctionDefinition> rightFunc = rightType->GetDefinition()->ToFunctionDefinition();
 
-            if(IsFunctionAssignable(leftFunc, rightFunc))
+            if(IsFunctionAssignable(leftFunc, rightFunc, true))
             {
                 convert = true;
                 valid = true;
@@ -118,7 +135,7 @@ bool SemanticAnalyzer::IsAssignable(Type* leftType, Type* rightType, TokenType o
                 auto leftInvoke = leftInterface->GetFunction("invoke");
                 auto rightInvoke = rightClass->GetFunction("invoke");
 
-                if(IsFunctionAssignable(leftInvoke, rightInvoke))
+                if(IsFunctionAssignable(leftInvoke, rightInvoke, true))
                 {
                     convert = true;
                     valid = true;
@@ -205,7 +222,7 @@ void SemanticAnalyzer::ParseCodeString(Scope* enclosingScope, const std::string&
     Lexer lexer(loc.file.view(), code, loc.line, true);
     std::vector<Token> tokens = lexer.Tokenize();
     
-    Parser parser(tokens);
+    Parser parser(tokens, true);
 
     ScopeStack scopes;
     scopes.PushFromRoot(enclosingScope);
@@ -227,162 +244,181 @@ void SemanticAnalyzer::ProcessAssignment(const SourceLocation& leftLoc, Type* le
 
     if(needsConversion)
     {
-        if(leftType->IsFunctorInterface() && rightType->IsFunction())
+        if(leftType->IsFunctorInterface() && (rightType->IsFunction() || rightType->IsFunctorClass()))
         {
-            auto funcName = utility::ReplaceAll(rightType->GetName(), ".", "$");
-            std::string functorName = std::format("$functorClass${}", funcName);
-
-            auto ident = right->ToIdentifierExpression();
-            assert(ident);
-
-            auto func = ident->targetDef->ToFunctionDefinition();
-            assert(func);
-
-            sptr<Expression> callTarget = ident->context;
-
-            sptr<ClassDefinition> functorClass;
-
-            // try to look up function class by name
-            if(auto def = astRoot->global->scope->FindDefinition(functorName))
+            if(rightType->IsFunction())
             {
-                functorClass = def->ToClassDefinition();
-                assert(functorClass);
-            }
+                auto funcName = utility::ReplaceAll(rightType->GetName(), ".", "$");
+                std::string functorName = std::format("$functorClass${}", funcName);
 
-            if(!functorClass)
-            {
-                std::string returnType { func->returnType->GetTypeName(true) };
-                std::string paramList;
-                std::string argList;
+                auto ident = right->ToIdentifierExpression();
+                assert(ident);
 
-                for(const auto& param : func->GetChildren<ParameterDefinition>())
+                auto func = ident->targetDef->ToFunctionDefinition();
+                assert(func);
+
+                sptr<Expression> callTarget = ident->context;
+
+                sptr<ClassDefinition> functorClass;
+
+                // try to look up function class by name
+                if(auto def = astRoot->global->scope->FindDefinition(functorName))
                 {
-                    auto paramType = param->typeSpec->GetTypeName(true);
-
-                    if(!paramList.empty())
-                        paramList += ", ";
-
-                    if(!argList.empty())
-                        argList += ", ";
-
-                    paramList += paramType + " " + param->name;
-                    argList += param->name;
+                    functorClass = def->ToClassDefinition();
+                    assert(functorClass);
                 }
 
-                std::string callTargetTypeName;
+                if(!functorClass)
+                {
+                    std::string returnType { func->returnType->GetTypeName(true) };
+                    std::string paramList;
+                    std::string argList;
+
+                    auto params = func->GetChildren<ParameterDefinition>();
+                    auto paramIt = params.begin();
+
+                    if(func->HasImplicitThisParam())
+                        ++paramIt;
+
+                    for( ; paramIt != params.end(); ++paramIt)
+                    {
+                        const auto& param = *paramIt;
+
+                        auto paramType = param->typeSpec->GetTypeName(true);
+
+                        if(!paramList.empty())
+                            paramList += ", ";
+
+                        if(!argList.empty())
+                            argList += ", ";
+
+                        paramList += paramType + " " + param->name;
+                        argList += param->name;
+                    }
+
+                    std::string callTargetTypeName;
                 
-                if(callTarget)
-                {
-                    auto callTargetType = callTarget->EvaluateType();
-                    assert(callTargetType);
+                    if(callTarget)
+                    {
+                        auto callTargetType = callTarget->EvaluateType();
+                        assert(callTargetType);
 
-                    callTargetTypeName = callTargetType->GetDefinition()->qualifiedName;
-                }
+                        callTargetTypeName = callTargetType->GetDefinition()->qualifiedName;
+                    }
 
-                constexpr const char* mixinFormat = R""""(
-class {}
-{{
-    {}{} target = null;
-
-    {} invoke({})
+                    constexpr const char* mixinFormat = R""""(
+    class {}
     {{
-        // {{return }}{{target.}}{{func}}({{args}});
-        {}{}{}({});
+        {}{} target = null;
+
+        {} invoke({})
+        {{
+            // {{return }}{{target.}}{{func}}({{args}});
+            {}{}{}({});
+        }}
     }}
-}}
-)"""";
+    )"""";
                 
-                std::string mixinCode = std::format(mixinFormat,
-                    functorName,
-                    callTarget ? "" : "//",
-                    callTargetTypeName,
-                    returnType,
-                    paramList,
-                    !func->returnType->IsVoid() ? "return " : "",
-                    callTarget ? "target." : "",
-                    callTarget ? func->name : func->qualifiedName,
-                    argList
-                );
+                    std::string mixinCode = std::format(mixinFormat,
+                        functorName,
+                        callTarget ? "" : "//",
+                        callTargetTypeName,
+                        returnType,
+                        paramList,
+                        !func->returnType->IsVoid() ? "return " : "",
+                        callTarget ? "target." : "",
+                        callTarget ? func->name : func->qualifiedName,
+                        argList
+                    );
                 
-                ParseCodeString(astRoot->global->scope.get(), mixinCode);
+                    ParseCodeString(astRoot->global->scope.get(), mixinCode);
 
-                auto def = astRoot->global->scope->FindDefinition(functorName);
-                assert(def);
+                    auto def = astRoot->global->scope->FindDefinition(functorName);
+                    assert(def);
 
-                functorClass = def->ToClassDefinition();
-                assert(functorClass);
+                    functorClass = def->ToClassDefinition();
+                    assert(functorClass);
 
-                functorClass->isFunctor = true;
+                    functorClass->isFunctor = true;
 
-                VisitChild(functorClass);
-            }
+                    VisitChild(functorClass);
+                }
 
-            bool alreadyHasInterface = false;
+                bool alreadyHasInterface = false;
 
-            for(auto& itf : functorClass->interfaces)
-            {
-                assert(itf->type);
-
-                if(itf->type == leftType)
+                for(auto& itf : functorClass->interfaces)
                 {
-                    alreadyHasInterface = true;
-                    break;
+                    assert(itf->type);
+
+                    if(itf->type == leftType)
+                    {
+                        alreadyHasInterface = true;
+                        break;
+                    }
+                }
+            
+                if(!alreadyHasInterface)
+                {
+                    auto functorInterface = leftType->GetDefinition()->ToFunctorInterfaceDefinition();
+                    assert(functorInterface);
+
+                    auto itfTypeSpec = spnew<TypeSpecifier>(
+                        functorInterface->loc,
+                        astRoot->global->scope.get(),
+                        functorInterface->qualifiedName );
+
+                    functorClass->interfaces.push_back(itfTypeSpec);
+                    functorClass->implementations.clear();
+                    VisitChild(functorClass);
+                }
+
+                auto newExpr = spnew<NewExpression>(right->loc, right->scope);
+                newExpr->typeSpec = spnew<TypeSpecifier>(right->loc, right->scope, functorClass->qualifiedName);
+            
+                if(callTarget)
+                    newExpr->arguments.push_back(callTarget);
+            
+                right = newExpr;
+                VisitChild(right);
+                rightType = right->EvaluateType();
+            }
+            else
+            {
+                // functor expression
+                auto functorInterface = leftType->GetDefinition()->ToFunctorInterfaceDefinition();
+                auto functorClass = rightType->GetDefinition()->ToFunctorClassDefinition();
+
+                bool alreadyHasInterface = false;
+
+                for(auto& itf : functorClass->interfaces)
+                {
+                    if(itf->type == leftType)
+                    {
+                        alreadyHasInterface = true;
+                        break;
+                    }
+                }
+
+                if(!alreadyHasInterface)
+                {
+                    auto itfTypeSpec = spnew<TypeSpecifier>(
+                        functorInterface->loc,
+                        astRoot->global->scope.get(),
+                        functorInterface->qualifiedName );
+
+                    functorClass->interfaces.push_back(itfTypeSpec);
+                    functorClass->implementations.clear();
+                    VisitChild(functorClass);
                 }
             }
-            
-            if(!alreadyHasInterface)
-            {
-                auto functorInterface = leftType->GetDefinition()->ToFunctorInterfaceDefinition();
-                assert(functorInterface);
 
-                auto itfTypeSpec = spnew<TypeSpecifier>(
-                    functorInterface->loc,
-                    astRoot->global->scope.get(),
-                    functorInterface->qualifiedName );
-
-                functorClass->interfaces.push_back(itfTypeSpec);
-                functorClass->implementations.clear();
-                VisitChild(functorClass);
-            }
-
-            auto newExpr = spnew<NewExpression>(right->loc, right->scope);
-            newExpr->typeSpec = spnew<TypeSpecifier>(right->loc, right->scope, functorClass->qualifiedName);
-            
-            if(callTarget)
-                newExpr->arguments.push_back(callTarget);
-            
-            right = newExpr;
+            // the functor class implements the functor interface, so give the
+            // expression the interface type that the assignment target expects
+            auto castTypeSpec = spnew<TypeSpecifier>(right->loc, leftType);
+            auto castExpr = spnew<CastExpression>(right->loc, right->scope, castTypeSpec, right);
+            right = castExpr;
             VisitChild(right);
             rightType = right->EvaluateType();
-        }
-        else if(leftType->IsFunctorInterface() && rightType->IsFunctorClass())
-        {
-            // functor expression
-            auto functorInterface = leftType->GetDefinition()->ToFunctorInterfaceDefinition();
-            auto functorClass = rightType->GetDefinition()->ToFunctorClassDefinition();
-
-            bool alreadyHasInterface = false;
-
-            for(auto& itf : functorClass->interfaces)
-            {
-                if(itf->type == leftType)
-                {
-                    alreadyHasInterface = true;
-                    break;
-                }
-            }
-
-            if(!alreadyHasInterface)
-            {
-                auto itfTypeSpec = spnew<TypeSpecifier>(
-                    functorInterface->loc,
-                    astRoot->global->scope.get(),
-                    functorInterface->qualifiedName );
-
-                functorClass->interfaces.push_back(itfTypeSpec);
-                functorClass->implementations.clear();
-                VisitChild(functorClass);
-            }
         }
         else
         {
@@ -593,35 +629,68 @@ void SemanticAnalyzer::Visit(const sptr<BasicTypeDefinition>& node) {
     ASTVisitor::Visit(node);
 }
 
-sptr<FunctionDefinition> GetMatchingFunction(const sptr<Definition>& def, FunctionDefinition* reference)
+sptr<FunctionDefinition> SemanticAnalyzer::GetMatchingFunction(const sptr<ClassDefinition>& classDef, const sptr<InterfaceDefinition>& interfaceDef, const sptr<FunctionDefinition>& interfaceFunc)
 {
     sptr<FunctionDefinition> match;
+     
+    auto itfFuncParams = interfaceFunc->GetChildren<ParameterDefinition>();
 
-    auto refParams = reference->GetChildren<ParameterDefinition>();
-
-    for(auto& def : def->scope->FindDefinitions(reference->name))
+    for(auto& def : classDef->scope->FindDefinitions(interfaceFunc->name))
     {
         if(auto func = def->ToFunctionDefinition())
         {
             auto funcParams = func->GetChildren<ParameterDefinition>();
 
-            if(funcParams.count() == refParams.count())
+            if(funcParams.count() == itfFuncParams.count())
             {
                 bool paramsMatch = true;
+                size_t i = 0;
 
-                for(auto fp = funcParams.begin(), rp = refParams.begin();
-                    fp != funcParams.end(); ++fp, ++rp)
+                for(auto fp = funcParams.begin(), ifp = itfFuncParams.begin();
+                    fp != funcParams.end(); ++fp, ++ifp, ++i)
                 {
                     auto& funcParamType = (*fp)->typeSpec;
-                    auto& refParamType = (*rp)->typeSpec;
+                    auto& itfFuncParamType = (*ifp)->typeSpec;
 
                     assert(funcParamType->type);
-                    assert(refParamType->type);
+                    assert(itfFuncParamType->type);
 
-                    if(funcParamType->type != refParamType->type)
+                    if (i == 0)
                     {
-                        paramsMatch = false;
-                        break;
+                        // TODO: remove this?
+                        // The first param should be a class that implements the interface.
+                        // We probably don't need to check the first param since implicit "this" is added
+                        // automatically and would always be the class that implements the interface.
+                        bool firstParamImplementsInterface = false;
+
+                        if (auto contextDef = funcParamType->type->GetDefinition())
+                        {
+                            if (auto contextClassDef = contextDef->ToClassDefinition())
+                            {
+                                for (auto& itf : contextClassDef->interfaces)
+                                {
+                                    if (itf->type == interfaceDef->type)
+                                    {
+                                        firstParamImplementsInterface = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        if (!firstParamImplementsInterface)
+                        {
+                            paramsMatch = false;
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        if (funcParamType->type != itfFuncParamType->type)
+                        {
+                            paramsMatch = false;
+                            break;
+                        }
                     }
                 }
 
@@ -658,14 +727,8 @@ void SemanticAnalyzer::Visit(const sptr<ClassDefinition>& node)
 
             for(auto interfaceFunc : interfaceDef->GetChildren<FunctionDefinition>())
             {
-                auto classFunc = GetMatchingFunction(node, interfaceFunc.get());
-                if(!classFunc)
-                {
-                    classFunc = GetMatchingFunction(node, interfaceFunc.get());
-                }
-
-                ENFORCE(!!classFunc, itfTypeSpec->loc, "missing implementation for function: {}", interfaceFunc->name);
-                
+                auto classFunc = GetMatchingFunction(node, interfaceDef, interfaceFunc);
+                ENFORCE(!!classFunc, itfTypeSpec->loc, "missing implementation for function: {}", interfaceFunc->name);                
                 node->implementations.back().push_back(classFunc.get());
             }
         }
@@ -1458,6 +1521,8 @@ void SemanticAnalyzer::Visit(const sptr<BinaryExpression>& node)
     ProcessBinaryOperation(node);
     
     // now that type checks and promotions have been done...
+    leftType = node->left->EvaluateType();
+    rightType = node->right->EvaluateType();
 
     if (leftType->IsString() && rightType->IsString())
     {
@@ -1523,12 +1588,20 @@ sptr<FunctionDefinition> SemanticAnalyzer::FindDefinition(Scope* scope, const st
         {
             auto params = func->GetChildren<ParameterDefinition>();
             auto paramCount = params.count();
-            
+
+            auto currentParam = params.begin();
+
+            // skip the implicit 'this' parameter; the context is bound by lookup
+            if(func->HasImplicitThisParam())
+            {
+                ++currentParam;
+                --paramCount;
+            }
+
             // reject if arg count doesnt match
             if(paramCount != arguments.size())
                 continue;
 
-            auto currentParam = params.begin();
             auto currentArg = arguments.begin();
 
             for( ; currentParam != params.end(); ++currentParam, ++currentArg)
@@ -1606,6 +1679,34 @@ void SemanticAnalyzer::FindCallTargets(std::string_view name, Scope* fromScope, 
                     }
                 }
             }
+            else if(auto param = def->ToParameterDefinition())
+            {
+                VisitChild(param->typeSpec);
+
+                if(auto paramTypeDef = param->typeSpec->type->GetDefinition())
+                {
+                    if(auto functor = paramTypeDef->ToFunctorInterfaceDefinition())
+                    {
+                        auto targetFunc = functor->GetFunction("invoke");
+                        assert(targetFunc);
+                        callTargets.push_back(param);
+                    }
+                }
+            }
+            else if(auto prop = def->ToPropertyDefinition())
+            {
+                VisitChild(prop->typeSpec);
+
+                if(auto propTypeDef = prop->typeSpec->type->GetDefinition())
+                {
+                    if(auto functor = propTypeDef->ToFunctorInterfaceDefinition())
+                    {
+                        auto targetFunc = functor->GetFunction("invoke");
+                        assert(targetFunc);
+                        callTargets.push_back(prop);
+                    }
+                }
+            }
         }
 
         if(sc == toScope)
@@ -1616,11 +1717,25 @@ void SemanticAnalyzer::FindCallTargets(std::string_view name, Scope* fromScope, 
 std::string GetFunctionParamListString(const sptr<FunctionDefinition>& func)
 {
     auto params = func->GetChildren<ParameterDefinition>();
-    auto paramStringView = params | std::views::transform([](const auto& param){ return param->typeSpec->GetTypeName() + " " + param->name; });
-    return std::ranges::join_with_view(paramStringView, ", ") | std::ranges::to<std::string>();
+    
+    std::string ret;
+    ret.reserve(params.count() * 8);
+
+    for(const auto& param : params)
+    {
+        if(!ret.empty())
+            ret += ", ";
+
+        ret += param->typeSpec->GetTypeName();
+        ret += " ";
+        ret += param->name;
+    }
+
+    return ret;
 }
 
 sptr<Definition> SemanticAnalyzer::SelectCallTarget(
+    std::string_view name,
     const SourceLocation& loc,
     const Scope* scope,
     const std::vector<sptr<Definition>>& callTargets,
@@ -1638,65 +1753,38 @@ sptr<Definition> SemanticAnalyzer::SelectCallTarget(
         auto params = func->GetChildren<ParameterDefinition>();
         auto paramCount = params.count();
 
+        auto currentParam = params.begin();
+
+        // skip the implicit 'this' parameter; the context is bound by lookup
+        if(func->HasImplicitThisParam())
+        {
+            ++currentParam;
+            --paramCount;
+        }
+
         // reject if arg count doesnt match
-        if(func->isUFC)
+        if(paramCount != arguments.size())
+            continue;
+
+        auto currentArg = arguments.begin();
+
+        for(; currentParam != params.end(); ++currentParam, ++currentArg)
         {
-            assert(context != nullptr);
-            if(paramCount != 1 + arguments.size())
-                continue;
+            auto param = *currentParam;
+            auto arg = *currentArg;
+
+            VisitChild(param);
+
+            auto paramType = param->typeSpec->GetType();
+            auto argType = arg->EvaluateType();
+
+            if(!IsAssignable(paramType, argType))
+                break;
         }
-        else
-        {
-            if(paramCount != arguments.size())
-                continue;
-        }
 
-        if(func->isUFC)
-        {
-            bool isMatch = true;
-            auto contextAndArgs = fraze::concat(std::views::single(context), arguments);
-
-            for(auto [param, arg] : std::views::zip(params, contextAndArgs))
-            {
-                VisitChild(param);
-
-                auto paramType = param->typeSpec->GetType();
-                auto argType = arg->EvaluateType();
-
-                if(!IsAssignable(paramType, argType))
-                {
-                    isMatch = false;
-                    break;
-                }
-            }
-
-            // reject if any arg type didn't match
-            if(!isMatch)
-                continue;
-        }
-        else
-        {
-            auto currentParam = params.begin();
-            auto currentArg = arguments.begin();
-
-            for(; currentParam != params.end(); ++currentParam, ++currentArg)
-            {
-                auto param = *currentParam;
-                auto arg = *currentArg;
-
-                VisitChild(param);
-
-                auto paramType = param->typeSpec->GetType();
-                auto argType = arg->EvaluateType();
-
-                if(!IsAssignable(paramType, argType))
-                    break;
-            }
-
-            // reject if any arg type didn't match
-            if(currentParam != params.end())
-                continue;
-        }
+        // reject if any arg type didn't match
+        if(currentParam != params.end())
+            continue;
 
         // match
         matches.push_back(target);
@@ -1710,11 +1798,11 @@ sptr<Definition> SemanticAnalyzer::SelectCallTarget(
         {
             if(callTargets.empty())
             {
-                ENFORCE(false, loc, "no definition found");
+                ENFORCE(false, loc, "no definition found for '{}'", name);
             }
             else
             {
-                std::string msg = std::format("no matching overload found:\n");
+                std::string msg = std::format("no matching overload found for '{}':\n", name);
                 for(auto& target : callTargets)
                 {
                     auto func = GetCallTargetFunction(target);
@@ -1738,6 +1826,11 @@ sptr<Definition> SemanticAnalyzer::SelectCallTarget(
             auto params = func->GetChildren<ParameterDefinition>();
 
             auto currentParam = params.begin();
+
+            // skip the implicit 'this' parameter to stay aligned with the arguments
+            if(func->HasImplicitThisParam())
+                ++currentParam;
+
             auto currentArg = arguments.begin();
 
             for( ; currentParam != params.end(); ++currentParam, ++currentArg)
@@ -1781,7 +1874,7 @@ sptr<Definition> SemanticAnalyzer::SelectCallTarget(
             if(!suppressErrors)
             {
                 // no exact matches or multiple exact matches, so can't prefer one
-                std::string msg = std::format("multiple matching overloads found:\n");
+                std::string msg = std::format("multiple matching overloads found for '{}':\n", name);
                 for(auto& ambiguousMatch : matches)
                 {
                     auto func = GetCallTargetFunction(ambiguousMatch);
@@ -1821,11 +1914,30 @@ sptr<Definition> SemanticAnalyzer::SelectCallTarget(
     return match;
 }
 
+sptr<ClassDefinition> SemanticAnalyzer::GetCoroutineOriginalClass(const sptr<ClassDefinition>& coroutineState)
+{
+    if(!coroutineState->originalClassType)
+        return nullptr;
+
+    VisitChild(coroutineState->originalClassType);
+
+    auto type = coroutineState->originalClassType->type;
+    return type ? type->GetDefinition()->ToClassDefinition() : sptr<ClassDefinition>{};
+}
+
 sptr<FunctionDefinition> SemanticAnalyzer::GetCallTargetFunction(const sptr<Definition>& target)
 {
     if(auto func = target->ToFunctionDefinition())
     {
         return func;
+    }
+    else if(auto functorInterface = target->ToFunctorInterfaceDefinition())
+    {
+        return functorInterface->GetFunction("invoke");
+    }
+    else if(auto functorClass = target->ToFunctorClassDefinition())
+    {
+        return functorClass->GetFunction("invoke");
     }
     else if(auto var = target->ToVariableDefinition())
     {
@@ -1847,132 +1959,194 @@ sptr<FunctionDefinition> SemanticAnalyzer::GetCallTargetFunction(const sptr<Defi
             }
         }
     }
+    else if(auto param = target->ToParameterDefinition())
+    {
+        if(auto paramTypeDef = param->typeSpec->type->GetDefinition())
+        {
+            if(auto functor = paramTypeDef->ToFunctorInterfaceDefinition())
+            {
+                return functor->GetFunction("invoke");
+            }
+        }
+    }
 
     return nullptr;
+}
+
+struct CallTarget
+{
+    sptr<Definition> target;
+    sptr<Expression> context;
+};
+std::vector<sptr<Definition>> SemanticAnalyzer::FindAllCallTargets(const sptr<IdentifierExpression>& node)
+{
+    std::vector<sptr<Definition>> callTargets;
+    std::vector<CallTarget> callTargets2;
+    
+    if (node->context)
+    {
+        Scope* scope{};
+
+        auto contextType = node->context->EvaluateType();
+        assert(contextType);
+
+        auto contextDef = contextType->GetDefinition();
+        scope = contextDef ? contextDef->scope.get() : nullptr;
+        ENFORCE(!!scope, node->loc, "invalid target for member expression");
+
+        FindCallTargets(node->value, scope, scope, callTargets);
+    }
+    else
+    {
+        // if identifier is inside a function
+        if (auto enclosingFunc = node->scope->owner->ToFunctionDefinition())
+        {
+            // search up through function locals and params
+            FindCallTargets(node->value, node->scope, enclosingFunc->scope.get(), callTargets);
+
+            // search enclosing class
+            auto enclosingClass = enclosingFunc->parent->ToClassDefinition();
+            if (enclosingClass)
+            {
+                bool isSpecialFunc = enclosingClass->isCoroutineState && (node->value == "GetValue" || node->value == "Resume");
+                if (!isSpecialFunc)
+                {
+                    auto classScope = enclosingClass->scope.get();
+                    FindCallTargets(node->value, classScope, classScope, callTargets);
+                }
+
+                // search coroutine enclosure's target class via 'this' reference
+                if (enclosingClass->isCoroutineState)
+                {
+                    if (auto originalClass = GetCoroutineOriginalClass(enclosingClass))
+                    {
+                        auto classScope = originalClass->scope.get();
+                        FindCallTargets(node->value, classScope, classScope, callTargets);
+                    }
+                }
+            }
+
+            // finish searching upward through globals
+            auto enclosingDef = enclosingClass ? enclosingClass->parent : enclosingFunc->parent;
+            FindCallTargets(node->value, enclosingDef->scope.get(), nullptr, callTargets);
+        }
+        else
+        {
+            // just search upward through globals
+            FindCallTargets(node->value, node->scope, nullptr, callTargets);
+        }
+    }
+
+    return callTargets;
 }
 
 void SemanticAnalyzer::VisitCallTarget(
     const sptr<IdentifierExpression>& node,
     std::vector<sptr<Expression>>& arguments)
 {
-    ENFORCE(node->value != "this", node->loc, "a constructor cannot be called directly");
-
     if(node->context)
-    {
         VisitChild(node->context);
-
-        auto contextType = node->context->EvaluateType();
-        if(contextType->IsStruct())
-        {
-            if( !node->context->ToIdentifierExpression() &&
-                !node->context->ToIndexExpression() &&
-                !node->context->ToFoldExpression() &&
-                !node->context->ToCachedExpression())
-            {
-                // Must be some r-value struct. Store in a temporary so we can reference it.
-                node->context->isContext = false;
-
-                auto cachedVarName = std::format("$temp_2_{}", nextUniqueId++);
-                auto cachedExpression = spnew<CachedExpression>(node->context, shared_string(std::move(cachedVarName)), true);
-                node->context = cachedExpression;
-
-                VisitChild(node->context);
-            }
-        }
-    }
 
     for(auto& arg : arguments)
         VisitChild(arg);
 
     if(!node->targetDef)
     {
-        std::vector<sptr<Definition>> callTargets;
-
-        if(node->context)
-        {
-            Scope* scope{};
-
-            auto contextType = node->context->EvaluateType();
-            assert(contextType);
-            
-            scope = contextType->GetDefinition()->scope.get();
-            assert(scope);
-            
-            ENFORCE(!!scope, node->loc, "invalid target for member expression");
-            FindCallTargets(node->value, scope, scope, callTargets);
-        }
-        else
-        {
-            // if identifier is in a function
-            if(auto enclosingFunc = node->scope->owner->ToFunctionDefinition())
-            {
-                // search up through function locals and params
-                FindCallTargets(node->value, node->scope, enclosingFunc->scope.get(), callTargets);
-
-                // search enclosing class
-                auto enclosingClass = enclosingFunc->parent->ToClassDefinition();
-                if(enclosingClass)
-                {
-                    bool isSpecialFunc = enclosingClass->isCoroutineState && (node->value == "GetValue" || node->value == "Resume");
-                    if(!isSpecialFunc)
-                    {
-                        auto classScope = enclosingClass->scope.get();
-                        FindCallTargets(node->value, classScope, classScope, callTargets);
-                    }
-                }
-
-                // search coroutine enclosure $this
-                if(enclosingClass && enclosingClass->isCoroutineState)
-                {
-                    if(auto thisDef = enclosingClass->scope->FindDefinition("$this"))
-                    {
-                        auto thisVarDef = thisDef->ToVariableDefinition();
-                        auto originalClassName = thisVarDef->typeSpec->GetTypeName(true);
-                        auto originalClass = thisVarDef->typeSpec->scope->SearchUpward(originalClassName);
-                        auto classScope = originalClass->scope.get();
-                        FindCallTargets(node->value, classScope, classScope, callTargets);
-                    }
-                }
-
-                // finish searching upward through globals
-                auto enclosingDef = enclosingClass ? enclosingClass->parent : enclosingFunc->parent;
-                FindCallTargets(node->value, enclosingDef->scope.get(), nullptr, callTargets);
-            }
-            else
-            {
-                // just search upward through globals
-                FindCallTargets(node->value, node->scope, nullptr, callTargets);
-            }
-        }
-
-        auto targetDef = SelectCallTarget(node->loc, node->scope, callTargets, node->context, arguments);
-        assert(!!targetDef); // SelectFunction should throw if no match found
-
-        if(!node->context)
-        {
-            if(auto enclosingFunc = node->scope->owner->ToFunctionDefinition())
-            {
-                auto enclosingClass = enclosingFunc->parent->ToClassDefinition();
-                if(enclosingClass && enclosingClass->isCoroutineState)
-                {
-                    if(auto thisDef = enclosingClass->scope->FindDefinition("$this"))
-                    {
-                        auto thisVarDef = thisDef->ToVariableDefinition();
-                        auto originalClassName = thisVarDef->typeSpec->GetTypeName(true);
-                        auto originalClass = thisVarDef->typeSpec->scope->SearchUpward(originalClassName);
-                        assert(originalClass);
-
-                        auto thisExpr = spnew<IdentifierExpression>(node->loc, enclosingClass->scope.get(), shared_string("$this"));
-                        thisExpr->targetDef = thisVarDef.get();
-                        node->context = thisExpr;
-                    }
-                }
-            }
-        }
+        std::vector<sptr<Definition>> callTargets = FindAllCallTargets(node);
+        sptr<Definition> targetDef = SelectCallTarget(node->value, node->loc, node->scope, callTargets, node->context, arguments);
 
         node->targetDef = targetDef.get();
-        auto func = GetCallTargetFunction(targetDef);
+        sptr<FunctionDefinition> func = GetCallTargetFunction(targetDef);
         VisitChild(func->returnType);
+
+        // Unified calling convention: a non-static member receives its instance as the
+        // implicit first argument. Now that the target is resolved, bind that context.
+        if(func->HasImplicitThisParam())
+        {
+            sptr<Expression> context;
+
+            // can be a function or a functor expression
+            if(auto namedFunction = targetDef->ToFunctionDefinition())
+            {
+                if(node->context)
+                {
+                    context = node->context;
+                }
+                else
+                {
+                    bool isContextCoroutine = false;
+
+                    if(auto enclosingFunc = node->scope->owner->ToFunctionDefinition())
+                    {
+                        auto enclosingClass = enclosingFunc->parent->ToClassDefinition();
+                        if(enclosingClass && enclosingClass->isCoroutineState)
+                        {
+                            // for a coroutine state, the context is the original class "$this" reference
+                            if(auto originalClass = GetCoroutineOriginalClass(enclosingClass))
+                            {
+                                if(namedFunction->parent == originalClass.get())
+                                    isContextCoroutine = true;
+                            }
+                        }
+                    }
+
+                    auto thisName = isContextCoroutine ? "$this" : "this";
+                    context = spnew<IdentifierExpression>(node->loc, node->scope, shared_string(thisName));
+                    VisitChild(context);
+                }
+
+                // TODO: use this for class references too as a place to put the null check
+                // If the context is an r-value struct (like a call returning a struct) then
+                // it has no stable address to pass by reference, so store it in a temp first
+                auto contextType = context->EvaluateType();
+                if (contextType->IsStruct())
+                {
+                    if (!context->ToIdentifierExpression() &&
+                        !context->ToIndexExpression() &&
+                        !context->ToFoldExpression() &&
+                        !context->ToCachedExpression())
+                    {
+                        context->pushAsRef = false;
+
+                        auto body = spnew<BlockStatement>(context->loc, node->scope);
+
+                        ScopeStack tempScopes;
+                        tempScopes.PushFromRoot(body->scope.get());
+                        Scope* foldScope = tempScopes.GetCurrent();
+
+                        // var tmp = context;
+                        auto varDefStmt = spnew<VariableDefinitionStatement>(context->loc, foldScope);
+                        auto typeSpec = spnew<TypeSpecifier>(context->loc, foldScope, shared_string("var"));
+                        varDefStmt->variableDefinition = spnew<VariableDefinition>(context->loc, foldScope, typeSpec, shared_string("tmp"));
+                        varDefStmt->variableDefinition->initializer = context;
+                        foldScope->AddDefinition(varDefStmt->variableDefinition);
+                        body->statements.push_back(varDefStmt);
+
+                        // tmp;
+                        auto finalTmpExpr = spnew<IdentifierExpression>(context->loc, foldScope, shared_string("tmp"));
+                        finalTmpExpr->pushAsRef = true;  // pushed by reference
+                        auto finalTmpStmt = spnew<ExpressionStatement>(finalTmpExpr, foldScope);
+                        body->statements.push_back(finalTmpStmt);
+
+                        context = spnew<FoldExpression>(context->loc, node->scope, body);
+                        VisitChild(context);
+                    }
+                    else
+                    {
+                        context->pushAsRef = true;
+                    }
+                }
+            }
+            else // functor variable
+            {
+                // the resolved function is actually "invoke" of the functor class and the context is the functor itself
+                context = spnew<IdentifierExpression>(node->loc, node->scope, node->context, node->value);
+                VisitChild(context);
+            }
+
+            arguments.insert(arguments.begin(), context);
+            node->context = nullptr;
+        }
     }
 }
 
@@ -1992,59 +2166,45 @@ void SemanticAnalyzer::Visit(const sptr<CallExpression>& node)
     if(auto ident = node->target->ToIdentifierExpression())
     {
         VisitCallTarget(ident, node->arguments);
-
-        auto targetDef = GetCallTargetFunction(ident->targetDef->self());
-        if(targetDef->isUFC && ident->context)
-        {
-            node->arguments.insert(node->arguments.begin(), ident->context);
-            ident->context = nullptr;
-        }
     }
     else
     {
         ASTVisitor::Visit(node);
+
+        Type* targetType = node->target->EvaluateType();
+
+        if(targetType->IsFunctorInterface() || targetType->IsFunctorClass())
+        {
+            auto invokeFunc = GetCallTargetFunction(targetType->GetDefinition()->self());
+
+            if(node->arguments.size() < invokeFunc->GetChildren<ParameterDefinition>().count())
+            {
+                node->arguments.insert(node->arguments.begin(), node->target);
+            }
+        }
     }
 
     auto ident = node->target->ToIdentifierExpression();
-    if(ident && ident->targetDef->ToFunctionDefinition())
+    if(ident && ident->targetDef)
     {
-        auto targetFunc = ident->targetDef->ToFunctionDefinition();
-        auto params = targetFunc->GetChildren<ParameterDefinition>();
+        // node->arguments now includes the implicit context (if any) as the first
+        // argument, so it lines up one-to-one with the target function's parameters.
+        auto targetFunc = GetCallTargetFunction(ident->targetDef->self());
 
-        auto currentParam = params.begin();
-        auto currentArg = node->arguments.begin();
-
-        for( ; currentParam != params.end(); ++currentParam, ++currentArg)
+        for (auto& def : targetFunc->scope->definitions)
         {
-            auto& typeSpec = (*currentParam)->typeSpec;
-            ProcessAssignment(typeSpec->loc, typeSpec->type, (*currentArg));
+            if (def->ToParameterDefinition())
+                VisitChild(def);
         }
-    }
-    else if(auto functorInterface = node->target->ToFunctorInterfaceDefinition())
-    {
-        auto targetFunc = functorInterface->GetFunction("invoke");
-        auto params = targetFunc->GetChildren<ParameterDefinition>();
 
+        auto params = targetFunc->GetChildren<ParameterDefinition>();
         auto currentParam = params.begin();
         auto currentArg = node->arguments.begin();
 
         for( ; currentParam != params.end(); ++currentParam, ++currentArg)
         {
             auto& typeSpec = (*currentParam)->typeSpec;
-            ProcessAssignment(typeSpec->loc, typeSpec->type, (*currentArg));
-        }
-    }
-    else if(auto functorClass = node->target->ToFunctorClassDefinition())
-    {
-        auto targetFunc = functorClass->GetFunction("invoke");
-        auto params = targetFunc->GetChildren<ParameterDefinition>();
-
-        auto currentParam = params.begin();
-        auto currentArg = node->arguments.begin();
-
-        for( ; currentParam != params.end(); ++currentParam, ++currentArg)
-        {
-            auto& typeSpec = (*currentParam)->typeSpec;
+            //VisitChild(typeSpec);
             ProcessAssignment(typeSpec->loc, typeSpec->type, (*currentArg));
         }
     }
@@ -2079,6 +2239,7 @@ void SemanticAnalyzer::Visit(const sptr<ConvertExpression>& node)
             auto callExpr = spnew<CallExpression>(node->loc, node->scope, targetFunc);
             callExpr->arguments.push_back(arg1);
             callExpr->arguments.push_back(arg2);
+            VisitChild(callExpr);
             replacement = callExpr;
             return;
         }
@@ -2122,152 +2283,178 @@ void SemanticAnalyzer::Visit(const sptr<FoldExpression>& node)
     ASTVisitor::Visit(node);
 }
 
+sptr<Definition> SemanticAnalyzer::FindIdentifierTarget(const sptr<IdentifierExpression>& node)
+{
+    sptr<Definition> targetDef;
+
+    if (node->context)
+    {
+        Scope* scope{};
+
+        auto contextType = node->context->EvaluateType();
+        assert(contextType);
+
+        auto contextDef = contextType->GetDefinition();
+        scope = contextDef ? contextDef->scope.get() : nullptr;
+        ENFORCE(!!scope, node->context->loc, "invalid target for member expression");
+
+        targetDef = scope->FindDefinition(node->value);
+    }
+    else
+    {
+        if (auto enclosingFunc = node->scope->owner->ToFunctionDefinition())
+        {
+            // search function locals and params
+            targetDef = Scope::SearchUpward(node->value, node->scope, enclosingFunc->scope);
+
+            // search enclosing class or struct
+            auto enclosingClass = enclosingFunc->parent->ToClassDefinition();
+            auto enclosingStruct = enclosingFunc->parent->ToStructDefinition();
+            auto enclosingScopedDef = utility::FirstTruthy(
+                enclosingClass ? enclosingClass->ToDefinition() : nullptr,
+                enclosingStruct ? enclosingStruct->ToDefinition() : nullptr);
+
+            if (!targetDef && enclosingScopedDef)
+            {
+                auto foundDef = enclosingScopedDef->scope->FindDefinition(node->value);
+                if (foundDef)
+                {
+                    if (!enclosingFunc->isStatic ||
+                        (foundDef->ToVariableDefinition() && foundDef->ToVariableDefinition()->isStatic) ||
+                        (foundDef->ToPropertyDefinition() && foundDef->ToPropertyDefinition()->isStatic))
+                    {
+                        targetDef = foundDef;
+                    }
+                }
+            }
+
+            // search coroutine enclosure's target class via 'this' reference
+            if (!targetDef && enclosingClass && enclosingClass->isCoroutineState)
+            {
+                if (auto originalClass = GetCoroutineOriginalClass(enclosingClass))
+                {
+                    targetDef = originalClass->scope->FindDefinition(node->value);
+                }
+            }
+
+            // finish searching upward through globals
+            if (!targetDef)
+            {
+                auto enclosingDef = enclosingScopedDef ? enclosingScopedDef->parent : enclosingFunc->parent;
+                targetDef = enclosingDef->scope->SearchUpward(node->value);
+            }
+        }
+        else
+        {
+            // just search upward through globals
+            targetDef = node->scope->SearchUpward(node->value);
+        }
+    }
+
+    return targetDef;
+}
+
 void SemanticAnalyzer::Visit(const sptr<IdentifierExpression>& node)
 {
     if(node->context)
     {
         VisitChild(node->context);
 
-        auto contextType = node->context->EvaluateType();
-        if(contextType->IsStruct())
+        if(node->context->EvaluateType()->IsArray())
         {
-            if( !node->context->ToIdentifierExpression() &&
-                !node->context->ToIndexExpression() &&
-                !node->context->ToFoldExpression() &&
-                !node->context->ToCachedExpression())
+            if(node->value == "Count")
             {
-                // Must be some r-value struct. Store in a temporary so we can reference it.
-                node->context->isContext = false;
-
-                auto cachedVarName = std::format("$temp_2_{}", nextUniqueId++);
-                auto cachedExpression = spnew<CachedExpression>(node->context, shared_string(std::move(cachedVarName)), true);
-                node->context = cachedExpression;
-
-                VisitChild(node->context);
+                auto expectedType = spnew<TypeSpecifier>(node->loc, node->scope, shared_string("int"));
+                auto emitExpr = spnew<EmitExpression>(node->loc, node->scope, expectedType, node->context,
+                    std::vector<Emission>{
+                        Emission{ node->context->loc, Operation(OpCode::NullCheck) },
+                        Emission{ node->loc, Operation(OpCode::PushCount) }
+                    });
+                VisitChild(emitExpr);
+                replacement = emitExpr;
+                return;
+            }
+            else if(node->value == "Size")
+            {
+                auto expectedType = spnew<TypeSpecifier>(node->loc, node->scope, shared_string("int"));
+                auto emitExpr = spnew<EmitExpression>(node->loc, node->scope, expectedType, node->context,
+                    std::vector<Emission>{
+                        Emission{ node->context->loc, Operation(OpCode::NullCheck) },
+                        Emission{ node->loc, Operation(OpCode::PushSize) }
+                    });
+                VisitChild(emitExpr);
+                replacement = emitExpr;
+                return;
             }
         }
     }
 
     if(!node->targetDef)
     {
-        sptr<Definition> targetDef;
+        sptr<Definition> targetDef = FindIdentifierTarget(node);
+        ENFORCE(!!targetDef, node->loc, "unknown identifier: {}", node->value);
+        node->targetDef = targetDef.get();
 
-        if(node->context)
+        // add implicit this if needed
+        sptr<Expression> context;
+
+        if (node->context)
         {
-            if(node->context->EvaluateType()->IsArray())
+            context = node->context;
+        }
+        // this is currently kind of broken because "static" is conflated with meaning !isMember
+        else if ((targetDef->ToVariableDefinition() && !targetDef->ToVariableDefinition()->isStatic) ||
+                (targetDef->ToPropertyDefinition() && !targetDef->ToPropertyDefinition()->isStatic) ||
+                (targetDef->ToFunctionDefinition() && targetDef->ToFunctionDefinition()->HasImplicitThisParam()))
+        {
+            if (auto enclosingFunc = node->scope->owner->ToFunctionDefinition())
             {
-                if(node->value == "Count")
+                if (enclosingFunc->HasImplicitThisParam() && targetDef->parent == enclosingFunc->parent)
                 {
-                    auto expectedType = spnew<TypeSpecifier>(node->loc, node->scope, shared_string("int"));
-                    auto emitExpr = spnew<EmitExpression>(node->loc, node->scope, expectedType, node->context,
-                        std::vector<Emission>{
-                            Emission{ node->context->loc, Operation(OpCode::NullCheck) },
-                            Emission{ node->loc, Operation(OpCode::PushCount) }
-                        });
-                    VisitChild(emitExpr);
-                    replacement = emitExpr;
-                    return;
+                    context = spnew<IdentifierExpression>(node->loc, node->scope, shared_string("this"));
+                    VisitChild(context);
                 }
-                else if(node->value == "Size")
+                else if (auto enclosingClass = enclosingFunc->parent->ToClassDefinition();
+                        enclosingClass && enclosingClass->isCoroutineState)
                 {
-                    auto expectedType = spnew<TypeSpecifier>(node->loc, node->scope, shared_string("int"));
-                    auto emitExpr = spnew<EmitExpression>(node->loc, node->scope, expectedType, node->context,
-                        std::vector<Emission>{
-                            Emission{ node->context->loc, Operation(OpCode::NullCheck) },
-                            Emission{ node->loc, Operation(OpCode::PushSize) }
-                        });
-                    VisitChild(emitExpr);
-                    replacement = emitExpr;
-                    return;
+                    // target was reached via the coroutine state's 'this' field
+                    if (auto originalClass = GetCoroutineOriginalClass(enclosingClass);
+                        originalClass && targetDef->parent == originalClass.get())
+                    {
+                        context = spnew<IdentifierExpression>(node->loc, node->scope, shared_string("$this"));
+                        VisitChild(context);
+                    }
                 }
             }
-
-            Scope* scope{};
-
-            auto contextType = node->context->EvaluateType();
-            assert(contextType);
-            
-            auto contextDef = contextType->GetDefinition();
-            scope = contextDef ? contextType->GetDefinition()->scope.get() : nullptr;
-
-            ENFORCE(!!scope, node->context->loc, "invalid target for member expression");
-            targetDef = scope->FindDefinition(node->value);
         }
-        else
-        {
-            // if identifier is in a function
-            if(auto enclosingFunc = node->scope->owner->ToFunctionDefinition())
-            {
-                // maybe null
-                auto enclosingClass = enclosingFunc->parent->ToClassDefinition();
-                auto enclosingStruct = enclosingFunc->parent->ToStructDefinition();
-                auto enclosingScopedDef = utility::Either<sptr<Definition>>(enclosingClass, enclosingStruct);
 
-                if(node->value == "this")
+        if(context)
+        {
+            // if the context is an r-value struct (like a call returning a struct) then it has no
+            // stable address, so store it in a temp that can be referenced (e.g. via PushRefField)
+            auto contextType = context->EvaluateType();
+            if(contextType->IsStruct())
+            {
+                if( !context->ToIdentifierExpression() &&
+                    !context->ToIndexExpression() &&
+                    !context->ToFoldExpression() &&
+                    !context->ToCachedExpression())
                 {
-                    ENFORCE((!!enclosingClass || !!enclosingStruct) && !enclosingFunc->isStatic,
-                        node->loc, "'this' cannot be used here");
-                    targetDef = enclosingClass ? enclosingClass->ToDefinition() : enclosingStruct->ToDefinition();
+                    context->pushAsRef = false;
+                    auto cachedVarName = std::format("$temp_2_{}", nextUniqueId++);
+                    auto cachedExpression = spnew<CachedExpression>(context, shared_string(std::move(cachedVarName)), true);
+                    context = cachedExpression;
+                    VisitChild(context);
                 }
                 else
                 {
-                    // search up through function locals and params
-                    targetDef = node->scope->SearchUpward(node->value, enclosingFunc->scope.get());
-
-                    // search enclosing class or struct
-                    if(!targetDef && enclosingScopedDef)
-                    {
-                        auto foundDef = node->scope->SearchUpward(node->value, enclosingScopedDef->scope.get());
-                        if(foundDef)
-                        {
-                            if(!enclosingFunc->isStatic ||
-                                (foundDef->ToPropertyDefinition() && foundDef->ToPropertyDefinition()->isStatic) ||
-                                (foundDef->ToVariableDefinition() && foundDef->ToVariableDefinition()->isStatic) ||
-                                (foundDef->ToFunctionDefinition() && foundDef->ToFunctionDefinition()->isStatic))
-                            {
-                                targetDef = foundDef;
-                            }
-                        }
-                    }
-
-                    // search coroutine enclosure $this
-                    if(!targetDef && enclosingClass && enclosingClass->isCoroutineState)
-                    {
-                        auto thisDef = enclosingClass->scope->FindDefinition("$this");
-                        if(thisDef)
-                        {
-                            auto thisVarDef = thisDef->ToVariableDefinition();
-                            auto originalClassName = thisVarDef->typeSpec->GetTypeName(true);
-                            auto originalClass = thisVarDef->typeSpec->scope->SearchUpward(originalClassName);
-                            assert(originalClass);
-
-                            targetDef = originalClass->scope->FindDefinition(node->value);
-                            if(targetDef)
-                            {
-                                auto thisExpr = spnew<IdentifierExpression>(node->loc, enclosingClass->scope.get(), shared_string("$this"));
-                                thisExpr->targetDef = thisVarDef.get();
-                                node->context = thisExpr;
-                            }
-                        }
-                    }
-
-                    // finish searching upward through globals
-                    if(!targetDef)
-                    {
-                        auto enclosingDef = enclosingScopedDef ? enclosingScopedDef->parent : enclosingFunc->parent;
-                        targetDef = enclosingDef->scope->SearchUpward(node->value);
-                    }
+                    context->pushAsRef = true;
                 }
-            }
-            else
-            {
-                // just search upward through globals
-                targetDef = node->scope->SearchUpward(node->value);
             }
         }
 
-        ENFORCE(!!targetDef, node->loc, "unknown identifier: {}", node->value);
-        
+        node->context = context;
+
         if(auto targetParentClassDef = targetDef->parent->ToClassDefinition())
         {
             VisitChild(targetParentClassDef->originalClassType);
@@ -2383,8 +2570,7 @@ void SemanticAnalyzer::Visit(const sptr<NewExpression>& node)
             }
         }
     }
-    else if(auto targetType = node->typeSpec->type;
-        targetType->IsClass() || targetType->IsStruct())
+    else if(auto targetType = node->typeSpec->type; targetType->IsClass() || targetType->IsStruct())
     {
         Definition* def = targetType->GetDefinition();
         Scope* scope = nullptr;
@@ -2400,61 +2586,71 @@ void SemanticAnalyzer::Visit(const sptr<NewExpression>& node)
         {
             std::vector<sptr<Definition>> callTargets;
             FindCallTargets("#this", scope, scope, callTargets);
-            sptr<Definition> initDef = SelectCallTarget(node->loc, node->scope, callTargets, nullptr, node->arguments, true);
+            sptr<Definition> initDef = SelectCallTarget("#this", node->loc, node->scope, callTargets, nullptr, node->arguments, true);
             node->hasConstructor = !!initDef;
 
+            // lower to constructor call: ctor(args) or ctor(newExpr, args)
             if(node->hasConstructor.value())
             {
-                sptr<Expression> context = node;
-
-                auto ctor = GetCallTargetFunction(initDef);
-                if(ctor->isExternal)
-                {
-                    assert(!targetType->IsStruct());
-
-                    // external constructors do their own allocation
-                    context = spnew<IdentifierExpression>(node->loc, node->scope, node->typeSpec->GetTypeName());
-                }
-
-                if(targetType->IsStruct())
-                {
-                    // wrap new struct in a fold expression
-                    auto body = spnew<BlockStatement>(node->loc, node->scope);
-
-                    ScopeStack scopes;
-                    scopes.PushFromRoot(body->scope.get());
-                    Scope* foldScope = scopes.GetCurrent();
-
-                    // var tmp = context;
-                    auto varDefStmt = spnew<VariableDefinitionStatement>(node->loc, foldScope);
-                    auto typeSpec = spnew<TypeSpecifier>(node->loc, foldScope, shared_string("var"));
-                    varDefStmt->variableDefinition = spnew<VariableDefinition>(node->loc, foldScope, typeSpec, shared_string("tmp"));
-                    varDefStmt->variableDefinition->initializer = context;
-                    foldScope->AddDefinition(varDefStmt->variableDefinition);
-                    body->statements.push_back(varDefStmt);
-
-                    // tmp;
-                    auto finalTmpExpr = spnew<IdentifierExpression>(node->loc, foldScope, shared_string("tmp"));
-                    finalTmpExpr->isContext = true;
-                    auto finalTmpStmt = spnew<ExpressionStatement>(finalTmpExpr, foldScope);
-                    body->statements.push_back(finalTmpStmt);
-
-                    auto fold = spnew<FoldExpression>(node->loc, node->scope, body);
-
-                    VisitChild(fold);
-                    context = fold;
-                }
-
-                auto targetFunc = spnew<IdentifierExpression>(node->loc, node->scope, context, shared_string("#this"));
-                auto callExpr = spnew<CallExpression>(node->loc, node->scope, targetFunc);
-                callExpr->arguments = std::move(node->arguments);
+                // Remove args from the new expression so it's just a stub that
+                // can be used to initialize the object.
+                std::vector<sptr<Expression>> ctorArgs = std::move(node->arguments);
                 node->arguments.clear();
+
+                sptr<Expression> newExpr;
+
+                // If the ctor is not external, we add the 'new' expression as the first
+                // ctor arg, but with none of the caller-provided arguments so it will
+                // just do the allocation. The caller-provided args are passed to the ctor.
+                auto ctor = GetCallTargetFunction(initDef);
+                if (!ctor->isExternal)
+                {
+                    newExpr = node;
+
+                    // wrap in a fold expression if it's a struct so the arg will be passed by ref
+                    if (targetType->IsStruct())
+                    {
+                        // wrap new struct in a fold expression
+                        auto body = spnew<BlockStatement>(node->loc, node->scope);
+
+                        ScopeStack scopes;
+                        scopes.PushFromRoot(body->scope.get());
+                        Scope* foldScope = scopes.GetCurrent();
+
+                        // var tmp = newExpr;
+                        auto varDefStmt = spnew<VariableDefinitionStatement>(node->loc, foldScope);
+                        auto typeSpec = spnew<TypeSpecifier>(node->loc, foldScope, shared_string("var"));
+                        varDefStmt->variableDefinition = spnew<VariableDefinition>(node->loc, foldScope, typeSpec, shared_string("tmp"));
+                        varDefStmt->variableDefinition->initializer = newExpr;
+                        foldScope->AddDefinition(varDefStmt->variableDefinition);
+                        body->statements.push_back(varDefStmt);
+
+                        // tmp;
+                        auto finalTmpExpr = spnew<IdentifierExpression>(node->loc, foldScope, shared_string("tmp"));
+                        finalTmpExpr->pushAsRef = true;
+                        auto finalTmpStmt = spnew<ExpressionStatement>(finalTmpExpr, foldScope);
+                        body->statements.push_back(finalTmpStmt);
+
+                        auto fold = spnew<FoldExpression>(node->loc, node->scope, body);
+                        VisitChild(fold);
+                        newExpr = fold;
+                    }
+                }
+
+                // replace the NewExpression with a CallExpresssion to the ctor, passing the 
+                // args that were initially provided to the NewExpression. The ctor call will
+                // return the new object. For non-external constructors, we use the new expression
+                // as the identifier context, making this `new T{}.#this(args)`
+                auto targetFunc = spnew<IdentifierExpression>(node->loc, scope, newExpr, shared_string("#this"));
+                //targetFunc->targetDef = initDef.get();
+                auto callExpr = spnew<CallExpression>(node->loc, node->scope, targetFunc, std::move(ctorArgs));
                 VisitChild(callExpr);
                 replacement = callExpr;
                 return;
             }
         }
 
+        // If there's no constructor, process the args as field initializers.
         if(!node->hasConstructor.value())
         {
             auto fields = def->GetChildren<VariableDefinition>();
@@ -2799,8 +2995,9 @@ void SemanticAnalyzer::Visit(const sptr<ReturnStatement>& node)
     {
         if(node->context)
         {
-            auto enclosure = node->context->targetDef->ToClassDefinition();
-            auto valueField = enclosure->GetVariable("$value");
+            Type* contextType = node->context->EvaluateType();
+            sptr<ClassDefinition> classDef = contextType->GetDefinition()->ToClassDefinition();
+            auto valueField = classDef->GetVariable("$value");
             ENFORCE(!!valueField, node->loc, "Return type is void");
             ProcessAssignment(node->loc, valueField->typeSpec->type, node->expression);
         }

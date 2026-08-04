@@ -37,7 +37,7 @@ public:
                 trueValue->Clone(scopes, nullptr)->ToExpression(),
                 falseValue->Clone(scopes, nullptr)->ToExpression());
 
-        copy->isContext = isContext;
+        copy->pushAsRef = pushAsRef;
 
         return copy;
     }

@@ -36,7 +36,7 @@ public:
         auto copy = spnew<DefaultValueExpression>(loc, scopes.GetCurrent(),
                 typeSpec->Clone(scopes, nullptr)->ToTypeSpecifier());
 
-        copy->isContext = isContext;
+        copy->pushAsRef = pushAsRef;
 
         return copy;
     }

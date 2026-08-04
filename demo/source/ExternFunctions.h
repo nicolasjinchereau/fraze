@@ -26,41 +26,41 @@ Integer Time_GetTicksPerSecond();
 
 // WINDOW
 Object* NativeWindow_this(Program* program, Object& window, const String& title, Integer x, Integer y, Integer width, Integer height);
-void NativeWindow_Show(Object& windowObj);
-void NativeWindow_Hide(Object& windowObj);
-void NativeWindow_Close(Object& windowObj);
-Integer NativeWindow_PumpMessage(Object& windowObj);
-Integer NativeWindow_GetWidth(Object& windowObj);
-Integer NativeWindow_GetHeight(Object& windowObj);
+void NativeWindow_Show(Object& self);
+void NativeWindow_Hide(Object& self);
+void NativeWindow_Close(Object& self);
+Integer NativeWindow_PumpMessage(Object& self);
+Integer NativeWindow_GetWidth(Object& self);
+Integer NativeWindow_GetHeight(Object& self);
 
 // GRAPHICS
 Object* NativeGraphics_this(Program* program);
-void NativeGraphics_SetRenderTarget(Object& graphicsObj, Object& windowObj);
-void NativeGraphics_SetShader(Object& graphicsObj, Object& shaderObj);
-void NativeGraphics_SetVertexBuffer(Object& graphicsObj, Object& bufferObj);
-void NativeGraphics_SetIndexBuffer(Object& graphicsObj, Object& bufferObj);
-void NativeGraphics_SetClearColor(Object& graphicsObj, const Color& color);
-void NativeGraphics_SetViewport(Object& graphicsObj, IntRect rect);
-IntRect NativeGraphics_GetViewport(Object& graphicsObj);
-void NativeGraphics_SetCullMode(Object& graphicsObj, CullMode mode);
-void NativeGraphics_SetScissorTestEnabled(Object& graphicsObj, bool enabled);
-void NativeGraphics_SetScissorRect(Object& graphicsObj, IntRect rect);
-void NativeGraphics_SetDepthTest(Object& graphicsObj, DepthTest test);
-void NativeGraphics_SetDepthWriteEnabled(Object& graphicsObj, bool enabled);
-void NativeGraphics_SetBlendingEnabled(Object& graphicsObj, bool enabled);
-void NativeGraphics_SetBlendOperations(Object& graphicsObj, BlendOperation colorBlendOp, BlendOperation alphaBlendOp);
-void NativeGraphics_SetBlendFactors(Object& graphicsObj, BlendFactor sourceColor, BlendFactor destColor, BlendFactor sourceAlpha, BlendFactor destAlpha);
-void NativeGraphics_SetColorMask(Object& graphicsObj, bool red, bool green, bool blue, bool alpha);
-void NativeGraphics_SetBlendColor(Object& graphicsObj, const Color& color);
-void NativeGraphics_Clear(Object& graphicsObj);
-void NativeGraphics_Present(Object& graphicsObj);
-void NativeGraphics_DrawArray(Object& graphicsObj, Integer start, Integer count, DrawMode mode);
-void NativeGraphics_DrawIndexed(Object& graphicsObj, Integer start, Integer count, DrawMode mode);
+void NativeGraphics_SetRenderTarget(Object& self, Object& windowObj);
+void NativeGraphics_SetShader(Object& self, Object& shaderObj);
+void NativeGraphics_SetVertexBuffer(Object& self, Object& bufferObj);
+void NativeGraphics_SetIndexBuffer(Object& self, Object& bufferObj);
+void NativeGraphics_SetClearColor(Object& self, const Color& color);
+void NativeGraphics_SetViewport(Object& self, IntRect rect);
+IntRect NativeGraphics_GetViewport(Object& self);
+void NativeGraphics_SetCullMode(Object& self, CullMode mode);
+void NativeGraphics_SetScissorTestEnabled(Object& self, bool enabled);
+void NativeGraphics_SetScissorRect(Object& self, IntRect rect);
+void NativeGraphics_SetDepthTest(Object& self, DepthTest test);
+void NativeGraphics_SetDepthWriteEnabled(Object& self, bool enabled);
+void NativeGraphics_SetBlendingEnabled(Object& self, bool enabled);
+void NativeGraphics_SetBlendOperations(Object& self, BlendOperation colorBlendOp, BlendOperation alphaBlendOp);
+void NativeGraphics_SetBlendFactors(Object& self, BlendFactor sourceColor, BlendFactor destColor, BlendFactor sourceAlpha, BlendFactor destAlpha);
+void NativeGraphics_SetColorMask(Object& self, bool red, bool green, bool blue, bool alpha);
+void NativeGraphics_SetBlendColor(Object& self, const Color& color);
+void NativeGraphics_Clear(Object& self);
+void NativeGraphics_Present(Object& self);
+void NativeGraphics_DrawArray(Object& self, Integer start, Integer count, DrawMode mode);
+void NativeGraphics_DrawIndexed(Object& self, Integer start, Integer count, DrawMode mode);
 
 // SHADER
 Object* NativeShader_this(Program* program, Object& graphicsObj, const String& src, const String& vertexEntry, const String& pixelEntry);
-void NativeShader_SetUniformMat4(Object& shaderObj, const String& name, const Mat4& value);
-void NativeShader_SetUniformTex(Object& shaderObj, const String& name, Object& textureObj);
+void NativeShader_SetUniformMat4(Object& self, const String& name, const Mat4& value);
+void NativeShader_SetUniformTex(Object& self, const String& name, Object& textureObj);
 void Shader_CreateShaderObjectAsync(Program* program, Class& task, Object& graphicsObj, const String& src, const String& vertexEntry, const String& pixelEntry);
 
 // TEXTURE
@@ -75,9 +75,9 @@ void Model_ImportModelObjectAsync(Program* program, Class& task, Object& graphic
 // NATIVE BUFFER
 Object* NativeBuffer_this_size(Program* program, Object& graphicsObj, BufferType type, BufferUsage usage, BufferCPUAccess cpuAccess, Integer size);
 Object* NativeBuffer_this_data(Program* program, Object& graphicsObj, BufferType type, BufferUsage usage, BufferCPUAccess cpuAccess, const Array<>& data);
-void NativeBuffer_SetData(Object& bufferObj, const Array<>& data);
-Integer NativeBuffer_GetSize(Object& bufferObj);
-Integer NativeBuffer_GetStride(Object& bufferObj);
+void NativeBuffer_SetData(Object& self, const Array<>& data);
+Integer NativeBuffer_GetSize(Object& self);
+Integer NativeBuffer_GetStride(Object& self);
 
 // FILE
 String* File_ReadAllText(Program* program, const String& path);

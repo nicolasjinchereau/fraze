@@ -19,7 +19,7 @@ public:
     {
         auto copy = spnew<IntegerLiteralExpression>(loc, scopes.GetCurrent(), value);
 
-        copy->isContext = isContext;
+        copy->pushAsRef = pushAsRef;
 
         return copy;
     }

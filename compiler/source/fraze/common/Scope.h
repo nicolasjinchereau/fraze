@@ -34,7 +34,11 @@ public:
     auto FindDefinitions(std::string_view name);
     
     // searches upward for a definition with 'name'
-    sptr<Definition> SearchUpward(std::string_view name, Scope* toScope = nullptr);
+    static sptr<Definition> SearchUpward(std::string_view name, sptr_view<Scope> fromScope, sptr_view<Scope> toScope);
+
+    sptr<Definition> SearchUpward(std::string_view name, sptr_view<Scope> toScope = nullptr) {
+        return SearchUpward(name, this, toScope);
+    }
 
     Scope* GetRoot();
 

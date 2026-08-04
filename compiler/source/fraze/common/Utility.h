@@ -140,9 +140,15 @@ inline std::string ReadFile(const std::filesystem::path& path)
 }
 
 template<class T>
-inline const T& Either(const T& a, const T& b)
+constexpr const T& FirstTruthy(const T& value)
 {
-    return a ? a : b;
+    return value;
+}
+
+template<class T, class... Rest>
+constexpr const T& FirstTruthy(const T& first, const Rest&... rest)
+{
+    return first ? first : FirstTruthy(rest...);
 }
 
 class TypeNameSplitter

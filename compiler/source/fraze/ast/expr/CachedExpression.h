@@ -20,7 +20,7 @@ public:
     sptr<VariableDefinitionStatement> cache;
     sptr<IdentifierExpression> value;
 
-    CachedExpression(const sptr<Expression>& expr, const shared_string& name, bool isContext = false)
+    CachedExpression(const sptr<Expression>& expr, const shared_string& name, bool pushAsRef = false)
         : Expression(expr->loc, expr->scope)
     {
         auto exprType =  expr->EvaluateType();
@@ -32,7 +32,7 @@ public:
         scope->AddDefinition(cache->variableDefinition);
 
         value = spnew<IdentifierExpression>(loc, scope, name);
-        value->isContext = isContext;
+        value->pushAsRef = pushAsRef;
     }
 
     virtual sptr<ASTNode> Clone(ScopeStack& scopes, const sptr<TypeSpecifier>& templateType) override
@@ -40,9 +40,9 @@ public:
         auto copy = spnew<CachedExpression>(
                 cache->variableDefinition->initializer->Clone(scopes, nullptr)->ToExpression(),
                 value->value,
-                value->isContext);
+                value->pushAsRef);
 
-        copy->isContext = isContext;
+        copy->pushAsRef = pushAsRef;
 
         return copy;
     }
