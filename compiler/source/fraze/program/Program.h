@@ -133,8 +133,6 @@ private:
     void Execute_PushInteger(const Operation& op);
     void Execute_PushNumber(const Operation& op);
     void Execute_PushNull(const Operation& op);
-    void Execute_PushCount(const Operation& op);
-    void Execute_PushSize(const Operation& op);
     void Execute_Pop(const Operation& op);
     void Execute_Reserve(const Operation& op);
     void Execute_NewArray(const Operation& op);
@@ -218,8 +216,6 @@ private:
         &Program::Execute_PushInteger,
         &Program::Execute_PushNumber,
         &Program::Execute_PushNull,
-        &Program::Execute_PushCount,
-        &Program::Execute_PushSize,
         &Program::Execute_Pop,
         &Program::Execute_Reserve,
         &Program::Execute_NewArray,

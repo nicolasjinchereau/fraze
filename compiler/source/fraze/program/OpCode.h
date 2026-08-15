@@ -82,12 +82,6 @@ enum class OpCode : uint8_t
     // Push a null reference to the stack
     PushNull,
 
-    // push an array's element count to the stack
-    PushCount,
-
-    // push an array's total word size to the stack
-    PushSize,
-
     // Pop stack and discard
     Pop,
 
@@ -198,8 +192,6 @@ inline std::unordered_map<OpCode, std::string> OpCodeNames {
     { OpCode::PushInteger,     "PushInteger" },
     { OpCode::PushNumber,      "PushNumber" },
     { OpCode::PushNull,        "PushNull" },
-    { OpCode::PushCount,       "PushCount" },
-    { OpCode::PushSize,        "PushSize" },
     { OpCode::Pop,             "Pop" },
     { OpCode::Reserve,         "Reserve" },
     { OpCode::NewArray,        "NewArray" },

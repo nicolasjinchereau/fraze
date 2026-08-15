@@ -54,6 +54,12 @@ class GC
     extern static void Report();
 }
 
+class Array
+{
+    extern static int GetCount(object arr);
+    extern static int GetSize(object arr);
+}
+
 extern class Type
 {
     extern static Type Find(int typeID);

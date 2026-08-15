@@ -214,6 +214,20 @@ inline Integer Object_GetHashCode(const Object& value)
     return u.integer;
 }
 
+inline Integer Array_GetCount(const Object& arrayObj)
+{
+    ENFORCE(arrayObj.GetTypeInfo()->ToArrayInfo(), SourceLocation(), "argument must be an array");
+    const Array<>& arrRef = static_cast<const Array<>&>(arrayObj);
+    return static_cast<Integer>(arrRef.GetCount());
+}
+
+inline Integer Array_GetSize(const Object& arrayObj)
+{
+    ENFORCE(arrayObj.GetTypeInfo()->ToArrayInfo(), SourceLocation(), "argument must be an array");
+    const Array<>& arrRef = static_cast<const Array<>&>(arrayObj);
+    return static_cast<Integer>(arrRef.GetSize());
+}
+
 inline Object* Type_Find(Program* program, const Integer& typeID)
 {
     return program->typeInfo[typeID].get();

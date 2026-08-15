@@ -309,8 +309,6 @@ void Program::VerifyHandlers()
     VERIFY_HANDLER_INDEX(PushInteger);
     VERIFY_HANDLER_INDEX(PushNumber);
     VERIFY_HANDLER_INDEX(PushNull);
-    VERIFY_HANDLER_INDEX(PushCount);
-    VERIFY_HANDLER_INDEX(PushSize);
     VERIFY_HANDLER_INDEX(Pop);
     VERIFY_HANDLER_INDEX(Reserve);
     VERIFY_HANDLER_INDEX(NewArray);
@@ -692,22 +690,6 @@ void Program::Execute_PushNumber(const Operation& op)
 void Program::Execute_PushNull(const Operation& op)
 {
     (++rsp)->object = nullptr;
-    ++rip;
-}
-
-void Program::Execute_PushCount(const Operation& op)
-{
-    Word* top = rsp;
-    Array<>* arr = top->GetArray();
-    top->integer = arr->GetCount();
-    ++rip;
-}
-
-void Program::Execute_PushSize(const Operation& op)
-{
-    Word* top = rsp;
-    Array<>* arr = top->GetArray();
-    top->integer = arr->GetSize();
     ++rip;
 }
 
@@ -1427,7 +1409,6 @@ void Program::PrintOperation(size_t index, std::ostream& stream)
         break;
 
     case OpCode::PushNull:
-    case OpCode::PushSize:
     case OpCode::Dup:
     case OpCode::Return:
     case OpCode::LogicalOr:

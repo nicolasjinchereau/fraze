@@ -40,6 +40,8 @@ Compiler::Compiler(std::string_view assetsPath)
     AddFunction("String.FromEnum", &String_FromEnum);
     AddFunction("GC.Collect", &GC_Collect);
     AddFunction("GC.Report", &GC_Report);
+    AddFunction("Array.GetCount", &Array_GetCount);
+    AddFunction("Array.GetSize", &Array_GetSize);
     AddFunction("Type.Find", &Type_Find);
     AddFunction("Type.GetName", &Type_GetName);
     AddFunction("Type.IsInstance", &Type_IsInstance);

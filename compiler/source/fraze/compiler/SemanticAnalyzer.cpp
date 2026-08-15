@@ -2508,26 +2508,27 @@ void SemanticAnalyzer::Visit(const sptr<IdentifierExpression>& node)
 
         if(node->context->EvaluateType()->IsArray())
         {
+            auto loc = node->loc;
+            auto scope = node->scope;
+
             if(node->value == "Count")
             {
-                auto expectedType = spnew<TypeSpecifier>(node->loc, node->scope, shared_string("int"));
-                auto emitExpr = spnew<EmitExpression>(node->loc, node->scope, expectedType, WrapWithNullCheck(node->context),
-                    std::vector<Emission>{
-                        Emission{ node->loc, Operation(OpCode::PushCount) }
-                    });
-                VisitChild(emitExpr);
-                replacement = emitExpr;
+                auto context = spnew<IdentifierExpression>(loc, astRoot->global->scope.get(), shared_string("Array"));
+                auto targetFunc = spnew<IdentifierExpression>(loc, scope, context, shared_string("GetCount"));
+                auto callExpr = spnew<CallExpression>(loc, scope, targetFunc);
+                callExpr->arguments.push_back(node->context);
+                VisitChild(callExpr);
+                replacement = callExpr;
                 return;
             }
             else if(node->value == "Size")
             {
-                auto expectedType = spnew<TypeSpecifier>(node->loc, node->scope, shared_string("int"));
-                auto emitExpr = spnew<EmitExpression>(node->loc, node->scope, expectedType, WrapWithNullCheck(node->context),
-                    std::vector<Emission>{
-                        Emission{ node->loc, Operation(OpCode::PushSize) }
-                    });
-                VisitChild(emitExpr);
-                replacement = emitExpr;
+                auto context = spnew<IdentifierExpression>(loc, astRoot->global->scope.get(), shared_string("Array"));
+                auto targetFunc = spnew<IdentifierExpression>(loc, scope, context, shared_string("GetSize"));
+                auto callExpr = spnew<CallExpression>(loc, scope, targetFunc);
+                callExpr->arguments.push_back(node->context);
+                VisitChild(callExpr);
+                replacement = callExpr;
                 return;
             }
         }
