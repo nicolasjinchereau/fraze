@@ -126,6 +126,7 @@ private:
     sptr<ClassDefinition> GetCoroutineOriginalClass(const sptr<ClassDefinition>& coroutineState);
     void VisitCallTarget(const sptr<IdentifierExpression>& node, std::vector<sptr<Expression>>& arguments);
     sptr<Expression> WrapWithNullCheck(const sptr<Expression>& value);
+    sptr<Expression> WrapWithTypeCheck(const sptr<Expression>& value, Type* primitiveType);
 
     size_t GetVarSize(Type* type);
 

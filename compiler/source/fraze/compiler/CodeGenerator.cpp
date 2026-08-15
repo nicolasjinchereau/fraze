@@ -128,8 +128,6 @@ void CodeGenerator::PopExpression(const sptr<Expression>& node, const sptr<Expre
         // should leave an integer on the stack by which the array can be indexed
         VisitChild(ind->arg);
 
-        EmitBoundsCheck(ind->arg->loc);
-
         // push value sitting before array onto stack
         Emit(node->loc, OpCode::PushOffset, 2 + (size - 1), size);
 
@@ -183,10 +181,6 @@ void CodeGenerator::EmitConversion(sptr<Expression>& value, const sptr<TypeSpeci
         if (sourceType->IsObject())
         {
             // unbox boolean value
-            auto requiredType = Type::Get("Boolean");
-            auto requiredTypeId = typeInfo[requiredType]->ToClassInfo()->id;
-            EmitObjectTypeCheck(value->loc, requiredTypeId);
-
             Emit(value->loc, OpCode::PushField, 0, 1);
         }
     }
@@ -195,10 +189,6 @@ void CodeGenerator::EmitConversion(sptr<Expression>& value, const sptr<TypeSpeci
         if (sourceType->IsObject())
         {
             // unbox integer value
-            auto requiredType = Type::Get("Integer");
-            auto requiredTypeId = typeInfo[requiredType]->ToClassInfo()->id;
-            EmitObjectTypeCheck(value->loc, requiredTypeId);
-
             Emit(value->loc, OpCode::PushField, 0, 1);
         }
         else if (sourceType->IsNumber())
@@ -212,10 +202,6 @@ void CodeGenerator::EmitConversion(sptr<Expression>& value, const sptr<TypeSpeci
         if (sourceType->IsObject())
         {
             // unbox number value
-            auto requiredType = Type::Get("Number");
-            auto requiredTypeId = typeInfo[requiredType]->ToClassInfo()->id;
-            EmitObjectTypeCheck(value->loc, requiredTypeId);
-
             Emit(value->loc, OpCode::PushField, 0, 1);
         }
         if (sourceType->IsInteger())
@@ -274,22 +260,6 @@ void CodeGenerator::EmitConversion(sptr<Expression>& value, const sptr<TypeSpeci
             // should be lowered to Type.AsInstance in semantic analyzer
             assert(0);
         }
-    }
-}
-
-void CodeGenerator::EmitBoundsCheck(const SourceLocation& loc)
-{
-    if (Compiler::GetActiveCompiler()->IsBoundsCheckEnabled())
-    {
-        Emit(loc, OpCode::BoundsCheck);
-    }
-}
-
-void CodeGenerator::EmitObjectTypeCheck(const SourceLocation& loc, size_t typeID)
-{
-    if(Compiler::GetActiveCompiler()->IsTypeCheckEnabled())
-    {
-        Emit(loc, OpCode::ObjectTypeCheck, typeID);
     }
 }
 
@@ -1091,8 +1061,6 @@ void CodeGenerator::Visit(const sptr<IndexExpression>& node)
 
     // should leave an integer on the stack by which the array can be indexed
     VisitChild(node->arg);
-
-    EmitBoundsCheck(node->arg->loc);
 
     if(pushSize > 0)
         Emit(node->loc, OpCode::PushElement, pushSize);

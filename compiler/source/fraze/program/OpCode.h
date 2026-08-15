@@ -154,9 +154,6 @@ enum class OpCode : uint8_t
     // jump to stack[top]
     Goto,
 
-    BoundsCheck, // if stack[top] is less than 0 or greater than stack[top - 1].Count, terminate with index range error
-    ObjectTypeCheck, // if the object at stack[top] is not of the type 'arg', terminate with type error
-
     // number of enum members
     COUNT,
 };
@@ -244,9 +241,6 @@ inline std::unordered_map<OpCode, std::string> OpCodeNames {
     { OpCode::JumpIfNot,       "JumpIfNot" },
     { OpCode::Goto,            "Goto" },
     { OpCode::Return,          "Return" },
-
-    { OpCode::BoundsCheck,     "BoundsCheck" },
-    { OpCode::ObjectTypeCheck, "ObjectTypeCheck" },
 };
 
 } // fraze

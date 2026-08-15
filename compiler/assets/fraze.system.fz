@@ -58,6 +58,13 @@ class Array
 {
     extern static int GetCount(object arr);
     extern static int GetSize(object arr);
+
+    static T[] CheckBounds<T>(T[] arr, int index, string message, string file, int line, int column, string lineText)
+    {
+        if(index < 0 || index >= GetCount(arr))
+            Debug.Fail(message, file, line, column, lineText);
+        return arr;
+    }
 }
 
 extern class Type
@@ -79,6 +86,13 @@ class Debug
     static T AssertNotNull<T>(T obj, string message, string file, int line, int column, string lineText)
     {
         if(obj == null)
+            Fail(message, file, line, column, lineText);
+        return obj;
+    }
+
+    static object CheckType(object obj, Type type, string message, string file, int line, int column, string lineText)
+    {
+        if(!Type.IsInstance(obj, type))
             Fail(message, file, line, column, lineText);
         return obj;
     }

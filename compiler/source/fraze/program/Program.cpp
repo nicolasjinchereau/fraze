@@ -355,8 +355,6 @@ void Program::VerifyHandlers()
     VERIFY_HANDLER_INDEX(JumpIf);
     VERIFY_HANDLER_INDEX(JumpIfNot);
     VERIFY_HANDLER_INDEX(Goto);
-    VERIFY_HANDLER_INDEX(BoundsCheck);
-    VERIFY_HANDLER_INDEX(ObjectTypeCheck);
 }
 
 void Program::Execute_NoOp(const Operation& op)
@@ -1248,35 +1246,6 @@ void Program::Execute_Goto(const Operation& op)
     rip = (rsp--)->integer;
 }
 
-void Program::Execute_BoundsCheck(const Operation& op)
-{
-    Word* top = rsp;
-
-    Array<>* arr = (top - 1)->GetArray();
-    Integer index = top->integer;
-    Integer count = static_cast<Integer>(arr->GetCount());
-
-    if(index < 0 || index >= count)
-    {
-        Throw(locations[rip], "index out of range");
-    }
-
-    ++rip;
-}
-
-void Program::Execute_ObjectTypeCheck(const Operation& op)
-{
-    const Class* info = static_cast<Class*>(rsp->object);
-    const ClassInfo* classInfo = info->GetInfo();
-
-    if(classInfo->id != op.arg1_u64)
-    {
-        Throw(locations[rip], "Object is not of type '{}'", typeInfo[op.arg1_u64]->qualifiedName);
-    }
-
-    ++rip;
-}
-
 void Program::Execute(const Operation& op)
 {
     (this->*handlers[static_cast<size_t>(op.code)])(op);
@@ -1440,7 +1409,6 @@ void Program::PrintOperation(size_t index, std::ostream& stream)
     case OpCode::ConvIntToNum:
     case OpCode::ConvNumToInt:
     case OpCode::ConvRefToStruct:
-    case OpCode::BoundsCheck:
         stream << OpCodeNames[op.code];
         break;
 

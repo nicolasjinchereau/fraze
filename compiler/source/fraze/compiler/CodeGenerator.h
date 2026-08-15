@@ -50,8 +50,6 @@ public:
 
     void PopExpression(const sptr<Expression>& node, const sptr<Expression>& source);
     void EmitConversion(sptr<Expression>& value, const sptr<TypeSpecifier>& resultType);
-    void EmitBoundsCheck(const SourceLocation& loc);
-    void EmitObjectTypeCheck(const SourceLocation& loc, size_t typeID);
 
     /*****************************
     *            ROOT            *
