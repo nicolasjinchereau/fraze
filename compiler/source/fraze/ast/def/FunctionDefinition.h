@@ -7,6 +7,8 @@
 #include <vector>
 #include <fraze/ast/def/Definition.h>
 #include <fraze/ast/def/ParameterDefinition.h>
+#include <fraze/ast/def/TemplateDefinition.h>
+#include <fraze/ast/def/TemplateParameterDefinition.h>
 #include <fraze/ast/expr/IdentifierExpression.h>
 #include <fraze/ast/stmt/BlockStatement.h>
 #include <fraze/ast/type/TypeSpecifier.h>
@@ -17,7 +19,7 @@ namespace fraze {
 
 class ClassDefinition;
 
-class FunctionDefinition : public Definition
+class FunctionDefinition : public TemplateDefinition
 {
 public:
     sptr<TypeSpecifier> returnType;
@@ -37,8 +39,15 @@ public:
     size_t localSize = 0;
     Type* type{};
 
-    FunctionDefinition(const SourceLocation& loc, Scope* enclosingScope, const shared_string& name)
-        : Definition(loc, enclosingScope, name)
+    // For a template instance, the declaration it was instantiated from.
+    FunctionDefinition* templateDeclaration{};
+
+    FunctionDefinition(
+        const SourceLocation& loc,
+        Scope* enclosingScope,
+        const shared_string& name,
+        const std::vector<sptr<TypeSpecifier>>& templateArgs = {})
+        : TemplateDefinition(loc, enclosingScope, name, templateArgs)
     {
         scope = spnew<Scope>();
         scope->parent = enclosingScope;
@@ -48,16 +57,16 @@ public:
 
     virtual sptr<ASTNode> Clone(ScopeStack& scopes, const sptr<TypeSpecifier>& templateType) override
     {
-        auto copy = spnew<FunctionDefinition>(loc, scopes.GetCurrent(), name);
+        auto copyName = templateType ? templateType->GetElementTypeName() : name;
+        auto copyArgs = templateType ? templateType->templateArgs : decltype(templateArgs){};
+        auto copy = spnew<FunctionDefinition>(loc, scopes.GetCurrent(), copyName, copyArgs);
+
+        // set before the body is cloned and analyzed so that a recursive call can find
+        // this instance through the Type system instead of instantiating again
+        if(templateType)
+            copy->templateDeclaration = this;
 
         scopes.GetCurrent()->AddDefinition(copy);
-
-        copy->returnType = returnType ? returnType->Clone(scopes, nullptr)->ToTypeSpecifier() : decltype(returnType){};
-
-        scopes.Push(copy->scope.get());
-
-        for(auto& def : scope->definitions)
-            def->Clone(scopes, nullptr);
 
         copy->isExternal = isExternal;
         copy->isAbstract = isAbstract;
@@ -71,9 +80,19 @@ public:
         copy->paramSize = paramSize;
         copy->localSize = localSize;
 
+        scopes.Push(copy->scope.get());
+
+        for(auto& def : scope->definitions)
+            def->Clone(scopes, nullptr);
+
+        // cloned inside the function scope so that template parameters remain visible
+        copy->returnType = returnType ? returnType->Clone(scopes, nullptr)->ToTypeSpecifier() : decltype(returnType){};
+
         copy->body = body ? body->Clone(scopes, nullptr)->ToBlockStatement() : decltype(body){};
 
         scopes.Pop();
+
+        copy->ApplyTemplateArgs();
 
         return copy;
     }

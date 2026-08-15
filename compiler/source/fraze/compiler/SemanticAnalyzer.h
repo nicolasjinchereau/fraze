@@ -121,6 +121,8 @@ private:
     std::vector<sptr<Definition>> FindAllCallTargets(const sptr<IdentifierExpression>& node);
     sptr<Definition> SelectCallTarget(std::string_view name,const SourceLocation& loc, const Scope* scope, const std::vector<sptr<Definition>>& callTargets, const sptr<Expression>& context, const std::vector<sptr<Expression>>& arguments, bool suppressErrors = false);
     sptr<FunctionDefinition> GetCallTargetFunction(const sptr<Definition>& target);
+    sptr<FunctionDefinition> InstantiateTemplateFunction(const sptr<IdentifierExpression>& node, const sptr<FunctionDefinition>& templateFunc);
+    void ApplyTemplateArguments(const sptr<IdentifierExpression>& node, const std::vector<sptr<Expression>>& arguments, std::vector<sptr<Definition>>& callTargets);
     sptr<ClassDefinition> GetCoroutineOriginalClass(const sptr<ClassDefinition>& coroutineState);
     void VisitCallTarget(const sptr<IdentifierExpression>& node, std::vector<sptr<Expression>>& arguments);
 

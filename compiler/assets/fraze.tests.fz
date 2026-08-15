@@ -499,6 +499,173 @@ section TemplateTests
     }
 }
 
+section TemplateFunctionTests
+{
+    class Widget
+    {
+        int id = 7;
+    }
+
+    T Identity<T>(T value) {
+        return value;
+    }
+
+    T[] Repeat<T>(T value, int count)
+    {
+        T[] items = new T[count];
+
+        for(int i = 0; i != count; ++i)
+            items[i] = value;
+
+        return items;
+    }
+
+    List<T> MakeList<T>(T first, T second)
+    {
+        List<T> list = new List<T>{};
+        list.Add(first);
+        list.Add(second);
+        return list;
+    }
+
+    T Create<T>() {
+        return new T{};
+    }
+
+    V Second<U, V>(U first, V second) {
+        return second;
+    }
+
+    int Depth<T>(T value, int n)
+    {
+        if(n <= 0)
+            return 0;
+
+        return 1 + Depth<T>(value, n - 1);
+    }
+
+    int Describe(int value) {
+        return 1;
+    }
+
+    int Describe<T>(T value) {
+        return 2;
+    }
+
+    // an overload of the template above: both instantiate to "Describe<int>"
+    int Describe<T>(T value, T other) {
+        return 3;
+    }
+
+    class Box
+    {
+        int calls = 0;
+
+        T Echo<T>(T value) {
+            ++calls;
+            return value;
+        }
+
+        static T StaticEcho<T>(T value) {
+            return value;
+        }
+    }
+
+    struct Pair
+    {
+        int a;
+        int b;
+
+        T Pick<T>(T first, T second, bool useFirst) {
+            return useFirst ? first : second;
+        }
+    }
+
+    class Holder<T>
+    {
+        T value;
+
+        U Echo<U>(U other) {
+            return other;
+        }
+    }
+
+    void Run()
+    {
+        // free functions
+        assert(Identity<int>(123) == 123);
+        assert(Identity<num>(1.5) == 1.5);
+        assert(Identity<string>("abc") == "abc");
+
+        // the existing instance is reused for repeated calls
+        assert(Identity<int>(456) == 456);
+
+        // arrays of a template parameter type
+        int[] ints = Repeat<int>(9, 3);
+        assert(ints.Count == 3);
+        assert(ints[0] == 9);
+        assert(ints[2] == 9);
+
+        string[] strings = Repeat<string>("x", 2);
+        assert(strings.Count == 2);
+        assert(strings[1] == "x");
+
+        // class templates instantiated from a function template
+        List<int> list = MakeList<int>(1, 2);
+        assert(list.Count == 2);
+        assert(list[0] == 1);
+        assert(list[1] == 2);
+
+        // 'new' with a template parameter type
+        Widget widget = Create<Widget>();
+        assert(widget.id == 7);
+
+        // multiple template parameters
+        assert(Second<int, string>(1, "two") == "two");
+        assert(Second<string, num>("one", 2.5) == 2.5);
+
+        // recursive instantiation
+        assert(Depth<string>("a", 3) == 3);
+
+        // non-template overloads are used when no template arguments are given
+        assert(Describe(1) == 1);
+        assert(Describe<int>(1) == 2);
+        assert(Describe<int>(1, 2) == 3);
+        assert(Describe<string>("a") == 2);
+
+        // class member functions
+        Box box = new Box{};
+        assert(box.Echo<int>(5) == 5);
+        assert(box.Echo<string>("five") == "five");
+        assert(box.calls == 2);
+        assert(Box.StaticEcho<int>(6) == 6);
+
+        // struct member functions
+        Pair pair = new Pair{ 1, 2 };
+        assert(pair.Pick<int>(10, 20, true) == 10);
+        assert(pair.Pick<string>("a", "b", false) == "b");
+
+        // template functions inside class templates
+        Holder<int> holder = new Holder<int>{};
+        holder.value = 42;
+        assert(holder.value == 42);
+        assert(holder.Echo<num>(1.25) == 1.25);
+
+        // nested template arguments at a call site
+        List<int> copy = Identity<List<int>>(list);
+        assert(copy.Count == 2);
+        assert(copy[1] == 2);
+
+        // '<' that does not begin a template argument list is still a comparison
+        int a = 1;
+        int b = 2;
+        assert(a < b);
+        assert(a < b + 1);
+        assert(a < (b));
+        assert(!(b < a));
+    }
+}
+
 section InterfaceTests
 {
     interface Interface1 {
@@ -1068,6 +1235,7 @@ void RunAllTests()
     StringTests.Run();
     ContainerTests.Run();
     TemplateTests.Run();
+    TemplateFunctionTests.Run();
     InterfaceTests.Run();
     StructTests.Run();
     FunctorTests.Run();

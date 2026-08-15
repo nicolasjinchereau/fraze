@@ -5,13 +5,6 @@
 extern void RecordFrameStart();
 extern void RecordFrameEnd();
 
-class IsType<T> : IPredicate
-{
-    bool IsMatch(object obj) {
-        return obj is T;
-    }
-}
-
 class App
 {
     Window window;
@@ -37,7 +30,7 @@ class App
         node.Scale = new Vec3{ 0.2, 0.2, 0.2 };
         node.AddComponent(new Spinner{});
 
-        var renderer = node.GetComponent(new IsType<MeshRenderer>{}) as MeshRenderer;
+        var renderer = node.GetComponent<MeshRenderer>();
         renderer.mask = 2;
         renderer.depthTest = DepthTest.Always;
 
@@ -62,7 +55,7 @@ class App
         node.Rotation = Quat.FromAngles( 0, 90, 0 );
         node.AddComponent(new MeshRenderer{ mesh, texture, unlitShader, null });
 
-        var renderer = node.GetComponent(new IsType<MeshRenderer>{}) as MeshRenderer;
+        var renderer = node.GetComponent<MeshRenderer>();
         renderer.mask = 1;
 
         return node;
@@ -81,7 +74,7 @@ class App
         node.Scale = new Vec3{ 2, 2, 2 };
         node.Rotation = Quat.FromAngles( 0, 180, 0 );
 
-        var renderer = node.GetComponent(new IsType<MeshRenderer>{}) as MeshRenderer;
+        var renderer = node.GetComponent<MeshRenderer>();
         renderer.mask = 1;
 
         return node;
@@ -98,7 +91,7 @@ class App
         Node node = model.BuildTree(texture, litShader);
         node.Rotation = Quat.FromAngles(0, -120, 0);
 
-        var renderer = node.GetComponent(new IsType<MeshRenderer>{}) as MeshRenderer;
+        var renderer = node.GetComponent<MeshRenderer>();
         renderer.mask = 1;
 
         return node;

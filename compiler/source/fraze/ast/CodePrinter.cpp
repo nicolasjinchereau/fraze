@@ -128,7 +128,24 @@ void CodePrinter::Visit(const sptr<FunctionDefinition>& node)
     if(node->isStatic)
         stream << "static ";
 
-    stream << node->returnType->GetTypeName(true) << " " << node->name << "(";
+    stream << node->returnType->GetTypeName(true) << " " << node->name;
+
+    auto templateParams = node->GetChildren<TemplateParameterDefinition>();
+    if(!templateParams.empty())
+    {
+        stream << "<";
+
+        int t = 0;
+        for(const auto& param : templateParams)
+        {
+            if(t++ > 0) stream << ", ";
+            stream << param->name;
+        }
+
+        stream << ">";
+    }
+
+    stream << "(";
     
     int i = 0;
     for(const auto& param : node->GetChildren<ParameterDefinition>())

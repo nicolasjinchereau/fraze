@@ -29,6 +29,8 @@ bool Definition::IsPartOfTemplateDeclaration()
         return true;
     else if(auto itf = this->ToInterfaceDefinition(); itf && itf->IsTemplateDeclaration())
         return true;
+    else if(auto func = this->ToFunctionDefinition(); func && func->IsTemplateDeclaration())
+        return true;
     else if(parent && parent->IsPartOfTemplateDeclaration())
         return true;
 

@@ -29,6 +29,7 @@ public:
     static Type* Get(TemplateDefinition* def);
     static Type* Get(Type* arrayElementType);
     static Type* Get(std::string_view typeName);
+    static std::vector<Type*> GetOverloads(std::string_view funcTypeName);
 
     const shared_string& GetName() const {
         return name;

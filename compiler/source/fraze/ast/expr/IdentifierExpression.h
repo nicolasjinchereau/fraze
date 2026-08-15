@@ -5,7 +5,9 @@
 #pragma once
 #include <fraze/ast/def/Definition.h>
 #include <fraze/ast/expr/Expression.h>
+#include <fraze/ast/type/TypeSpecifier.h>
 #include <fraze/compiler/Lexer.h>
+#include <vector>
 
 namespace fraze {
 
@@ -16,6 +18,7 @@ class IdentifierExpression : public Expression
 public:
     shared_string value;
     sptr<Expression> context;
+    std::vector<sptr<TypeSpecifier>> templateArgs;
     Definition* targetDef{};
 
     IdentifierExpression(const SourceLocation& loc, Scope* scope, const shared_string& value)
@@ -36,6 +39,7 @@ public:
                 value);
 
         copy->pushAsRef = pushAsRef;
+        copy->templateArgs = TypeSpecifier::CloneTypeSpecs(scopes, templateArgs);
 
         return copy;
     }

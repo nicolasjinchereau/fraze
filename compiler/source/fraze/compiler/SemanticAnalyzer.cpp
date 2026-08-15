@@ -639,6 +639,10 @@ sptr<FunctionDefinition> SemanticAnalyzer::GetMatchingFunction(const sptr<ClassD
     {
         if(auto func = def->ToFunctionDefinition())
         {
+            // a template declaration has no resolved signature to match against
+            if(func->IsTemplateDeclaration())
+                continue;
+
             auto funcParams = func->GetChildren<ParameterDefinition>();
 
             if(funcParams.count() == itfFuncParams.count())
@@ -745,6 +749,9 @@ void SemanticAnalyzer::Visit(const sptr<EnumMemberDefinition>& node) {
 
 void SemanticAnalyzer::Visit(const sptr<FunctionDefinition>& node)
 {
+    if(node->IsTemplateDeclaration())
+        return;
+
     ASTVisitor::Visit(node);
 
     if(node->isExternal)
@@ -1586,6 +1593,10 @@ sptr<FunctionDefinition> SemanticAnalyzer::FindDefinition(Scope* scope, const st
     {
         if(auto func = def->ToFunctionDefinition())
         {
+            // a template declaration can only be called with explicit template arguments
+            if(func->IsTemplateDeclaration())
+                continue;
+
             auto params = func->GetChildren<ParameterDefinition>();
             auto paramCount = params.count();
 
@@ -2040,6 +2051,104 @@ std::vector<sptr<Definition>> SemanticAnalyzer::FindAllCallTargets(const sptr<Id
     return callTargets;
 }
 
+// Instantiates 'templateFunc' with the template arguments given at the call site, or
+// returns the existing instance if one was already created for the same arguments.
+sptr<FunctionDefinition> SemanticAnalyzer::InstantiateTemplateFunction(
+    const sptr<IdentifierExpression>& node,
+    const sptr<FunctionDefinition>& templateFunc)
+{
+    // the arguments are described with a type specifier so that the instance is named
+    // and cloned exactly the same way a class template instance is
+    auto instanceType = spnew<TypeSpecifier>(node->loc, node->scope, templateFunc->name, node->templateArgs);
+
+    // A type is registered when a definition is constructed, so an instance that is still
+    // being analyzed is already visible here, which is what terminates recursive calls.
+    // The type name only identifies the (function name, template arguments) pair, so the
+    // originating declaration is what picks this declaration's instance out of the overloads.
+    std::string instanceName { templateFunc->qualifiedName };
+    instanceName += instanceType->GetTemplateArgs(true);
+
+    for(Type* overload : Type::GetOverloads(instanceName))
+    {
+        auto instance = overload->GetDefinition()->self()->ToFunctionDefinition();
+
+        if(instance->templateDeclaration == templateFunc.get())
+            return instance;
+    }
+
+    ScopeStack scopes;
+    scopes.PushFromRoot(templateFunc->scope->parent);
+
+    auto instance = templateFunc->Clone(scopes, instanceType)->ToFunctionDefinition();
+
+    VisitChild(instance);
+
+    return instance;
+}
+
+// Replaces template function declarations in 'callTargets' with the instances produced
+// by the template arguments given at the call site. Template arguments are mandatory,
+// so declarations are removed from the candidates when none were provided.
+void SemanticAnalyzer::ApplyTemplateArguments(
+    const sptr<IdentifierExpression>& node,
+    const std::vector<sptr<Expression>>& arguments,
+    std::vector<sptr<Definition>>& callTargets)
+{
+    auto isTemplateDeclaration = [](const sptr<Definition>& target) {
+        auto func = target->ToFunctionDefinition();
+        return func && func->IsTemplateDeclaration();
+    };
+
+    if(node->templateArgs.empty())
+    {
+        std::erase_if(callTargets, isTemplateDeclaration);
+        return;
+    }
+
+    for(auto& arg : node->templateArgs)
+        VisitChild(arg);
+
+    std::vector<sptr<FunctionDefinition>> candidates;
+
+    for(auto& target : callTargets)
+    {
+        if(!isTemplateDeclaration(target))
+            continue;
+
+        auto templateFunc = target->ToFunctionDefinition();
+
+        auto templateParams = templateFunc->GetChildren<TemplateParameterDefinition>();
+        if(templateParams.count() == node->templateArgs.size())
+            candidates.push_back(templateFunc);
+    }
+
+    ENFORCE(!candidates.empty(), node->loc,
+        "no template function named '{}' takes {} template argument(s)", node->value, node->templateArgs.size());
+
+    // Only instantiate viable candidates. If none are viable, instantiate them all for error reporting.
+    std::vector<sptr<FunctionDefinition>> viable;
+
+    for(auto& candidate : candidates)
+    {
+        auto paramCount = candidate->GetChildren<ParameterDefinition>().count();
+
+        // the context is bound once the target is selected, so it isn't an argument yet
+        if(candidate->HasImplicitThisParam())
+            --paramCount;
+
+        if(paramCount == arguments.size())
+            viable.push_back(candidate);
+    }
+
+    if(viable.empty())
+        viable = candidates;
+
+    callTargets.clear();
+
+    for(auto& candidate : viable)
+        callTargets.push_back( InstantiateTemplateFunction(node, candidate) );
+}
+
 void SemanticAnalyzer::VisitCallTarget(
     const sptr<IdentifierExpression>& node,
     std::vector<sptr<Expression>>& arguments)
@@ -2053,6 +2162,7 @@ void SemanticAnalyzer::VisitCallTarget(
     if(!node->targetDef)
     {
         std::vector<sptr<Definition>> callTargets = FindAllCallTargets(node);
+        ApplyTemplateArguments(node, arguments, callTargets);
         sptr<Definition> targetDef = SelectCallTarget(node->value, node->loc, node->scope, callTargets, node->context, arguments);
 
         node->targetDef = targetDef.get();
@@ -2393,6 +2503,13 @@ void SemanticAnalyzer::Visit(const sptr<IdentifierExpression>& node)
     {
         sptr<Definition> targetDef = FindIdentifierTarget(node);
         ENFORCE(!!targetDef, node->loc, "unknown identifier: {}", node->value);
+
+        if(auto func = targetDef->ToFunctionDefinition(); func && func->IsTemplateDeclaration())
+        {
+            ENFORCE(false, node->loc,
+                "call to template function '{}' is missing template arguments", node->value);
+        }
+
         node->targetDef = targetDef.get();
 
         // add implicit this if needed
@@ -2878,7 +2995,8 @@ void SemanticAnalyzer::Visit(const sptr<TypeSpecifier>& node)
 
             // instantiate template or find existing one
             auto templateDef = definition->ToTemplateDefinition();
-            ENFORCE(!!templateDef, node->loc, "definition is not a template: {}", templateDef->name);
+            ENFORCE(!!templateDef, node->loc, "definition is not a template: {}", definition->name);
+            ENFORCE(!templateDef->ToFunctionDefinition(), node->loc, "a template function cannot be used as a type: {}", definition->name);
             ENFORCE(!templateDef->IsTemplateInstance(), node->loc, "template already instantiated: {}", templateDef->name);
 
             auto templateParams = templateDef->GetChildren<TemplateParameterDefinition>();

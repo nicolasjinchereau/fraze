@@ -140,6 +140,22 @@ Type* Type::Get(std::string_view typeName)
     return type;
 }
 
+std::vector<Type*> Type::GetOverloads(std::string_view funcTypeName)
+{
+    std::vector<Type*> overloads;
+
+    if(auto compiler = Compiler::GetActiveCompiler())
+    {
+        for(auto& ty : compiler->types)
+        {
+            if(ty->IsFunction() && ty->GetName() == funcTypeName)
+                overloads.push_back(ty.get());
+        }
+    }
+
+    return overloads;
+}
+
 bool Type::IsFunction() const
 {
     return def && (def->ToFunctionDefinition() != nullptr);

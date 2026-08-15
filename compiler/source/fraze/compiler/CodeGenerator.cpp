@@ -357,6 +357,9 @@ void CodeGenerator::Visit(const sptr<EnumMemberDefinition>& node)
 
 void CodeGenerator::Visit(const sptr<FunctionDefinition>& node)
 {
+    if(node->IsTemplateDeclaration())
+        return;
+
     auto* type = typeInfo[node->type]->ToFunctionInfo();
     type->codeStart = (uint32_t)program->code.size();
     VisitChild(node->body);

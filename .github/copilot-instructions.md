@@ -59,6 +59,29 @@ Notes:
 - `FRAZE_PRINT_EXECUTED_CODE` (`common/Platform.h`) traces every executed op, but may be very slow.
 - The demo loads `.fz` assets at runtime, so script-only edits need no rebuild.
 
+### Running the demo
+
+The demo runs `RunAllTests()` from `Main.fz`, then loads a 3D scene and sits there, so it never
+exits on its own. Give it ~15s to load, then close it gracefully with `CloseMainWindow()` (the
+equivalent of clicking the X); force-killing it discards buffered stdout.
+
+```powershell
+cd demo
+$p = Start-Process .\bin\x64\Debug\Demo.exe -WorkingDirectory $PWD `
+    -RedirectStandardOutput o.txt -RedirectStandardError e.txt -PassThru
+Start-Sleep -Seconds 15
+$p.Refresh()
+if(!$p.HasExited) { $p.CloseMainWindow() | Out-Null }
+if(!$p.WaitForExit(10000)) { Stop-Process -Id $p.Id -Force }
+Get-Content o.txt; Get-Content e.txt
+Remove-Item o.txt, e.txt
+```
+
+Run it from the repository root. The demo resolves its assets relative to the working directory,
+so `-WorkingDirectory` must point at `demo`.
+
+A successful run ends with an exit code of 0.
+
 ## Important facts (authoritative)
 
 - Safety checks (assert, null, bounds, type) are compile options on `Compiler` and can be disabled for release builds.

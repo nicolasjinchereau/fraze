@@ -568,24 +568,8 @@ private:
             ++it; // identifier
         }
 
-        // template arguments
-        if(it->IsType(TokenType::Less))
-        {
-            ++it; // "<"
-
-            while(!it->IsType(TokenType::Greater))
-            {
-                if(!ScanTypeSpecifier(it))
-                    goto Fail; // expected template argument
-
-                if (!it->IsType(TokenType::Comma))
-                    break;
-
-                ++it; // ,
-            }
-
-            ++it; // ">"
-        }
+        // optional template arguments
+        ScanTemplateArgumentList(it);
 
         // optional array brackets
         while(it->IsType(TokenType::LeftBracket) && (it + 1)->IsType(TokenType::RightBracket))
@@ -814,6 +798,9 @@ private:
                 // invalid function name
                 return false;
             }
+
+            // optional template parameter list
+            ScanTemplateParameterList(it);
         }
 
         // opening paren
@@ -822,6 +809,89 @@ private:
 
         // found a function
         return true;
+    }
+
+    // scans "<T, U, ...>" if present, otherwise leaves 'it' unchanged
+    bool ScanTemplateParameterList(Iterator& it)
+    {
+        auto start = it;
+
+        if(!it->IsType(TokenType::Less))
+            return false;
+
+        ++it; // "<"
+
+        while(!it->IsType(TokenType::Greater))
+        {
+            if(!it->IsType(TokenType::Identifier) || it->IsKeyword())
+                goto Fail; // expected template parameter name
+
+            ++it; // identifier
+
+            if(!it->IsType(TokenType::Comma))
+                break;
+
+            ++it; // ","
+        }
+
+        if(!it->IsType(TokenType::Greater))
+            goto Fail; // expected ">"
+
+        ++it; // ">"
+
+        return true;
+
+    Fail:
+        it = start;
+        return false;
+    }
+
+    // scans "<A, B, ...>" if present, otherwise leaves 'it' unchanged
+    bool ScanTemplateArgumentList(Iterator& it)
+    {
+        auto start = it;
+
+        if(!it->IsType(TokenType::Less))
+            return false;
+
+        ++it; // "<"
+
+        while(!it->IsType(TokenType::Greater))
+        {
+            if(!ScanTypeSpecifier(it))
+                goto Fail; // expected template argument
+
+            if(!it->IsType(TokenType::Comma))
+                break;
+
+            ++it; // ","
+        }
+
+        if(!it->IsType(TokenType::Greater))
+            goto Fail; // expected ">"
+
+        ++it; // ">"
+
+        return true;
+
+    Fail:
+        it = start;
+        return false;
+    }
+
+    // returns true if the current token begins a call: "(" or "<A, B, ...>("
+    bool IsCallExpression()
+    {
+        auto it = Peek();
+
+        if(!it->IsType(TokenType::Less) && !it->IsType(TokenType::LeftParen))
+            return false;
+
+        // optional explicit template argument list
+        ScanTemplateArgumentList(it);
+
+        // template arguments are only valid when immediately calling the function
+        return it->IsType(TokenType::LeftParen);
     }
 
     bool IsTypeSpecifier()
@@ -972,6 +1042,18 @@ interface {}
         return scopeOfParse;
     }
 
+    // re-points a type specifier tree at a different starting scope for type lookup
+    static void RescopeTypeSpecifier(const sptr<TypeSpecifier>& typeSpec, Scope* scope)
+    {
+        if(!typeSpec)
+            return;
+
+        typeSpec->scope = scope;
+
+        for(auto& arg : typeSpec->templateArgs)
+            RescopeTypeSpecifier(arg, scope);
+    }
+
     void AddImplicitThisParam(const SourceLocation& loc, Definition* owner)
     {
         auto contextTypeSpec = spnew<TypeSpecifier>(loc, scopes.GetCurrent(), owner->name);
@@ -1106,6 +1188,37 @@ interface {}
         def->isConstructor = isConstructor;
         def->returnType = returnType;
         scopes.GetCurrent()->AddDefinition(def);
+
+        // ** Template Parameters **
+        if(token.IsType(TokenType::Less))
+        {
+            ENFORCE(!isConstructor, token.loc, "constructors cannot be templates");
+            ENFORCE(!isExternal, token.loc, "extern functions cannot be templates");
+            ENFORCE(!isAbstract, token.loc, "interface functions cannot be templates");
+
+            Consume(TokenType::Less);
+
+            while(token.type != TokenType::Greater)
+            {
+                const Token& tempParamNameTok = Consume(TokenType::Identifier);
+
+                auto typeSpec = spnew<TypeSpecifier>(tempParamNameTok.loc, def->scope.get(), shared_string("$placeholder"));
+                auto templateParamDef = spnew<TemplateParameterDefinition>(tempParamNameTok.loc, def->scope.get(), tempParamNameTok.GetIdentifier(), typeSpec);
+                def->scope->AddDefinition(templateParamDef);
+
+                if(!TryConsume(TokenType::Comma))
+                    break;
+            }
+
+            Consume(TokenType::Greater);
+
+            ENFORCE(def->IsTemplateDeclaration(), loc, "a template function requires at least one template parameter");
+            ENFORCE(returnType->baseTypeName != "Task", loc, "a template function cannot be a coroutine");
+
+            // the return type was parsed before the function scope existed, so
+            // re-point it at the scope where the template parameters are visible
+            RescopeTypeSpecifier(returnType, def->scope.get());
+        }
 
         // ** Parameters **
         auto& leftParenTok = Consume(TokenType::LeftParen);
@@ -2213,7 +2326,7 @@ class ${}_Task
         {
             if (token.type == TokenType::Dot)
                 expr = ParseMemberExpr(expr);
-            else if (token.type == TokenType::LeftParen)
+            else if (IsCallExpression())
                 expr = ParseCallExpr(expr);
             else if(token.type == TokenType::LeftBracket)
                 expr = ParseIndexExpr(expr);
@@ -2239,11 +2352,35 @@ class ${}_Task
             memberTok.loc, scopes.GetCurrent(), context, memberTok.GetIdentifier());
     }
 
+    // parses "[<A, B, ...>](arg, ...)", where the optional template arguments are
+    // attached to the target identifier of a call to a template function
     sptr<CallExpression> ParseCallExpr(const sptr<Expression>& target)
     {
-        if(auto ident = target->ToIdentifierExpression())
+        auto ident = target->ToIdentifierExpression();
+
+        if(ident)
         {
             ENFORCE(ident->value != "#this", ident->loc, "a constructor cannot be called directly");
+        }
+
+        if(token.type == TokenType::Less)
+        {
+            ENFORCE(!!ident, token.loc, "template arguments can only be applied to a function name");
+            ENFORCE(ident->templateArgs.empty(), token.loc, "template arguments were already specified");
+
+            Consume(TokenType::Less);
+
+            while(token.type != TokenType::Greater)
+            {
+                ident->templateArgs.push_back( ParseTypeSpecifier() );
+
+                if(!TryConsume(TokenType::Comma))
+                    break;
+            }
+
+            Consume(TokenType::Greater);
+
+            ENFORCE(!ident->templateArgs.empty(), ident->loc, "expected at least one template argument");
         }
 
         auto expr = spnew<CallExpression>(token.loc, scopes.GetCurrent(), target);

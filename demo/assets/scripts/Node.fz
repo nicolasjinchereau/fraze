@@ -527,44 +527,44 @@ class Node
         return null;
     }
 
-    private void GetAllComponents(List<IComponent> components, IPredicate pred)
+    private void GetAllComponents<T>(List<T> out_components)
     {
         for(int i = 0; i != components.Count; ++i)
         {
             var comp = components[i];
 
-            if(pred.IsMatch(comp))
-                components.Add(comp);
+            if(comp is T)
+                out_components.Add(comp as T);
         }
         
         for(int i = 0; i != children.Count; ++i)
         {
-            children[i].GetAllComponents(components, pred);
+            children[i].GetAllComponents<T>(out_components);
         }
     }
 
-    List<IComponent> GetAllComponents(IPredicate pred)
+    List<T> GetAllComponents<T>()
     {
-        List<IComponent> components = new List<IComponent>{};
-        GetAllComponents(components, pred);
+        List<T> components = new List<T>{};
+        GetAllComponents<T>(components);
         return components;
     }
 
-    IComponent GetComponent(IPredicate pred)
+    T GetComponent<T>()
     {
         for(int i = 0; i != components.Count; ++i)
         {
             var comp = components[i];
 
-            if(pred.IsMatch(comp))
-                return comp;
+            if(comp is T)
+                return comp as T;
         }
 
         for(int i = 0; i != children.Count; ++i)
         {
-            var comp = children[i].GetComponent(pred);
+            var comp = children[i].GetComponent<T>();
             if(comp != null)
-                return comp;
+                return comp as T;
         }
 
         return null;

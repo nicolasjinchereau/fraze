@@ -29,8 +29,12 @@ void ASTVisitor::Visit(const sptr<ClassDefinition>& node)
     for (auto& itr : node->interfaces)
         VisitChild(itr);
 
-    for (auto& def : node->scope->definitions)
+    // index-based because visiting a member can append template instances to this scope
+    for (size_t i = 0; i != node->scope->definitions.size(); ++i)
+    {
+        auto def = node->scope->definitions[i];
         VisitChild(def);
+    }
 }
 
 void ASTVisitor::Visit(const sptr<EnumDefinition>& node)
@@ -54,8 +58,10 @@ void ASTVisitor::Visit(const sptr<FunctionDefinition>& node)
             VisitChild(def);
     }
 
-    for (auto& def : node->scope->definitions)
+    // index-based because visiting a member can append template instances to this scope
+    for (size_t i = 0; i != node->scope->definitions.size(); ++i)
     {
+        auto def = node->scope->definitions[i];
         if(!def->ToParameterDefinition())
             VisitChild(def);
     }
@@ -95,8 +101,12 @@ void ASTVisitor::Visit(const sptr<SectionDefinition>& node)
 
 void ASTVisitor::Visit(const sptr<StructDefinition>& node)
 {
-    for(auto def : node->scope->definitions)
+    // index-based because visiting a member can append template instances to this scope
+    for(size_t i = 0; i != node->scope->definitions.size(); ++i)
+    {
+        auto def = node->scope->definitions[i];
         VisitChild(def);
+    }
 }
 
 void ASTVisitor::Visit(const sptr<TemplateDefinition>& node)
@@ -188,6 +198,9 @@ void ASTVisitor::Visit(const sptr<FoldExpression>& node)
 void ASTVisitor::Visit(const sptr<IdentifierExpression>& node)
 {
     VisitChild(node->context);
+
+    for(auto& arg : node->templateArgs)
+        VisitChild(arg);
 }
 
 void ASTVisitor::Visit(const sptr<IndexExpression>& node)
