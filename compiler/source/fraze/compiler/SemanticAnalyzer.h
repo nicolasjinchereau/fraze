@@ -125,6 +125,7 @@ private:
     void ApplyTemplateArguments(const sptr<IdentifierExpression>& node, const std::vector<sptr<Expression>>& arguments, std::vector<sptr<Definition>>& callTargets);
     sptr<ClassDefinition> GetCoroutineOriginalClass(const sptr<ClassDefinition>& coroutineState);
     void VisitCallTarget(const sptr<IdentifierExpression>& node, std::vector<sptr<Expression>>& arguments);
+    sptr<Expression> WrapWithNullCheck(const sptr<Expression>& value);
 
     size_t GetVarSize(Type* type);
 

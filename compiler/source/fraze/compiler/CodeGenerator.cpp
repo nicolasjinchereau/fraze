@@ -837,11 +837,6 @@ void CodeGenerator::Visit(const sptr<CallExpression>& node)
             VisitChild(arg);
         }
 
-        if(func->HasImplicitThisParam() && !node->arguments[0]->EvaluateType()->IsStruct())
-        {
-            EmitNullCheck(node->arguments[0]->loc);
-        }
-
         // call
         if(interfaceID != size_t(-1))
         {

@@ -2149,6 +2149,35 @@ void SemanticAnalyzer::ApplyTemplateArguments(
         callTargets.push_back( InstantiateTemplateFunction(node, candidate) );
 }
 
+sptr<Expression> SemanticAnalyzer::WrapWithNullCheck(const sptr<Expression>& value)
+{
+    auto compiler = Compiler::GetActiveCompiler();
+    if(!compiler)
+        throw Exception("no active compiler");
+
+    auto valueType = value->EvaluateType();
+    if(!compiler->IsNullCheckEnabled() || !valueType->IsNullable())
+        return value;
+
+    auto& loc = value->loc;
+    auto scope = value->scope;
+
+    auto context = spnew<IdentifierExpression>(loc, astRoot->global->scope.get(), shared_string("Debug"));
+    auto targetFunc = spnew<IdentifierExpression>(loc, scope, context, shared_string("AssertNotNull"));
+    targetFunc->templateArgs.push_back(spnew<TypeSpecifier>(loc, valueType));
+
+    auto callExpr = spnew<CallExpression>(loc, scope, targetFunc);
+    callExpr->arguments.push_back(value);
+    callExpr->arguments.push_back(spnew<StringLiteralExpression>(loc, scope, shared_string("object reference is null")));
+    callExpr->arguments.push_back(spnew<StringLiteralExpression>(loc, scope, loc.file));
+    callExpr->arguments.push_back(spnew<IntegerLiteralExpression>(loc, scope, (int64_t)loc.line));
+    callExpr->arguments.push_back(spnew<IntegerLiteralExpression>(loc, scope, (int64_t)loc.column));
+    callExpr->arguments.push_back(spnew<StringLiteralExpression>(loc, scope, loc.lineText));
+
+    VisitChild(callExpr);
+    return callExpr;
+}
+
 void SemanticAnalyzer::VisitCallTarget(
     const sptr<IdentifierExpression>& node,
     std::vector<sptr<Expression>>& arguments)
@@ -2254,7 +2283,7 @@ void SemanticAnalyzer::VisitCallTarget(
                 VisitChild(context);
             }
 
-            arguments.insert(arguments.begin(), context);
+            arguments.insert(arguments.begin(), WrapWithNullCheck(context));
             node->context = nullptr;
         }
     }
@@ -2289,7 +2318,7 @@ void SemanticAnalyzer::Visit(const sptr<CallExpression>& node)
 
             if(node->arguments.size() < invokeFunc->GetChildren<ParameterDefinition>().count())
             {
-                node->arguments.insert(node->arguments.begin(), node->target);
+                node->arguments.insert(node->arguments.begin(), WrapWithNullCheck(node->target));
             }
         }
     }
@@ -2301,12 +2330,6 @@ void SemanticAnalyzer::Visit(const sptr<CallExpression>& node)
         // argument, so it lines up one-to-one with the target function's parameters.
         auto targetFunc = GetCallTargetFunction(ident->targetDef->self());
 
-        for (auto& def : targetFunc->scope->definitions)
-        {
-            if (def->ToParameterDefinition())
-                VisitChild(def);
-        }
-
         auto params = targetFunc->GetChildren<ParameterDefinition>();
         auto currentParam = params.begin();
         auto currentArg = node->arguments.begin();
@@ -2314,7 +2337,7 @@ void SemanticAnalyzer::Visit(const sptr<CallExpression>& node)
         for( ; currentParam != params.end(); ++currentParam, ++currentArg)
         {
             auto& typeSpec = (*currentParam)->typeSpec;
-            //VisitChild(typeSpec);
+            VisitChild(typeSpec);
             ProcessAssignment(typeSpec->loc, typeSpec->type, (*currentArg));
         }
     }
