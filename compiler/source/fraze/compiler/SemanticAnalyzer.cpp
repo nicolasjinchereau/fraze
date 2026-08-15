@@ -1111,6 +1111,11 @@ void SemanticAnalyzer::Visit(const sptr<AsExpression>& node)
             {
                 replacement = CreateAsInstanceCall(node);
             }
+            else
+            {
+                // unboxing object to a value type requires a non-null instance
+                node->value = WrapWithNullCheck(node->value);
+            }
         }
     }
     else if(leftType->IsInterface())
@@ -2387,6 +2392,14 @@ void SemanticAnalyzer::Visit(const sptr<ConvertExpression>& node)
             return;
         }
     }
+
+    Type* resultType = node->resultTypeSpec->type;
+    if(node->value->EvaluateType()->IsObject() &&
+       (resultType->IsBoolean() || resultType->IsInteger() || resultType->IsNumber()))
+    {
+        // unboxing object to a value type requires a non-null instance
+        node->value = WrapWithNullCheck(node->value);
+    }
 }
 
 void SemanticAnalyzer::Visit(const sptr<DefaultValueExpression>& node)
@@ -2498,9 +2511,8 @@ void SemanticAnalyzer::Visit(const sptr<IdentifierExpression>& node)
             if(node->value == "Count")
             {
                 auto expectedType = spnew<TypeSpecifier>(node->loc, node->scope, shared_string("int"));
-                auto emitExpr = spnew<EmitExpression>(node->loc, node->scope, expectedType, node->context,
+                auto emitExpr = spnew<EmitExpression>(node->loc, node->scope, expectedType, WrapWithNullCheck(node->context),
                     std::vector<Emission>{
-                        Emission{ node->context->loc, Operation(OpCode::NullCheck) },
                         Emission{ node->loc, Operation(OpCode::PushCount) }
                     });
                 VisitChild(emitExpr);
@@ -2510,9 +2522,8 @@ void SemanticAnalyzer::Visit(const sptr<IdentifierExpression>& node)
             else if(node->value == "Size")
             {
                 auto expectedType = spnew<TypeSpecifier>(node->loc, node->scope, shared_string("int"));
-                auto emitExpr = spnew<EmitExpression>(node->loc, node->scope, expectedType, node->context,
+                auto emitExpr = spnew<EmitExpression>(node->loc, node->scope, expectedType, WrapWithNullCheck(node->context),
                     std::vector<Emission>{
-                        Emission{ node->context->loc, Operation(OpCode::NullCheck) },
                         Emission{ node->loc, Operation(OpCode::PushSize) }
                     });
                 VisitChild(emitExpr);
@@ -2593,8 +2604,13 @@ void SemanticAnalyzer::Visit(const sptr<IdentifierExpression>& node)
             }
         }
 
-        node->context = context;
+        if(context && Expression::IsValueExpression(context))
+        {
+            if(auto memberVar = targetDef->ToVariableDefinition(); memberVar && !memberVar->isStatic)
+                context = WrapWithNullCheck(context);
+        }
 
+        node->context = context;
         if(auto targetParentClassDef = targetDef->parent->ToClassDefinition())
         {
             VisitChild(targetParentClassDef->originalClassType);
@@ -2645,6 +2661,9 @@ void SemanticAnalyzer::Visit(const sptr<IndexExpression>& node)
             replacement = callExpr;
         }
     }
+
+    if(targetType->IsArray())
+        node->target = WrapWithNullCheck(node->target);
 }
 
 void SemanticAnalyzer::Visit(const sptr<IntegerLiteralExpression>& node) {

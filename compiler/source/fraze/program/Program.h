@@ -181,7 +181,6 @@ private:
     void Execute_JumpIf(const Operation& op);
     void Execute_JumpIfNot(const Operation& op);
     void Execute_Goto(const Operation& op);
-    void Execute_NullCheck(const Operation& op);
     void Execute_BoundsCheck(const Operation& op);
     void Execute_ObjectTypeCheck(const Operation& op);
     
@@ -267,7 +266,6 @@ private:
         &Program::Execute_JumpIf,
         &Program::Execute_JumpIfNot,
         &Program::Execute_Goto,
-        &Program::Execute_NullCheck,
         &Program::Execute_BoundsCheck,
         &Program::Execute_ObjectTypeCheck,
     };

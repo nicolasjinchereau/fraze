@@ -357,7 +357,6 @@ void Program::VerifyHandlers()
     VERIFY_HANDLER_INDEX(JumpIf);
     VERIFY_HANDLER_INDEX(JumpIfNot);
     VERIFY_HANDLER_INDEX(Goto);
-    VERIFY_HANDLER_INDEX(NullCheck);
     VERIFY_HANDLER_INDEX(BoundsCheck);
     VERIFY_HANDLER_INDEX(ObjectTypeCheck);
 }
@@ -1267,16 +1266,6 @@ void Program::Execute_Goto(const Operation& op)
     rip = (rsp--)->integer;
 }
 
-void Program::Execute_NullCheck(const Operation& op)
-{
-    if(rsp->storage == 0)
-    {
-        Throw(locations[rip], "object reference is null");
-    }
-
-    ++rip;
-}
-
 void Program::Execute_BoundsCheck(const Operation& op)
 {
     Word* top = rsp;
@@ -1470,7 +1459,6 @@ void Program::PrintOperation(size_t index, std::ostream& stream)
     case OpCode::ConvIntToNum:
     case OpCode::ConvNumToInt:
     case OpCode::ConvRefToStruct:
-    case OpCode::NullCheck:
     case OpCode::BoundsCheck:
         stream << OpCodeNames[op.code];
         break;

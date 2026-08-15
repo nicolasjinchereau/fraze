@@ -160,8 +160,6 @@ enum class OpCode : uint8_t
     // jump to stack[top]
     Goto,
 
-    // if stack[top] is false, terminate with message at stack[top]
-    NullCheck, // if stack[top] is null, terminate with null reference error
     BoundsCheck, // if stack[top] is less than 0 or greater than stack[top - 1].Count, terminate with index range error
     ObjectTypeCheck, // if the object at stack[top] is not of the type 'arg', terminate with type error
 
@@ -255,7 +253,6 @@ inline std::unordered_map<OpCode, std::string> OpCodeNames {
     { OpCode::Goto,            "Goto" },
     { OpCode::Return,          "Return" },
 
-    { OpCode::NullCheck,       "NullCheck" },
     { OpCode::BoundsCheck,     "BoundsCheck" },
     { OpCode::ObjectTypeCheck, "ObjectTypeCheck" },
 };

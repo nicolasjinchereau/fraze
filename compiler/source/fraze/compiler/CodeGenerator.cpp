@@ -71,8 +71,6 @@ void CodeGenerator::PopExpression(const sptr<Expression>& node, const sptr<Expre
                 assert(program->code.size() > sz);
                 hasContext = true;
 
-                EmitNullCheck(ident->context->loc);
-
                 if(ident->context->EvaluateType()->IsStruct())
                 {
                     isContextStruct = true;
@@ -126,7 +124,6 @@ void CodeGenerator::PopExpression(const sptr<Expression>& node, const sptr<Expre
 
         // should leave an Array on the stack which can be indexed
         VisitChild(ind->target);
-        EmitNullCheck(ind->target->loc);
 
         // should leave an integer on the stack by which the array can be indexed
         VisitChild(ind->arg);
@@ -186,8 +183,6 @@ void CodeGenerator::EmitConversion(sptr<Expression>& value, const sptr<TypeSpeci
         if (sourceType->IsObject())
         {
             // unbox boolean value
-            EmitNullCheck(value->loc);
-
             auto requiredType = Type::Get("Boolean");
             auto requiredTypeId = typeInfo[requiredType]->ToClassInfo()->id;
             EmitObjectTypeCheck(value->loc, requiredTypeId);
@@ -200,8 +195,6 @@ void CodeGenerator::EmitConversion(sptr<Expression>& value, const sptr<TypeSpeci
         if (sourceType->IsObject())
         {
             // unbox integer value
-            EmitNullCheck(value->loc);
-
             auto requiredType = Type::Get("Integer");
             auto requiredTypeId = typeInfo[requiredType]->ToClassInfo()->id;
             EmitObjectTypeCheck(value->loc, requiredTypeId);
@@ -219,8 +212,6 @@ void CodeGenerator::EmitConversion(sptr<Expression>& value, const sptr<TypeSpeci
         if (sourceType->IsObject())
         {
             // unbox number value
-            EmitNullCheck(value->loc);
-            
             auto requiredType = Type::Get("Number");
             auto requiredTypeId = typeInfo[requiredType]->ToClassInfo()->id;
             EmitObjectTypeCheck(value->loc, requiredTypeId);
@@ -283,14 +274,6 @@ void CodeGenerator::EmitConversion(sptr<Expression>& value, const sptr<TypeSpeci
             // should be lowered to Type.AsInstance in semantic analyzer
             assert(0);
         }
-    }
-}
-
-void CodeGenerator::EmitNullCheck(const SourceLocation& loc)
-{
-    if(Compiler::GetActiveCompiler()->IsNullCheckEnabled())
-    {
-        Emit(loc, OpCode::NullCheck);
     }
 }
 
@@ -993,8 +976,6 @@ void CodeGenerator::Visit(const sptr<IdentifierExpression>& node)
             assert(program->code.size() > sz);
             hasContext = true;
 
-            EmitNullCheck(node->context->loc);
-
             if(node->context->EvaluateType()->IsStruct())
             {
                 isContextStruct = true;
@@ -1107,7 +1088,6 @@ void CodeGenerator::Visit(const sptr<IndexExpression>& node)
 
     // should leave an Array on the stack which can be indexed
     VisitChild(node->target);
-    EmitNullCheck(node->target->loc);
 
     // should leave an integer on the stack by which the array can be indexed
     VisitChild(node->arg);
@@ -1690,7 +1670,6 @@ void CodeGenerator::Visit(const sptr<ReturnStatement>& node)
             auto valueField = contextDef->GetVariable("$value");
             VisitChild(node->expression);
             VisitChild(node->context);
-            EmitNullCheck(node->loc);
             Emit(node->loc, OpCode::PopField, valueField->offset, valueField->size);
         }
 
@@ -1698,13 +1677,11 @@ void CodeGenerator::Visit(const sptr<ReturnStatement>& node)
         auto positionField = contextDef->GetVariable("$position");
         Emit(node->loc, OpCode::PushInteger, -1);
         VisitChild(node->context);
-        EmitNullCheck(node->loc);
         Emit(node->loc, OpCode::PopField, positionField->offset, 1);
 
         // this.ResumeAwaiter();
         Emit(node->loc, OpCode::Reserve, resumeAwaiterFuncInfo->returnSize);
         VisitChild(node->context);
-        EmitNullCheck(node->loc);
         Emit(node->loc, OpCode::CallVirtual, resumeAwaiterFuncID, awaitableInterfaceID);
 
         // done!
