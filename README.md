@@ -1,4 +1,92 @@
-## Fraze
+# Fraze
 
-Fraze is a garbage collected, interpretted C-like language geared toward productivity.
-([example](https://github.com/nicolasjinchereau/fraze/blob/master/demo/assets/scripts/Main.fz))
+Fraze is a strongly typed, garbage-collected scripting language with C-like syntax, built from scratch in modern C++. It compiles to a custom stack-based bytecode and runs on its own virtual machine, with no third-party compiler frameworks or runtimes. The design goals are memory safety, simplicity, and fast execution. There is no undefined behavior, and unsafe operations are guarded by runtime checks that can be compiled out once code is trusted.
+
+The implementation includes lexing, parsing, semantic analysis, code generation, a bytecode VM, a garbage collector, coroutines, and native interop. The repository includes the complete toolchain, a standard library written in Fraze itself, and a 3D demo app that embeds the language to drive a real-time rendered scene.
+
+## Demo
+
+The demo renders a 3D diorama with a character animated in real time. The skeletal animation and skin deformation are programmed in Fraze and run every frame, a solid stress test of the VM's throughput. Heavy math like `Mat4` multiplication is offloaded to native *intrinsic functions*, a low-overhead form of interop designed for hot paths. Everything above the graphics API, including the scene graph, component system, camera controller, and async asset pipeline, is Fraze code.
+
+![Fraze demo](demo.gif)
+
+## The language at a glance
+
+```cpp
+// External C++ function, added by `compiler.AddFunction("SaveResult", &SaveResult)`
+void SaveResult(const String& path, const String& text)
+{
+    std::ofstream file{ std::string(path.GetView()) };
+    file << text.GetView();
+}
+```
+
+```cs
+// Fraze script
+extern void SaveResult(string path, string text);
+
+functor num Transform(num value);
+
+interface IShape {
+    num Area();
+}
+
+class Circle : IShape {
+    num radius;
+    num Area() { return Math.Pi * radius * radius; }
+}
+
+class Square : IShape {
+    num side;
+    num Area() { return side * side; }
+}
+
+Task<num> TotalAreaAsync(List<IShape> shapes, Transform transform)
+{
+    await WaitAsync(0.5); // suspends without blocking the host thread
+
+    num total = 0.0;
+    for(int i = 0; i != shapes.Count; ++i)
+        total += transform(shapes[i].Area());
+
+    return total;
+}
+
+Task<void> Run()
+{
+    List<IShape> shapes = new List<IShape>{};
+    shapes.Add(new Circle{ 2.0 });
+    shapes.Add(new Square{ 3.0 });
+
+    num total = await TotalAreaAsync(shapes, functor num(num a) { return a * 2.0; });
+    SaveResult("result.txt", "total area: " + total);
+}
+```
+
+## Highlights
+
+- **Complete compiler pipeline.** A hand-rolled lexer and recursive descent parser build a full AST, a visitor-based semantic analyzer resolves types and scopes, and a code generator emits compact stack-based bytecode (100+ opcodes, similar in spirit to C# IL).
+- **Custom virtual machine.** A bytecode interpreter with its own call stack, globals, and runtime type information. Compile-time options can enable or disable safety checks (asserts, null checks, bounds checks, type checks) per build.
+- **Tracing garbage collector.** Memory is reclaimed automatically by a mark-and-sweep collector, and objects can be pinned so native code can hold references safely across collections.
+- **Stackless coroutines.** Awaitable functions (`Task<T>` / `await`) let long-running work like asset loading suspend and resume without blocking. The compiler transforms them into resumable state machines, so the VM stays single-threaded and needs no OS thread per task.
+- **Rich type system.** Classes, interfaces, structs, enums, generics (`List<T>`, `Table<TKey, TValue>`), properties, arrays, and `functor` types: first-class callable objects that bind free functions, member functions (capturing their receiver), or inline literals with captured values.
+- **Unified calling convention.** The receiver (`this`) of every non-static member is just an ordinary implicit first argument by codegen time, which keeps method calls, functor binding, interface dispatch, and coroutines all on one consistent path through the VM.
+- **Simple C++ interop.** The host registers native functions with the compiler, and Fraze code calls them through ordinary `extern` declarations: functions, classes, methods, even operators. Performance-critical routines can be bound as intrinsics that bypass marshalling overhead entirely.
+- **Standard library written in Fraze.** Lists, hash tables, math, tasks, and the await machinery itself (`Task<T>`, awaiters) are implemented in the language.
+- **Demo written in Fraze.** C++ provides thin wrappers around the OS and graphics APIs; the structural parts of the rendering system (scene graph, components, materials, skeletal animation, asset pipeline) are all Fraze.
+- **Debuggability built in.** The compiler can export the parsed AST and the generated bytecode to disk, and the VM can trace every executed instruction.
+
+## Repository layout
+
+| Folder | Description |
+|---|---|
+| `compiler/` | The lexer, parser, semantic analyzer, code generator, VM, and GC (C++), plus the standard library and test suite (`.fz`) |
+| `demo/` | 3D demo app that embeds Fraze; scripts in `demo/assets/scripts/` |
+| `syntax-extensions/` | Fraze syntax highlighting extensions for Visual Studio and VS Code |
+| `third_party/` | External dependencies used by the demo (assimp, libpng, ...) |
+
+## Building
+
+1. Run `third_party\build-all.cmd` to build the external dependencies.
+2. Open `Fraze.sln` in Visual Studio (MSVC v145, C++ latest) and build the `Demo` project for x64.
+
