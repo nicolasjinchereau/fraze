@@ -112,7 +112,7 @@
             "patterns": [
                 {
                     "name": "storage.type.fraze",
-                    "match": "\\b(?:object|bool|int|num|string|void)\\b"
+                    "match": "\\b(?:var|object|bool|int|num|string|void)\\b"
                 }
             ]
         },

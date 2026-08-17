@@ -35,7 +35,7 @@
     "type": "git",
     "url": "https://github.com/nicolasjinchereau/fraze.git"
   },
-  "license": "MIT",
+  "license": "see license in LICENSE.txt",
   "extensionKind": [
     "workspace"
   ]
