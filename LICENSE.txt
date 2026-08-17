@@ -1,4 +1,4 @@
-Copyright (c) 2025 Nicolas Jinchereau. All rights reserved.
+Copyright (c) 2026 Nicolas Jinchereau. All rights reserved.
 
 This source code is published for reference purposes only. No license is
 granted for use, copying, modification, or redistribution.
