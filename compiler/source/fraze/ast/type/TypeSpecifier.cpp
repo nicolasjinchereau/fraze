@@ -20,7 +20,7 @@ TypeSpecifier::TypeSpecifier(const SourceLocation& loc, Type* type)
 
     auto def = type->GetDefinition();
 
-    std::string_view name = def->name;
+    std::string_view name = def->qualifiedName;
     baseTypeName = shared_string(name.substr(0, name.find('<')));
     scope = def->enclosingScope;
 

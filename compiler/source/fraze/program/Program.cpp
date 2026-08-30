@@ -293,16 +293,12 @@ void Program::VerifyHandlers()
     VERIFY_HANDLER_INDEX(PushArgumentN);
     VERIFY_HANDLER_INDEX(PushArgumentAddr);
     VERIFY_HANDLER_INDEX(PopArgument);
-    VERIFY_HANDLER_INDEX(PushField);
-    VERIFY_HANDLER_INDEX(PushFieldAddr);
-    VERIFY_HANDLER_INDEX(PopField);
-    VERIFY_HANDLER_INDEX(PushRefField);
-    VERIFY_HANDLER_INDEX(PushRefFieldN);
-    VERIFY_HANDLER_INDEX(PushRefFieldAddr);
-    VERIFY_HANDLER_INDEX(PopRefField);
-    VERIFY_HANDLER_INDEX(PushElement);
-    VERIFY_HANDLER_INDEX(PushElementAddr);
-    VERIFY_HANDLER_INDEX(PopElement);
+    VERIFY_HANDLER_INDEX(PushWord);
+    VERIFY_HANDLER_INDEX(PushWordN);
+    VERIFY_HANDLER_INDEX(PushWordAddr);
+    VERIFY_HANDLER_INDEX(PopWord);
+    VERIFY_HANDLER_INDEX(PopWordN);
+    VERIFY_HANDLER_INDEX(PushIndexAddr);
     VERIFY_HANDLER_INDEX(PushOffset);
     VERIFY_HANDLER_INDEX(PopOffset);
     VERIFY_HANDLER_INDEX(PushBoolean);
@@ -311,8 +307,6 @@ void Program::VerifyHandlers()
     VERIFY_HANDLER_INDEX(PushNull);
     VERIFY_HANDLER_INDEX(Pop);
     VERIFY_HANDLER_INDEX(Reserve);
-    VERIFY_HANDLER_INDEX(NewArray);
-    VERIFY_HANDLER_INDEX(NewClass);
     VERIFY_HANDLER_INDEX(LogicalOr);
     VERIFY_HANDLER_INDEX(LogicalAnd);
     VERIFY_HANDLER_INDEX(BitOr);
@@ -343,7 +337,6 @@ void Program::VerifyHandlers()
     VERIFY_HANDLER_INDEX(ModNum);
     VERIFY_HANDLER_INDEX(ConvIntToNum);
     VERIFY_HANDLER_INDEX(ConvNumToInt);
-    VERIFY_HANDLER_INDEX(ConvRefToStruct);
     VERIFY_HANDLER_INDEX(Dup);
     VERIFY_HANDLER_INDEX(DupN);
     VERIFY_HANDLER_INDEX(Call);
@@ -502,143 +495,70 @@ void Program::Execute_PopArgument(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_PushField(const Operation& op)
+void Program::Execute_PushWord(const Operation& op)
+{
+    Reference address = rsp->reference;
+    *rsp = address[op.arg1_u64];
+    ++rip;
+}
+
+void Program::Execute_PushWordN(const Operation& op)
 {
     assert(op.arg2_u64 != 0);
 
     Word* top = rsp;
-    Class* object = static_cast<Class*>((top--)->object);
+    Reference address = (top--)->reference;
 
-    for(auto& field : object->GetFields(op.arg1_u64, op.arg2_u64))
-        *(++top) = field;
-
-    rsp = top;
-    ++rip;
-}
-
-void Program::Execute_PushFieldAddr(const Operation& op)
-{
-    Word* top = rsp;
-    Class* object = static_cast<Class*>(top->object);
-    *top = object->GetFieldRef(op.arg1_u64);
-    ++rip;
-}
-
-void Program::Execute_PopField(const Operation& op)
-{
-    assert(op.arg2_u64 != 0);
-
-    Word* top = rsp;
-    Class* object = static_cast<Class*>((top--)->object);
-    auto values = top + 1 - op.arg2_u64;
-    object->SetFields(op.arg1_u64, { values, values + op.arg2_u64 });
-    rsp = top - op.arg2_u64;
-    ++rip;
-}
-
-void Program::Execute_PushRefField(const Operation& op)
-{
-    *rsp = rsp->reference[op.arg1_u64];
-    ++rip;
-}
-
-void Program::Execute_PushRefFieldN(const Operation& op)
-{
-    Word* top = rsp;
-    Word* reference = (top--)->reference;
-
-    assert(op.arg2_u64 != 0);
-    
-    Word* src = reference + op.arg1_u64;
+    Word* src = address + op.arg1_u64;
     Word* dest = top + 1;
 
-    for(std::size_t i = 0; i < op.arg2_u64; ++i)
+    for(size_t i = 0; i != op.arg2_u64; ++i)
         dest[i] = src[i];
 
     rsp = dest + (op.arg2_u64 - 1);
     ++rip;
 }
 
-void Program::Execute_PushRefFieldAddr(const Operation& op)
+void Program::Execute_PushWordAddr(const Operation& op)
 {
-    Word* top = rsp;
-    Reference reference = top->reference;
-    top->reference = &reference[op.arg1_u64];
+    Reference address = rsp->reference;
+    rsp->reference = address + op.arg1_u64;
     ++rip;
 }
 
-void Program::Execute_PopRefField(const Operation& op)
+void Program::Execute_PopWord(const Operation& op)
+{
+    Word* top = rsp;
+    Reference address = (top--)->reference;
+    address[op.arg1_u64] = *top;
+    rsp = top - 1;
+    ++rip;
+}
+
+void Program::Execute_PopWordN(const Operation& op)
 {
     assert(op.arg2_u64 != 0);
 
     Word* top = rsp;
-    Reference reference = (top--)->reference;
+    Reference address = (top--)->reference;
 
-    auto values = top + 1 - op.arg2_u64;
+    Word* src = top + 1 - op.arg2_u64;
+    Word* dest = address + op.arg1_u64;
+
     for(size_t i = 0; i != op.arg2_u64; ++i)
-        reference[op.arg1_u64 + i] = values[i];
+        dest[i] = src[i];
 
     rsp = top - op.arg2_u64;
     ++rip;
 }
 
-void Program::Execute_PushElement(const Operation& op)
+void Program::Execute_PushIndexAddr(const Operation& op)
 {
     Word* top = rsp;
-    
-    Integer elementIndex = (top--)->integer;
-    Array<>* arr = static_cast<Array<>*>((top--)->object);
-
-    assert(op.arg1_u64 == arr->GetElementSize());
-
-    auto wordIndex = elementIndex * arr->GetElementSize();
-
-    Word* src = &arr->At(wordIndex);
-    Word* dest = top + 1;
-
-    std::size_t count = op.arg1_u64;
-
-    for(std::size_t i = 0; i != count; ++i)
-        dest[i] = src[i];
-
-    rsp = top + count;
-
-    ++rip;
-}
-
-void Program::Execute_PushElementAddr(const Operation& op)
-{
-    Word* top = rsp;
-
-    Integer elementIndex = (top--)->integer;
-    Array<>* arr = static_cast<Array<>*>((top--)->object);
-
-    auto wordIndex = elementIndex * arr->GetElementSize();
-    *(++top) = Word( &arr->At(wordIndex) );
-
+    Integer index = (top--)->integer;
+    Reference address = top->reference;
+    top->reference = address + op.arg1_u64 + index * static_cast<Integer>(op.arg2_u64);
     rsp = top;
-    ++rip;
-}
-
-void Program::Execute_PopElement(const Operation& op)
-{
-    assert(op.arg1_u64 != 0);
-
-    Word* top = rsp;
-
-    Word* value = top + 1 - op.arg1_u64;
-    Integer elementIndex = (value - 1)->integer;
-    Array<>* arr = (value - 2)->GetArray();
-
-    assert(op.arg1_u64 == arr->GetElementSize());
-
-    auto wordIndex = elementIndex * op.arg1_u64;
-
-    for(size_t i = 0; i != op.arg1_u64; ++i)
-        arr->At(wordIndex + i) = value[i];
-
-    rsp = top - (op.arg1_u64 + 2) ;
-
     ++rip;
 }
 
@@ -700,44 +620,6 @@ void Program::Execute_Pop(const Operation& op)
 void Program::Execute_Reserve(const Operation& op)
 {
     rsp += op.arg1_u64;
-    ++rip;
-}
-
-void Program::Execute_NewArray(const Operation& op)
-{
-    Word* top = rsp;
-
-    ArrayInfo* arrayInfo = typeInfo[op.arg1_u64]->ToArrayInfo();
-    StructInfo* structInfo = arrayInfo->elementType->ToStructInfo();
-    size_t elementSize = structInfo ? structInfo->size : size_t(1);
-
-    Integer length = top->integer;
-    DefaultAllocator alloc(this);
-    top->object = Array<>::New(alloc, arrayInfo, length * elementSize);
-
-    ++rip;
-}
-
-void Program::Execute_NewClass(const Operation& op)
-{
-    Word* top = rsp;
-    auto* classInfo = typeInfo[op.arg1_u64]->ToClassInfo();
-    DefaultAllocator alloc(this);
-    Class* instance = Class::New(alloc, classInfo->ToClassInfo());
-
-    Word* end = top + 1;
-    Word* firstArg = end - classInfo->size;
-
-    for(size_t i = 0; i != classInfo->size; ++i)
-    {
-        Word& arg = *(firstArg + i);
-        instance->SetField(i, arg);
-    }
-    
-    top -= classInfo->size;
-    (++top)->object = instance;
-    rsp = top;
-
     ++rip;
 }
 
@@ -831,7 +713,7 @@ void Program::Execute_Equal(const Operation& op)
 
 void Program::Execute_EqualN(const Operation& op)
 {
-    assert(op.arg1_u64 == 1);
+    assert(op.arg1_u64 > 1);
 
     Word* rhs = rsp + 1 - op.arg1_u64;
     Word* lhs = rhs - op.arg1_u64;
@@ -1038,20 +920,6 @@ void Program::Execute_ConvIntToNum(const Operation& op)
 void Program::Execute_ConvNumToInt(const Operation& op)
 {
     rsp->integer = static_cast<Integer>(rsp->number);
-    ++rip;
-}
-
-void Program::Execute_ConvRefToStruct(const Operation& op)
-{
-    Word* top = rsp;
-    Reference reference = (top--)->reference;
-
-    assert(op.arg1_u64 != 0);
-
-    for(size_t i = 0; i != op.arg1_u64; ++i)
-        *(++top) = reference[i];
-
-    rsp = top;
     ++rip;
 }
 
@@ -1349,11 +1217,7 @@ void Program::PrintOperation(size_t index, std::ostream& stream)
         stream << OpCodeNames[op.code] << ", " << static_cast<Number>(op.arg1_f64);
         break;
 
-    case OpCode::NewClass:
-        stream << OpCodeNames[op.code] << ", " << typeInfo[op.arg1_u64]->qualifiedName;
-        break;
-
-    //case OpCode::PushField:
+    //case OpCode::PushWord:
     //{
     //    stream << OpCodeNames[op.code] << ", " << op.arg1_u64
     //        << " [" << GetLiteralValue(op.arg1_u64) << "]" << std::dec;
@@ -1370,11 +1234,6 @@ void Program::PrintOperation(size_t index, std::ostream& stream)
 
     case OpCode::CallVirtual:
         stream << OpCodeNames[op.code] << ", " << typeInfo[op.arg1_u64]->qualifiedName;
-        break;
-
-    case OpCode::NewArray:
-        stream << OpCodeNames[op.code] << ", " << op.arg1_u64
-               << " [" << typeInfo[op.arg1_u64]->ToArrayInfo()->elementType->qualifiedName << "]";
         break;
 
     case OpCode::PushNull:
@@ -1408,7 +1267,6 @@ void Program::PrintOperation(size_t index, std::ostream& stream)
     case OpCode::ModNum:
     case OpCode::ConvIntToNum:
     case OpCode::ConvNumToInt:
-    case OpCode::ConvRefToStruct:
         stream << OpCodeNames[op.code];
         break;
 
@@ -1418,11 +1276,9 @@ void Program::PrintOperation(size_t index, std::ostream& stream)
     case OpCode::PopGlobal:
     case OpCode::PushArgumentN:
     case OpCode::PopArgument:
-    case OpCode::PushField:
-    case OpCode::PopField:
-    case OpCode::PushRefFieldN:
-    case OpCode::PopRefField:
-    case OpCode::PushElement:
+    case OpCode::PushWordN:
+    case OpCode::PopWordN:
+    case OpCode::PushIndexAddr:
         stream << OpCodeNames[op.code] << ", " << op.arg1_u64 << ", " << op.arg2_u64;
         break;
 
@@ -1456,11 +1312,9 @@ void Program::PrintOperation(size_t index, std::ostream& stream)
     case OpCode::PushGlobalAddr:
     case OpCode::PushArgument:
     case OpCode::PushArgumentAddr:
-    case OpCode::PushFieldAddr:
-    case OpCode::PushRefField:
-    case OpCode::PushRefFieldAddr:
-    case OpCode::PushElementAddr:
-    case OpCode::PopElement:
+    case OpCode::PushWord:
+    case OpCode::PushWordAddr:
+    case OpCode::PopWord:
     case OpCode::Pop:
     default:
         stream << OpCodeNames[op.code] << ", " << op.arg1_u64;

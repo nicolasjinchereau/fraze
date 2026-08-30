@@ -43,6 +43,8 @@ Compiler::Compiler(std::string_view assetsPath)
     AddFunction("Array.GetCount", &Array_GetCount);
     AddFunction("Array.GetSize", &Array_GetSize);
     AddFunction("Type.Find", &Type_Find);
+    AddFunction("Type.NewClass", &Type_NewClass);
+    AddFunction("Type.NewArray", &Type_NewArray);
     AddFunction("Type.GetName", &Type_GetName);
     AddFunction("Type.IsInstance", &Type_IsInstance);
     AddFunction("Type.AsInstance", &Type_AsInstance);

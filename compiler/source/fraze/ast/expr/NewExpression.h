@@ -16,6 +16,9 @@ public:
     sptr<Expression> argumentExpression;
     std::optional<bool> hasConstructor;
 
+    // A call to Type.NewClass(typeID) or Type.NewArray(typeID, length) added during semantic analysis.
+    sptr<Expression> allocExpression;
+
     NewExpression(const SourceLocation& loc, Scope* scope)
         : Expression(loc, scope)
     {

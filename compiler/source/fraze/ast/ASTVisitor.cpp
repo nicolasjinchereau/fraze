@@ -227,6 +227,7 @@ void ASTVisitor::Visit(const sptr<NewExpression>& node)
         VisitChild(arg);
 
     VisitChild(node->argumentExpression);
+    VisitChild(node->allocExpression);
 }
 
 void ASTVisitor::Visit(const sptr<NullLiteralExpression>& node)

@@ -241,6 +241,10 @@ public:
     const ArrayInfo* GetInfo() const;
 };
 
+// number of words between an array object's address and its first element
+inline constexpr size_t ArrayDataOffset = sizeof(Array<void>) / sizeof(Word);
+static_assert(sizeof(Array<void>) % sizeof(Word) == 0);
+
 template<class T>
 class Array : public Array<void>
 {
@@ -331,6 +335,10 @@ public:
         SetField(name, valWords);
     }
 };
+
+// number of words between a class object's address and its first field
+inline constexpr size_t ClassDataOffset = sizeof(Class) / sizeof(Word);
+static_assert(sizeof(Class) % sizeof(Word) == 0);
 
 class String : public Object
 {

@@ -4,6 +4,7 @@
 
 #pragma once
 #include <string>
+#include <concepts>
 #include <iostream>
 #include <ranges>
 #include <fraze/ast/ASTNode.h>
@@ -91,11 +92,17 @@ public:
     template<class T>
     auto GetChildren(std::string_view name) const;
 
+    template<class T, class Pred> requires std::predicate<Pred&, const sptr<T>&>
+    auto GetChildren(Pred&& pred) const;
+
     template<class T>
     auto GetFirstChild() const;
 
     template<class T>
     auto GetFirstChild(std::string_view name) const;
+
+    template<class T, class Pred> requires std::predicate<Pred&, const sptr<T>&>
+    auto GetFirstChild(Pred&& pred) const;
 private:
     shared_string GetQualifiedName()
     {
@@ -168,6 +175,15 @@ inline auto Definition::GetChildren(std::string_view name) const
         | countable;
 }
 
+template<class T, class Pred> requires std::predicate<Pred&, const sptr<T>&>
+inline auto Definition::GetChildren(Pred&& pred) const
+{
+    return children
+        | std::views::transform([](const sptr<Definition>& d) { return DefinitionCast<T>(d); })
+        | std::views::filter([pred = std::forward<Pred>(pred)](const sptr<T>& p) { return p != nullptr && pred(p); })
+        | countable;
+}
+
 template<class T>
 inline auto Definition::GetFirstChild() const
 {
@@ -183,6 +199,15 @@ inline auto Definition::GetFirstChild(std::string_view name) const
     auto r = children
         | std::views::transform([](const sptr<Definition>& d) { return DefinitionCast<T>(d); })
         | std::views::filter([=](const sptr<T>& p) { return p != nullptr && p->name == name; });
+    return !r.empty() ? r.front() : sptr<T>{};
+}
+
+template<class T, class Pred> requires std::predicate<Pred&, const sptr<T>&>
+inline auto Definition::GetFirstChild(Pred&& pred) const
+{
+    auto r = children
+        | std::views::transform([](const sptr<Definition>& d) { return DefinitionCast<T>(d); })
+        | std::views::filter([pred = std::forward<Pred>(pred)](const sptr<T>& p) { return p != nullptr && pred(p); });
     return !r.empty() ? r.front() : sptr<T>{};
 }
 

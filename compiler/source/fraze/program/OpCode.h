@@ -42,27 +42,36 @@ enum class OpCode : uint8_t
     // Pop stack into STACK[frameStart - paramCount + arg]
     PopArgument,
 
-    // context object is popped from the stack, and a field from that object is pushed to the stack
-    PushField,
-    PushFieldAddr,
+    // Direct memory access. These all treat the word on top of the stack as the address
+    // of a block of words, and access that block at a constant word offset that is baked
+    // in at compile time. A struct value on the stack is already the address of its
+    // fields, while a class or array object needs Class/ArrayDataOffset added to reach
+    // past its header.
 
-    // context object and value are popped off stack and value is stored in object
-    PopField,
+    // pop an address, then push the word at [address + arg1]
+    PushWord,
 
-    // context ref is popped from the stack, and a field from that object is pushed to the stack
-    PushRefField,
-    PushRefFieldN,
-    PushRefFieldAddr,
+    // pop an address, then push the arg2 words starting at [address + arg1]
+    PushWordN,
 
-    // context ref and value are popped off stack and value is stored in object
-    PopRefField,
+    // pop an address, then push [address + arg1]
+    PushWordAddr,
 
-    // array is popped from the stack, and an element from that array is pushed to the stack
-    PushElement,
-    PushElementAddr,
+    // pop an address and the value below it, then store the value at [address + arg1]
+    PopWord,
 
-    // the top element on the stack is stored in the array and the value and array are popped off stack
-    PopElement,
+    // pop an address and the arg2 values below it, then store them at [address + arg1]
+    PopWordN,
+
+    // Indexed direct memory access. Computes an address as [address + disp + index * scale],
+    // which is the same shape as an x86 [base + index * scale + disp] addressing mode and a
+    // MIR memory operand. It is kept separate from the load/store operations above so that
+    // every operation stays within two constant operands; a JIT tracking the operand stack
+    // symbolically can fold this into the displacement of the following load or store for
+    // free, so the split costs an interpreter dispatch but no machine instructions.
+
+    // pop an index and the address below it, then push [address + arg1 + index * arg2]
+    PushIndexAddr,
 
     // Push STACK[STACK.size - 1 - arg] onto stack
     PushOffset,
@@ -87,12 +96,6 @@ enum class OpCode : uint8_t
 
     // Reserve space for return value, arg is word count
     Reserve,
-
-    // push new array of #arg elements onto stack in place of the previous #arg elements
-    NewArray,
-
-    // push new instance of class [arg] onto stack
-    NewClass,
 
     // replaces stack top with result of binary operation on top two (integers)
     LogicalOr,
@@ -133,7 +136,6 @@ enum class OpCode : uint8_t
     // converts stack top from one type to another
     ConvIntToNum,
     ConvNumToInt,
-    ConvRefToStruct,
 
     // pushes another copy of current stack top
     Dup,
@@ -175,24 +177,18 @@ inline std::unordered_map<OpCode, std::string> OpCodeNames {
     { OpCode::PushGlobal,      "PushGlobal" },
     { OpCode::PushGlobalAddr,  "PushGlobalAddr" },
     { OpCode::PopGlobal,       "PopGlobal" },
-    { OpCode::PushElement,     "PushElement" },
-    { OpCode::PushElementAddr, "PushElementAddr" },
-    { OpCode::PopElement,      "PopElement" },
-    { OpCode::PushField,       "PushField" },
-    { OpCode::PushFieldAddr,   "PushFieldAddr" },
-    { OpCode::PopField,        "PopField" },
-    { OpCode::PushRefField,    "PushRefField" },
-    { OpCode::PushRefFieldN,   "PushRefFieldN" },
-    { OpCode::PushRefFieldAddr,"PushRefFieldAddr" },
-    { OpCode::PopRefField,     "PopRefField" },
+    { OpCode::PushWord,        "PushWord" },
+    { OpCode::PushWordN,       "PushWordN" },
+    { OpCode::PushWordAddr,    "PushWordAddr" },
+    { OpCode::PopWord,         "PopWord" },
+    { OpCode::PopWordN,        "PopWordN" },
+    { OpCode::PushIndexAddr,   "PushIndexAddr" },
     { OpCode::PushBoolean,     "PushBoolean" },
     { OpCode::PushInteger,     "PushInteger" },
     { OpCode::PushNumber,      "PushNumber" },
     { OpCode::PushNull,        "PushNull" },
     { OpCode::Pop,             "Pop" },
     { OpCode::Reserve,         "Reserve" },
-    { OpCode::NewArray,        "NewArray" },
-    { OpCode::NewClass,        "NewClass" },
 
     { OpCode::LogicalOr,       "LogicalOr" },
     { OpCode::LogicalAnd,      "LogicalAnd" },
@@ -228,7 +224,6 @@ inline std::unordered_map<OpCode, std::string> OpCodeNames {
 
     { OpCode::ConvIntToNum,    "ConvIntToNum" },
     { OpCode::ConvNumToInt,    "ConvNumToInt" },
-    { OpCode::ConvRefToStruct, "ConvRefToStruct" },
 
     { OpCode::Dup,             "Dup" },
     { OpCode::DupN,            "DupN" },

@@ -233,6 +233,26 @@ inline Object* Type_Find(Program* program, const Integer& typeID)
     return program->typeInfo[typeID].get();
 }
 
+inline Object* Type_NewClass(Program* program, const Integer& typeID)
+{
+    const TypeInfo* type = program->typeInfo[typeID].get();
+    const ClassInfo* classInfo = type->ToClassInfo();
+    ENFORCE(classInfo != nullptr, SourceLocation(), "type is not a class: {}", type->qualifiedName);
+
+    ScopedAllocator alloc(program);
+    return Class::New(alloc, classInfo);
+}
+
+inline Object* Type_NewArray(Program* program, const Integer& typeID, const Integer& length)
+{
+    const TypeInfo* type = program->typeInfo[typeID].get();
+    const ArrayInfo* arrayInfo = type->ToArrayInfo();
+    ENFORCE(arrayInfo != nullptr, SourceLocation(), "type is not an array: {}", type->qualifiedName);
+
+    ScopedAllocator alloc(program);
+    return Array<>::New(alloc, arrayInfo, length * arrayInfo->GetElementSize());
+}
+
 inline String* Type_GetName(Program* program, const TypeInfo& self)
 {
     ScopedAllocator alloc(program);

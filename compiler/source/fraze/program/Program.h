@@ -117,16 +117,12 @@ private:
     void Execute_PushArgumentN(const Operation& op);
     void Execute_PushArgumentAddr(const Operation& op);
     void Execute_PopArgument(const Operation& op);
-    void Execute_PushField(const Operation& op);
-    void Execute_PushFieldAddr(const Operation& op);
-    void Execute_PopField(const Operation& op);
-    void Execute_PushRefField(const Operation& op);
-    void Execute_PushRefFieldN(const Operation& op);
-    void Execute_PushRefFieldAddr(const Operation& op);
-    void Execute_PopRefField(const Operation& op);
-    void Execute_PushElement(const Operation& op);
-    void Execute_PushElementAddr(const Operation& op);
-    void Execute_PopElement(const Operation& op);
+    void Execute_PushWord(const Operation& op);
+    void Execute_PushWordN(const Operation& op);
+    void Execute_PushWordAddr(const Operation& op);
+    void Execute_PopWord(const Operation& op);
+    void Execute_PopWordN(const Operation& op);
+    void Execute_PushIndexAddr(const Operation& op);
     void Execute_PushOffset(const Operation& op);
     void Execute_PopOffset(const Operation& op);
     void Execute_PushBoolean(const Operation& op);
@@ -135,8 +131,6 @@ private:
     void Execute_PushNull(const Operation& op);
     void Execute_Pop(const Operation& op);
     void Execute_Reserve(const Operation& op);
-    void Execute_NewArray(const Operation& op);
-    void Execute_NewClass(const Operation& op);
     void Execute_LogicalOr(const Operation& op);
     void Execute_LogicalAnd(const Operation& op);
     void Execute_BitOr(const Operation& op);
@@ -167,7 +161,6 @@ private:
     void Execute_ModNum(const Operation& op);
     void Execute_ConvIntToNum(const Operation& op);
     void Execute_ConvNumToInt(const Operation& op);
-    void Execute_ConvRefToStruct(const Operation& op);
     void Execute_Dup(const Operation& op);
     void Execute_DupN(const Operation& op);
     void Execute_Call(const Operation& op);
@@ -198,16 +191,12 @@ private:
         &Program::Execute_PushArgumentN,
         &Program::Execute_PushArgumentAddr,
         &Program::Execute_PopArgument,
-        &Program::Execute_PushField,
-        &Program::Execute_PushFieldAddr,
-        &Program::Execute_PopField,
-        &Program::Execute_PushRefField,
-        &Program::Execute_PushRefFieldN,
-        &Program::Execute_PushRefFieldAddr,
-        &Program::Execute_PopRefField,
-        &Program::Execute_PushElement,
-        &Program::Execute_PushElementAddr,
-        &Program::Execute_PopElement,
+        &Program::Execute_PushWord,
+        &Program::Execute_PushWordN,
+        &Program::Execute_PushWordAddr,
+        &Program::Execute_PopWord,
+        &Program::Execute_PopWordN,
+        &Program::Execute_PushIndexAddr,
         &Program::Execute_PushOffset,
         &Program::Execute_PopOffset,
         &Program::Execute_PushBoolean,
@@ -216,8 +205,6 @@ private:
         &Program::Execute_PushNull,
         &Program::Execute_Pop,
         &Program::Execute_Reserve,
-        &Program::Execute_NewArray,
-        &Program::Execute_NewClass,
         &Program::Execute_LogicalOr,
         &Program::Execute_LogicalAnd,
         &Program::Execute_BitOr,
@@ -248,7 +235,6 @@ private:
         &Program::Execute_ModNum,
         &Program::Execute_ConvIntToNum,
         &Program::Execute_ConvNumToInt,
-        &Program::Execute_ConvRefToStruct,
         &Program::Execute_Dup,
         &Program::Execute_DupN,
         &Program::Execute_Call,

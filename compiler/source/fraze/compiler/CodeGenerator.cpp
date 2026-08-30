@@ -82,12 +82,14 @@ void CodeGenerator::PopExpression(const sptr<Expression>& node, const sptr<Expre
                 if(isContextStruct)
                 {
                     ENFORCE(!ident->context || !ident->context->ToCallExpression(), ident->context->loc, "Cannot directly modify a struct returned from a function");
-                    Emit(node->loc, OpCode::PopRefField, varDef->offset, varSize);
                 }
+
+                uint64_t offset = FieldOffset(ident->context, varDef->offset);
+
+                if(varSize > 1)
+                    Emit(node->loc, OpCode::PopWordN, offset, varSize);
                 else
-                {
-                    Emit(node->loc, OpCode::PopField, varDef->offset, varSize);
-                }
+                    Emit(node->loc, OpCode::PopWord, offset);
             }
             else
             {
@@ -116,27 +118,38 @@ void CodeGenerator::PopExpression(const sptr<Expression>& node, const sptr<Expre
     }
     else if(auto ind = node->ToIndexExpression())
     {
-        uint64_t size = 1;
-
-        auto elementType = source->EvaluateType();
-        if(elementType->IsStruct())
-            size = typeInfo[elementType]->ToStructInfo()->size;
-
         // should leave an Array on the stack which can be indexed
         VisitChild(ind->target);
 
         // should leave an integer on the stack by which the array can be indexed
         VisitChild(ind->arg);
 
-        // push value sitting before array onto stack
-        Emit(node->loc, OpCode::PushOffset, 2 + (size - 1), size);
+        // replace the array and index with the address of the element
+        Emit(node->loc, OpCode::PushIndexAddr, (uint64_t)ArrayDataOffset, varSize);
 
-        // pop element into array
-        Emit(node->loc, OpCode::PopElement, size);
-
-        // pop the extra value left on the stack by caller
-        Emit(node->loc, OpCode::Pop, 1);
+        // store the value pushed by the caller into the element
+        if(varSize > 1)
+            Emit(node->loc, OpCode::PopWordN, 0ull, varSize);
+        else
+            Emit(node->loc, OpCode::PopWord, 0ull);
     }
+}
+
+void CodeGenerator::EmitFieldInitializer(sptr<Expression>& value, size_t fieldOffset, size_t fieldSize)
+{
+    uint64_t offset = ClassDataOffset + fieldOffset;
+
+    // evaluate the field's value above the object reference
+    VisitChild(value);
+
+    // push a copy of the object reference from below the value
+    Emit(value->loc, OpCode::PushOffset, fieldSize, 1ull);
+
+    // store the value in the field, leaving the original object reference
+    if(fieldSize > 1)
+        Emit(value->loc, OpCode::PopWordN, offset, (uint64_t)fieldSize);
+    else
+        Emit(value->loc, OpCode::PopWord, offset);
 }
 
 void CodeGenerator::EmitConversion(sptr<Expression>& value, const sptr<TypeSpecifier>& resultTypeSpec)
@@ -147,51 +160,25 @@ void CodeGenerator::EmitConversion(sptr<Expression>& value, const sptr<TypeSpeci
     assert(sourceType);
     assert(resultType);
 
-    // evaluate source expression
+    // evaluate the source expression and convert it in place
     VisitChild(value);
 
-    // convert in place
-    if(resultType->IsObject())
+    if(resultType->IsBoolean())
     {
-        if (sourceType->IsBoolean())
-        {
-            // box boolean value
-            auto type = Type::Get("Boolean");
-            auto id = typeInfo[type]->ToClassInfo()->id;
-            Emit(value->loc, OpCode::NewClass, id);
-        }
-        else if (sourceType->IsInteger())
-        {
-            // box integer value
-            auto type = Type::Get("Integer");
-            auto id = typeInfo[type]->ToClassInfo()->id;
-            Emit(value->loc, OpCode::NewClass, id);
-        }
-        else if (sourceType->IsNumber())
-        {
-            // box number value
-            auto type = Type::Get("Number");
-            auto id = typeInfo[type]->ToClassInfo()->id;
-            Emit(value->loc, OpCode::NewClass, id);
-        }
-        // array, class, functor, string are already objects
-    }
-    else if(resultType->IsBoolean())
-    {
-        if (sourceType->IsObject())
+        if(sourceType->IsObject())
         {
             // unbox boolean value
-            Emit(value->loc, OpCode::PushField, 0, 1);
+            Emit(value->loc, OpCode::PushWord, (uint64_t)ClassDataOffset);
         }
     }
     else if(resultType->IsInteger())
     {
-        if (sourceType->IsObject())
+        if(sourceType->IsObject())
         {
             // unbox integer value
-            Emit(value->loc, OpCode::PushField, 0, 1);
+            Emit(value->loc, OpCode::PushWord, (uint64_t)ClassDataOffset);
         }
-        else if (sourceType->IsNumber())
+        else if(sourceType->IsNumber())
         {
             Emit(value->loc, OpCode::ConvNumToInt);
         }
@@ -199,39 +186,39 @@ void CodeGenerator::EmitConversion(sptr<Expression>& value, const sptr<TypeSpeci
     }
     else if(resultType->IsNumber())
     {
-        if (sourceType->IsObject())
+        if(sourceType->IsObject())
         {
             // unbox number value
-            Emit(value->loc, OpCode::PushField, 0, 1);
+            Emit(value->loc, OpCode::PushWord, (uint64_t)ClassDataOffset);
         }
-        if (sourceType->IsInteger())
+        if(sourceType->IsInteger())
         {
             Emit(value->loc, OpCode::ConvIntToNum);
         }
     }
     else if(resultType->IsString())
     {
-        if (sourceType->IsObject())
+        if(sourceType->IsObject())
         {
             // should be lowered to Type.AsInstance or a cast in semantic analyzer
             assert(0);
         }
-        else if (sourceType->IsBoolean())
+        else if(sourceType->IsBoolean())
         {
             //Emit(value->loc, OpCode::ConvBoolToStr);
             assert(0);
         }
-        else if (sourceType->IsInteger())
+        else if(sourceType->IsInteger())
         {
             //Emit(value->loc, OpCode::ConvIntToStr);
             assert(0);
         }
-        else if (sourceType->IsNumber())
+        else if(sourceType->IsNumber())
         {
             //Emit(value->loc, OpCode::ConvNumToStr);
             assert(0);
         }
-        else if (sourceType->IsEnum())
+        else if(sourceType->IsEnum())
         {
             //Emit(value->loc, OpCode::ConvEnumToStr, typeInfo[sourceType]->id);
             assert(0);
@@ -239,7 +226,7 @@ void CodeGenerator::EmitConversion(sptr<Expression>& value, const sptr<TypeSpeci
     }
     else if(resultType->IsInterface())
     {
-        if (sourceType->IsObject() || sourceType->IsClass() || sourceType->IsInterface())
+        if(sourceType->IsObject() || sourceType->IsClass() || sourceType->IsInterface())
         {
             // should be lowered to Type.AsInstance or a cast in semantic analyzer
             assert(0);
@@ -247,7 +234,7 @@ void CodeGenerator::EmitConversion(sptr<Expression>& value, const sptr<TypeSpeci
     }
     else if(resultType->IsClass())
     {
-        if (sourceType->IsObject() || sourceType->IsInterface())
+        if(sourceType->IsObject() || sourceType->IsInterface())
         {
             // should be lowered to Type.AsInstance or a cast in semantic analyzer
             assert(0);
@@ -255,7 +242,7 @@ void CodeGenerator::EmitConversion(sptr<Expression>& value, const sptr<TypeSpeci
     }
     else if(resultType->IsArray())
     {
-        if (sourceType->IsObject())
+        if(sourceType->IsObject())
         {
             // should be lowered to Type.AsInstance in semantic analyzer
             assert(0);
@@ -885,7 +872,13 @@ void CodeGenerator::Visit(const sptr<DefaultValueExpression>& node)
     if(type->IsNullable())
         Emit(node->loc, OpCode::PushNull);
     else if(type->IsStruct())
-        Emit(node->loc, OpCode::Reserve, type->GetDefinition()->ToStructDefinition()->size);
+    {
+        // each field is default-initialized so that the struct has a well defined value
+        auto structDef = type->GetDefinition()->ToStructDefinition();
+
+        for(const auto& field : structDef->GetChildren<VariableDefinition>([](auto& f) { return !f->isStatic; }))
+            VisitChild(field->initializer);
+    }
     else if(type->IsBoolean())
         Emit(node->loc, OpCode::PushBoolean, 0);
     else if(type->IsInteger())
@@ -937,7 +930,6 @@ void CodeGenerator::Visit(const sptr<IdentifierExpression>& node)
     if(auto varDef = node->targetDef->ToVariableDefinition())
     {
         bool hasContext = false;
-        bool isContextStruct = false;
 
         if(node->context && Expression::IsValueExpression(node->context))
         {
@@ -945,38 +937,24 @@ void CodeGenerator::Visit(const sptr<IdentifierExpression>& node)
             VisitChild(node->context);
             assert(program->code.size() > sz);
             hasContext = true;
-
-            if(node->context->EvaluateType()->IsStruct())
-            {
-                isContextStruct = true;
-            }
         }
 
         if(hasContext)
         {
-            if(isContextStruct)
+            uint64_t offset = FieldOffset(node->context, varDef->offset);
+
+            if(pushSize == 0)
             {
-                if(pushSize == 0)
-                {
-                    Emit(node->loc, OpCode::PushRefFieldAddr, varDef->offset);
-                }
-                else if(pushSize == 1)
-                {
-                    Emit(node->loc, OpCode::PushRefField, varDef->offset);
-                }
-                else
-                {
-                    assert(pushSize > 1);
-                    Emit(node->loc, OpCode::PushRefFieldN, varDef->offset, pushSize);
-                }
+                Emit(node->loc, OpCode::PushWordAddr, offset);
             }
-            else // class
+            else if(pushSize == 1)
             {
-                if(pushSize > 0)
-                    Emit(node->loc, OpCode::PushField, varDef->offset, pushSize);
-                else
-                    Emit(node->loc, OpCode::PushFieldAddr, varDef->offset);
-                
+                Emit(node->loc, OpCode::PushWord, offset);
+            }
+            else
+            {
+                assert(pushSize > 1);
+                Emit(node->loc, OpCode::PushWordN, offset, pushSize);
             }
         }
         else
@@ -1014,8 +992,10 @@ void CodeGenerator::Visit(const sptr<IdentifierExpression>& node)
             Emit(node->loc, OpCode::PushArgument, paramDef->offset);
 
             // dereference it unless the address itself is what's wanted
-            if(pushSize > 0)
-                Emit(node->loc, OpCode::ConvRefToStruct, pushSize);
+            if(pushSize == 1)
+                Emit(node->loc, OpCode::PushWord, 0ull);
+            else if(pushSize > 1)
+                Emit(node->loc, OpCode::PushWordN, 0ull, pushSize);
         }
         else if(pushSize == 0)
         {
@@ -1047,14 +1027,15 @@ void CodeGenerator::Visit(const sptr<IdentifierExpression>& node)
 
 void CodeGenerator::Visit(const sptr<IndexExpression>& node)
 {
-    uint64_t pushSize = 1;
-
     auto arrayType = node->target->EvaluateType();
     auto elementType = arrayType->GetElementType();
+
+    uint64_t elementSize = 1;
     if(elementType->IsStruct())
-    {
-        pushSize = node->pushAsRef ? 0 : typeInfo[elementType]->ToStructInfo()->size;
-    }
+        elementSize = typeInfo[elementType]->ToStructInfo()->size;
+
+    // struct elements can be pushed by address so they can be assigned to or mutated in place
+    uint64_t pushSize = (elementType->IsStruct() && node->pushAsRef) ? 0 : elementSize;
 
     // should leave an Array on the stack which can be indexed
     VisitChild(node->target);
@@ -1062,10 +1043,14 @@ void CodeGenerator::Visit(const sptr<IndexExpression>& node)
     // should leave an integer on the stack by which the array can be indexed
     VisitChild(node->arg);
 
-    if(pushSize > 0)
-        Emit(node->loc, OpCode::PushElement, pushSize);
-    else
-        Emit(node->loc, OpCode::PushElementAddr);
+    // replace the array and index with the address of the element
+    Emit(node->loc, OpCode::PushIndexAddr, (uint64_t)ArrayDataOffset, elementSize);
+
+    // replace the address with the value it points to
+    if(pushSize == 1)
+        Emit(node->loc, OpCode::PushWord, 0ull);
+    else if(pushSize > 1)
+        Emit(node->loc, OpCode::PushWordN, 0ull, pushSize);
 }
 
 // NOTE: 'await' must be the whole of a statement or the whole of a variable
@@ -1088,11 +1073,12 @@ void CodeGenerator::Visit(const sptr<AwaitExpression>& node)
 
     auto contextDef = node->context->EvaluateType()->GetDefinition();
     auto awaited = contextDef->GetVariable("$awaited");
+    uint64_t awaitedOffset = FieldOffset(node->context, awaited->offset);
 
     // push Task<T> and save to temporary
     VisitChild(node->expression);
     VisitChild(node->context);
-    Emit(node->loc, OpCode::PopField, awaited->offset, 1);
+    Emit(node->loc, OpCode::PopWord, awaitedOffset);
 
     // if( awaitable.IsDone() )
     auto isDoneFunc = taskDef->GetFunction("IsDone");
@@ -1100,7 +1086,7 @@ void CodeGenerator::Visit(const sptr<AwaitExpression>& node)
     auto isDoneFuncID = isDoneFuncInfo->id;
     Emit(node->loc, OpCode::Reserve, isDoneFuncInfo->returnSize);
     VisitChild(node->context);
-    Emit(node->loc, OpCode::PushField, awaited->offset, 1);
+    Emit(node->loc, OpCode::PushWord, awaitedOffset);
     Emit(node->loc, OpCode::CallVirtual, isDoneFuncID, taskInterfaceID);
     size_t jump1 = program->code.size();
     Emit(node->loc, OpCode::JumpIfNot, -1);
@@ -1113,7 +1099,7 @@ void CodeGenerator::Visit(const sptr<AwaitExpression>& node)
     {
         Emit(node->loc, OpCode::Reserve, getvalueFuncInfo->returnSize);
         VisitChild(node->context);
-        Emit(node->loc, OpCode::PushField, awaited->offset, 1);
+        Emit(node->loc, OpCode::PushWord, awaitedOffset);
         Emit(node->loc, OpCode::CallVirtual, getValueFuncID, taskInterfaceID);
     }
     else
@@ -1132,7 +1118,7 @@ void CodeGenerator::Visit(const sptr<AwaitExpression>& node)
     Emit(node->loc, OpCode::Reserve, setAwaiterFuncInfo->returnSize);
     VisitChild(node->context); // push this frame's task as the 'awaiter' arg
     VisitChild(node->context);
-    Emit(node->loc, OpCode::PushField, awaited->offset, 1);
+    Emit(node->loc, OpCode::PushWord, awaitedOffset);
     Emit(node->loc, OpCode::CallVirtual, setAwaiterFuncID, awaitableInterfaceID);
 
     size_t paramSize = 0;
@@ -1147,7 +1133,7 @@ void CodeGenerator::Visit(const sptr<AwaitExpression>& node)
     size_t resumeLocation = program->code.size();
     Emit(node->loc, OpCode::PushInteger, -1);
     VisitChild(node->context);
-    Emit(node->loc, OpCode::PopField, contextDef->GetVariable("$position")->offset, 1);
+    Emit(node->loc, OpCode::PopWord, FieldOffset(node->context, contextDef->GetVariable("$position")->offset));
     Emit(node->loc, OpCode::PushNull);
     Emit(node->loc, OpCode::Return, paramSize, returnSize);
     program->code[resumeLocation].arg1_u64 = program->code.size();
@@ -1157,7 +1143,7 @@ void CodeGenerator::Visit(const sptr<AwaitExpression>& node)
     {
         Emit(node->loc, OpCode::Reserve, getvalueFuncInfo->returnSize);
         VisitChild(node->context);
-        Emit(node->loc, OpCode::PushField, awaited->offset, 1);
+        Emit(node->loc, OpCode::PushWord, awaitedOffset);
         Emit(node->loc, OpCode::CallVirtual, getValueFuncID, taskInterfaceID);
     }
     else
@@ -1194,49 +1180,40 @@ void CodeGenerator::Visit(const sptr<NewExpression>& node)
 
     if(type->IsArray())
     {
-        //auto classDef = node->EvaluateType()->ToClassDefinition();
-        //ENFORCE(classDef != nullptr, "expected class type", node->loc);
+        // create the new array: Type.NewArray(typeID, length)
+        assert(node->allocExpression);
+        VisitChild(node->allocExpression);
 
-        if(node->argumentExpression) // new Type[int]
+        if(!node->argumentExpression) // new Type[]{ initializers }
         {
-            // push integer length expression
-            VisitChild(node->argumentExpression);
-            
-            // create new array
-            auto& info = typeInfo[type];
-            Emit(node->loc, OpCode::NewArray, info->id);
-        }
-        else // new Type[]{ initializers }
-        {
-            // push number of args as length
-            Emit(node->loc, OpCode::PushInteger, node->arguments.size());
-            
-            // create new array
-            auto& info = typeInfo[type];
-            Emit(node->loc, OpCode::NewArray, info->id);
-
             size_t i = 0;
 
             // initialize elements
             for(auto& element : node->arguments)
             {
-                // push array duplicate on the stack
-                Emit(node->loc, OpCode::Dup);
-
-                // push array index
-                Emit(node->loc, OpCode::PushInteger, i);
-
-                // push element
-                VisitChild(element);
-
                 uint64_t size = 1;
 
                 auto elementType = element->EvaluateType();
                 if(elementType->IsStruct())
                     size = typeInfo[elementType]->ToStructInfo()->size;
 
+                // push element
+                VisitChild(element);
+
+                // push a copy of the array from below the element
+                Emit(node->loc, OpCode::PushOffset, size, 1ull);
+
+                // push array index
+                Emit(node->loc, OpCode::PushInteger, i);
+
+                // replace the array copy and index with the address of the element
+                Emit(node->loc, OpCode::PushIndexAddr, (uint64_t)ArrayDataOffset, size);
+
                 // store element in array
-                Emit(node->loc, OpCode::PopElement, size);
+                if(size > 1)
+                    Emit(node->loc, OpCode::PopWordN, 0ull, size);
+                else
+                    Emit(node->loc, OpCode::PopWord, 0ull);
 
                 ++i;
             }
@@ -1250,23 +1227,28 @@ void CodeGenerator::Visit(const sptr<NewExpression>& node)
         ENFORCE(classDef != nullptr, node->loc, "expected class type");
 
         // use arguments passed to initializer
-        auto fields = classDef->GetChildren<VariableDefinition>();
+        auto fields = classDef->GetChildren<VariableDefinition>([](auto& f) { return !f->isStatic; });
         ENFORCE(node->arguments.size() <= fields.count(), node->loc, "too many arguments");
-        
-        auto currentField = fields.begin();
+
+        // instantiate the class: Type.NewClass(typeID)
+        assert(node->allocExpression);
+        VisitChild(node->allocExpression);
+
         auto currentArg = node->arguments.begin();
 
-        // push initializer args onto the stack
-        for( ; currentArg != node->arguments.end(); ++currentArg, ++currentField)
-            VisitChild(*currentArg);
-
-        // default-initialize any fields not passed to initializer
-        for( ; currentField != fields.end(); ++currentField)
-            VisitChild((*currentField)->initializer);
-
-        // instantiate the class
-        auto id = typeInfo[type]->ToClassInfo()->id;
-        Emit(node->loc, OpCode::NewClass, id);
+        for(const auto& field : fields)
+        {
+            if(currentArg != node->arguments.end())
+            {
+                // store the initializer arg in its field
+                EmitFieldInitializer(*currentArg, field->offset, field->size);
+                ++currentArg;
+            }
+            else
+            {
+                EmitFieldInitializer(field->initializer, field->offset, field->size);
+            }
+        }
     }
     else if(type->IsStruct())
     {
@@ -1638,14 +1620,20 @@ void CodeGenerator::Visit(const sptr<ReturnStatement>& node)
             auto valueField = contextDef->GetVariable("$value");
             VisitChild(node->expression);
             VisitChild(node->context);
-            Emit(node->loc, OpCode::PopField, valueField->offset, valueField->size);
+
+            uint64_t valueOffset = FieldOffset(node->context, valueField->offset);
+
+            if(valueField->size > 1)
+                Emit(node->loc, OpCode::PopWordN, valueOffset, valueField->size);
+            else
+                Emit(node->loc, OpCode::PopWord, valueOffset);
         }
 
         // this.$position = -1;
         auto positionField = contextDef->GetVariable("$position");
         Emit(node->loc, OpCode::PushInteger, -1);
         VisitChild(node->context);
-        Emit(node->loc, OpCode::PopField, positionField->offset, 1);
+        Emit(node->loc, OpCode::PopWord, FieldOffset(node->context, positionField->offset));
 
         // this.ResumeAwaiter();
         Emit(node->loc, OpCode::Reserve, resumeAwaiterFuncInfo->returnSize);

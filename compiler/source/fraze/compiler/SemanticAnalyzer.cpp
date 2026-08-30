@@ -147,7 +147,7 @@ bool SemanticAnalyzer::IsAssignable(Type* leftType, Type* rightType, TokenType o
             convert = true;
             valid = true;
         }
-        else if(leftType->IsObject() && rightType != nullptr)
+        else if(leftType->IsObject() && rightType != nullptr && !rightType->IsStruct() && !rightType->IsEnum())
         {
             convert = true;
             valid = true;
@@ -257,7 +257,7 @@ void SemanticAnalyzer::ProcessAssignment(const SourceLocation& leftLoc, Type* le
                 auto func = ident->targetDef->ToFunctionDefinition();
                 assert(func);
 
-                sptr<Expression> callTarget = ident->context;
+                sptr<Expression> callTarget = func->HasImplicitThisParam() ? ident->context : nullptr;
 
                 sptr<ClassDefinition> functorClass;
 
@@ -1022,6 +1022,7 @@ std::optional<sptr<ASTNode>> SemanticAnalyzer::CreateAsInstanceCall(const sptr<A
     auto arg2 = spnew<TypeOfExpression>(loc, scope, node->typeSpec);
 
     auto callExpr = spnew<CallExpression>(loc, scope, targetFunc);
+    callExpr->arguments.reserve(2);
     callExpr->arguments.push_back(arg1);
     callExpr->arguments.push_back(arg2);
 
@@ -1063,6 +1064,7 @@ std::optional<sptr<ASTNode>> SemanticAnalyzer::CreateStringFromTypeCall(const sp
         auto context = spnew<IdentifierExpression>(node->loc, astRoot->global->scope.get(), shared_string("String"));
         auto targetFunc = spnew<IdentifierExpression>(node->loc, node->scope, context, shared_string("FromEnum"));
         auto callExpr = spnew<CallExpression>(node->loc, node->scope, targetFunc);
+        callExpr->arguments.reserve(2);
         callExpr->arguments.push_back(arg1);
         callExpr->arguments.push_back(arg2);
         VisitChild(callExpr);
@@ -1231,6 +1233,42 @@ void SemanticAnalyzer::Visit(const sptr<AsExpression>& node)
     }
 
     ENFORCE(valid, node->value->loc, "cannot convert from {} to {}", leftType->GetName(), rightType->GetName());
+
+    // boxing a primitive into an object allocates a matching box class
+    if(!replacement.has_value() && rightType->IsObject() && IsBoxable(leftType))
+    {
+        replacement = CreateBoxingExpression(node->value, leftType);
+    }
+}
+
+bool SemanticAnalyzer::IsBoxable(Type* type)
+{
+    return type->IsBoolean() || type->IsInteger() || type->IsNumber();
+}
+
+// cast<object>(new Boolean{value} | new Integer{value} | new Number{value})
+sptr<Expression> SemanticAnalyzer::CreateBoxingExpression(const sptr<Expression>& value, Type* primitiveType)
+{
+    assert(IsBoxable(primitiveType));
+
+    shared_string boxTypeName =
+        primitiveType->IsBoolean() ? shared_string("Boolean") :
+        primitiveType->IsInteger() ? shared_string("Integer") :
+                                     shared_string("Number");
+
+    auto loc = value->loc;
+    auto scope = value->scope;
+
+    auto newExpr = spnew<NewExpression>(loc, scope);
+    newExpr->typeSpec = spnew<TypeSpecifier>(loc, scope, boxTypeName);
+    newExpr->arguments.push_back(value);
+
+    // the box is an object as far as the rest of the program is concerned
+    auto objectTypeSpec = spnew<TypeSpecifier>(loc, Type::Get("object"));
+    sptr<Expression> castExpr = spnew<CastExpression>(loc, scope, objectTypeSpec, newExpr);
+
+    VisitChild(castExpr);
+    return castExpr;
 }
 
 TokenType GetBinOpForAssignment(TokenType assignmentOperator)
@@ -1320,6 +1358,7 @@ void SemanticAnalyzer::Visit(const sptr<AssignExpression>& node)
                     indexExpr->target->loc, targetDef->scope.get(), indexExpr->target, operatorDef->name);
 
                 auto callExpr = spnew<CallExpression>(indexExpr->target->loc, indexExpr->target->scope, targetFunc);
+                callExpr->arguments.reserve(2);
                 callExpr->arguments.push_back(indexExpr->arg);
                 callExpr->arguments.push_back(node->right);
 
@@ -1513,6 +1552,7 @@ void SemanticAnalyzer::Visit(const sptr<BinaryExpression>& node)
                 // prevents a stack overflow
                 context->targetDef = structDef.get();
                 
+                callExpr->arguments.reserve(2);
                 if(shouldSwapArgs)
                 {
                     callExpr->arguments.push_back(node->right);
@@ -1523,6 +1563,7 @@ void SemanticAnalyzer::Visit(const sptr<BinaryExpression>& node)
                     callExpr->arguments.push_back(node->left);
                     callExpr->arguments.push_back(node->right);
                 }
+
                 VisitChild(binaryOperator);
                 VisitChild(callExpr);
                 replacement = callExpr;
@@ -1551,6 +1592,7 @@ void SemanticAnalyzer::Visit(const sptr<BinaryExpression>& node)
             auto targetFunc = spnew<IdentifierExpression>(loc, scope, context, shared_string("Equals"));
 
             auto callExpr = spnew<CallExpression>(loc, scope, targetFunc);
+            callExpr->arguments.reserve(2);
             callExpr->arguments.push_back(node->left);
             callExpr->arguments.push_back(node->right);
 
@@ -1577,6 +1619,7 @@ void SemanticAnalyzer::Visit(const sptr<BinaryExpression>& node)
             auto targetFunc = spnew<IdentifierExpression>(loc, scope, context, shared_string("Concat"));
 
             auto callExpr = spnew<CallExpression>(loc, scope, targetFunc);
+            callExpr->arguments.reserve(2);
             callExpr->arguments.push_back(node->left);
             callExpr->arguments.push_back(node->right);
 
@@ -1990,15 +2033,40 @@ sptr<FunctionDefinition> SemanticAnalyzer::GetCallTargetFunction(const sptr<Defi
     return nullptr;
 }
 
-struct CallTarget
+// An overload may live beside the type it's written for, so also search each argument type's scope.
+void SemanticAnalyzer::FindArgumentDependentCallTargets(
+    std::string_view name,
+    const std::vector<sptr<Expression>>& arguments,
+    std::vector<sptr<Definition>>& callTargets)
 {
-    sptr<Definition> target;
-    sptr<Expression> context;
-};
-std::vector<sptr<Definition>> SemanticAnalyzer::FindAllCallTargets(const sptr<IdentifierExpression>& node)
+    std::vector<sptr<Definition>> found;
+
+    for(const auto& arg : arguments)
+    {
+        Type* argType = arg->EvaluateType();
+
+        auto argTypeDef = argType->GetDefinition();
+        if(!argTypeDef || !argTypeDef->parent || !argTypeDef->parent->scope)
+            continue;
+
+        Scope* argScope = argTypeDef->parent->scope.get();
+
+        found.clear();
+        FindCallTargets(name, argScope, argScope, found);
+
+        // the argument's scope may already be on the chain that was searched
+        for(auto& target : found)
+        {
+            if(std::ranges::find(callTargets, target) == callTargets.end())
+                callTargets.push_back(target);
+        }
+    }
+}
+
+std::vector<sptr<Definition>> SemanticAnalyzer::FindAllCallTargets(
+    const sptr<IdentifierExpression>& node, const std::vector<sptr<Expression>>& arguments)
 {
     std::vector<sptr<Definition>> callTargets;
-    std::vector<CallTarget> callTargets2;
     
     if (node->context)
     {
@@ -2052,6 +2120,9 @@ std::vector<sptr<Definition>> SemanticAnalyzer::FindAllCallTargets(const sptr<Id
             // just search upward through globals
             FindCallTargets(node->value, node->scope, nullptr, callTargets);
         }
+
+        // qualified calls already name the scope to search, so this applies only to unqualified calls
+        FindArgumentDependentCallTargets(node->value, arguments, callTargets);
     }
 
     return callTargets;
@@ -2234,7 +2305,7 @@ void SemanticAnalyzer::VisitCallTarget(
 
     if(!node->targetDef)
     {
-        std::vector<sptr<Definition>> callTargets = FindAllCallTargets(node);
+        std::vector<sptr<Definition>> callTargets = FindAllCallTargets(node, arguments);
         ApplyTemplateArguments(node, arguments, callTargets);
         sptr<Definition> targetDef = SelectCallTarget(node->value, node->loc, node->scope, callTargets, node->context, arguments);
 
@@ -2414,6 +2485,7 @@ void SemanticAnalyzer::Visit(const sptr<ConvertExpression>& node)
             auto context = spnew<IdentifierExpression>(node->loc, astRoot->global->scope.get(), shared_string("String"));
             auto targetFunc = spnew<IdentifierExpression>(node->loc, node->scope, context, shared_string("FromEnum"));
             auto callExpr = spnew<CallExpression>(node->loc, node->scope, targetFunc);
+            callExpr->arguments.reserve(2);
             callExpr->arguments.push_back(arg1);
             callExpr->arguments.push_back(arg2);
             VisitChild(callExpr);
@@ -2433,12 +2505,18 @@ void SemanticAnalyzer::Visit(const sptr<ConvertExpression>& node)
     }
 
     Type* resultType = node->resultTypeSpec->type;
-    if(node->value->EvaluateType()->IsObject() &&
-       (resultType->IsBoolean() || resultType->IsInteger() || resultType->IsNumber()))
+    Type* valueType = node->value->EvaluateType();
+
+    if(valueType->IsObject() && IsBoxable(resultType))
     {
         // unboxing object to a value type requires a non-null instance of the boxed type
         node->value = WrapWithNullCheck(node->value);
         node->value = WrapWithTypeCheck(node->value, resultType);
+    }
+    else if(resultType->IsObject() && IsBoxable(valueType))
+    {
+        // boxing a primitive into an object allocates a matching box class
+        replacement = CreateBoxingExpression(node->value, valueType);
     }
 }
 
@@ -2623,7 +2701,7 @@ void SemanticAnalyzer::Visit(const sptr<IdentifierExpression>& node)
         if(context)
         {
             // if the context is an r-value struct (like a call returning a struct) then it has no
-            // stable address, so store it in a temp that can be referenced (e.g. via PushRefField)
+            // stable address, so store it in a temp that can be referenced (e.g. via PushWord)
             auto contextType = context->EvaluateType();
             if(contextType->IsStruct())
             {
@@ -2776,6 +2854,7 @@ void SemanticAnalyzer::Visit(const sptr<IsExpression>& node)
         auto arg2 = spnew<TypeOfExpression>(loc, scope, node->typeSpec);
 
         auto callExpr = spnew<CallExpression>(loc, scope, targetFunc);
+        callExpr->arguments.reserve(2);
         callExpr->arguments.push_back(arg1);
         callExpr->arguments.push_back(arg2);
 
@@ -2809,6 +2888,14 @@ void SemanticAnalyzer::Visit(const sptr<NewExpression>& node)
                 ProcessAssignment(loc, elementType, node->arguments[i]);
             }
         }
+
+        // lower the allocation to Type.NewArray(typeID, length). For an initializer
+        // list, the length is the number of initializers.
+        sptr<Expression> length = node->argumentExpression;
+        if(!length)
+            length = spnew<IntegerLiteralExpression>(loc, node->scope, (int64_t)node->arguments.size());
+
+        node->allocExpression = CreateAllocationCall(node, shared_string("NewArray"), length);
     }
     else if(auto targetType = node->typeSpec->type; targetType->IsClass() || targetType->IsStruct())
     {
@@ -2906,11 +2993,39 @@ void SemanticAnalyzer::Visit(const sptr<NewExpression>& node)
                 ProcessAssignment(field->loc, field->typeSpec->type, node->arguments[i]);
             }
         }
+
+        if(targetType->IsClass() && !node->allocExpression)
+            node->allocExpression = CreateAllocationCall(node, shared_string("NewClass"), nullptr);
     }
     else
     {
         ENFORCE(false, node->loc, "expected class, struct or array element type");
     }
+}
+
+// Returns a call to Type.NewClass(typeID) or Type.NewArray(typeID, length)
+sptr<Expression> SemanticAnalyzer::CreateAllocationCall(
+    const sptr<NewExpression>& node, const shared_string& funcName, const sptr<Expression>& length)
+{
+    auto loc = node->loc;
+    auto scope = node->scope;
+    auto globalScope = astRoot->global->scope.get();
+
+    auto context = spnew<IdentifierExpression>(loc, globalScope, shared_string("Type"));
+    auto targetFunc = spnew<IdentifierExpression>(loc, scope, context, funcName);
+
+    auto typeID = spnew<TypeLiteralExpression>(loc, globalScope, node->typeSpec->type->GetName());
+
+    auto callExpr = spnew<CallExpression>(loc, scope, targetFunc);
+    callExpr->arguments.reserve(length ? 2 : 1);
+    callExpr->arguments.push_back(typeID);
+
+    if(length)
+        callExpr->arguments.push_back(length);
+
+    sptr<Expression> result = callExpr;
+    VisitChild(result);
+    return result;
 }
 
 void SemanticAnalyzer::Visit(const sptr<NullLiteralExpression>& node) {

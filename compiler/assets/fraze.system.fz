@@ -72,6 +72,8 @@ extern class Type
     extern static Type Find(int typeID);
     extern static bool IsInstance(object obj, Type rightType);
     extern static object AsInstance(object obj, Type rightType);
+    extern static object NewClass(int typeID);
+    extern static object NewArray(int typeID, int length);
     extern string GetName();
 }
 

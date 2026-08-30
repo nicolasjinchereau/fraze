@@ -108,6 +108,9 @@ private:
     std::pair<sptr<FunctionDefinition>, bool> GetBinaryOperatorOverload(Type* structType, TokenType operation, const sptr<Expression>& left, const sptr<Expression>& right);
     sptr<FunctionDefinition> CreateEqualityOperator(Type* structType, TokenType operation);
     sptr<FunctionDefinition> GetUnaryOperatorOverload(Type* structType, TokenType operation, const sptr<Expression>& value);
+    static bool IsBoxable(Type* type);
+    sptr<Expression> CreateBoxingExpression(const sptr<Expression>& value, Type* primitiveType);
+    sptr<Expression> CreateAllocationCall(const sptr<NewExpression>& node, const shared_string& funcName, const sptr<Expression>& length);
     std::optional<sptr<ASTNode>> CreateAsInstanceCall(const sptr<AsExpression>& node);
     std::optional<sptr<ASTNode>> CreateStringFromTypeCall(const sptr<AsExpression>& node);
 
@@ -118,7 +121,8 @@ private:
 
     sptr<FunctionDefinition> GetMatchingFunction(const sptr<ClassDefinition>& classDef, const sptr<InterfaceDefinition>& interfaceDef, const sptr<FunctionDefinition>& interfaceFunc);
     void FindCallTargets(std::string_view name, Scope* fromScope, Scope* toScope, std::vector<sptr<Definition>>& callTargets);
-    std::vector<sptr<Definition>> FindAllCallTargets(const sptr<IdentifierExpression>& node);
+    void FindArgumentDependentCallTargets(std::string_view name, const std::vector<sptr<Expression>>& arguments, std::vector<sptr<Definition>>& callTargets);
+    std::vector<sptr<Definition>> FindAllCallTargets(const sptr<IdentifierExpression>& node, const std::vector<sptr<Expression>>& arguments);
     sptr<Definition> SelectCallTarget(std::string_view name,const SourceLocation& loc, const Scope* scope, const std::vector<sptr<Definition>>& callTargets, const sptr<Expression>& context, const std::vector<sptr<Expression>>& arguments, bool suppressErrors = false);
     sptr<FunctionDefinition> GetCallTargetFunction(const sptr<Definition>& target);
     sptr<FunctionDefinition> InstantiateTemplateFunction(const sptr<IdentifierExpression>& node, const sptr<FunctionDefinition>& templateFunc);

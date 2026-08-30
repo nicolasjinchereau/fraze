@@ -51,6 +51,17 @@ public:
     void PopExpression(const sptr<Expression>& node, const sptr<Expression>& source);
     void EmitConversion(sptr<Expression>& value, const sptr<TypeSpecifier>& resultType);
 
+    // Evaluates 'value' and stores it in a field of the object whose reference is already
+    // on top of the stack, leaving that reference on the stack. 'fieldOffset' is relative
+    // to the start of the object's fields.
+    void EmitFieldInitializer(sptr<Expression>& value, size_t fieldOffset, size_t fieldSize);
+
+    // A struct on the stack is the address of its own fields, but a class is an object
+    // pointer, so its fields only start once its header has been stepped over.
+    static uint64_t FieldOffset(const sptr<Expression>& context, size_t fieldOffset) {
+        return context->EvaluateType()->IsStruct() ? fieldOffset : ClassDataOffset + fieldOffset;
+    }
+
     /*****************************
     *            ROOT            *
     *****************************/
