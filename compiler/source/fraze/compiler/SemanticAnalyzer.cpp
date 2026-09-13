@@ -2532,10 +2532,6 @@ void SemanticAnalyzer::Visit(const sptr<DefaultValueExpression>& node)
     VisitChild(node->typeSpec);
 }
 
-void SemanticAnalyzer::Visit(const sptr<EmitExpression>& node) {
-    ASTVisitor::Visit(node);
-}
-
 void SemanticAnalyzer::Visit(const sptr<FoldExpression>& node)
 {
     assert(node->body);

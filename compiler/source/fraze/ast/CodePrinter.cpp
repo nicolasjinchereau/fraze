@@ -391,11 +391,6 @@ void CodePrinter::Visit(const sptr<DefaultValueExpression>& node)
     stream << "default(" << node->typeSpec->GetTypeName(true) << ")";
 }
 
-void CodePrinter::Visit(const sptr<EmitExpression>& node)
-{
-    ASTVisitor::Visit(node);
-}
-
 void CodePrinter::Visit(const sptr<FoldExpression>& node)
 {
     ASTVisitor::Visit(node);

@@ -35,7 +35,6 @@ class CastExpression;
 class CallExpression;
 class ConvertExpression;
 class DefaultValueExpression;
-class EmitExpression;
 class Expression;
 class FoldExpression;
 class IdentifierExpression;

@@ -70,7 +70,6 @@ public:
     virtual sptr<CallExpression> ToCallExpression(){ return {}; }
     virtual sptr<ConvertExpression> ToConvertExpression(){ return {}; }
     virtual sptr<DefaultValueExpression> ToDefaultValueExpression(){ return {}; }
-    virtual sptr<EmitExpression> ToEmitExpression(){ return {}; }
     virtual sptr<Expression> ToExpression(){ return {}; }
     virtual sptr<FoldExpression> ToFoldExpression(){ return {}; }
     virtual sptr<IdentifierExpression> ToIdentifierExpression(){ return {}; }

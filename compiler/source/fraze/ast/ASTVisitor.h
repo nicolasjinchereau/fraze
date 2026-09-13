@@ -64,7 +64,6 @@ public:
     virtual void Visit(const sptr<CallExpression>& node);
     virtual void Visit(const sptr<ConvertExpression>& node);
     virtual void Visit(const sptr<DefaultValueExpression>& node);
-    virtual void Visit(const sptr<EmitExpression>& node);
     virtual void Visit(const sptr<FoldExpression>& node);
     virtual void Visit(const sptr<IdentifierExpression>& node);
     virtual void Visit(const sptr<IndexExpression>& node);

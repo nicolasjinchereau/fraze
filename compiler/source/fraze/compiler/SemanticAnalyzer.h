@@ -65,7 +65,6 @@ public:
     virtual void Visit(const sptr<CallExpression>& node) override;
     virtual void Visit(const sptr<ConvertExpression>& node) override;
     virtual void Visit(const sptr<DefaultValueExpression>& node) override;
-    virtual void Visit(const sptr<EmitExpression>& node) override;
     virtual void Visit(const sptr<FoldExpression>& node) override;
     virtual void Visit(const sptr<IdentifierExpression>& node) override;
     virtual void Visit(const sptr<IndexExpression>& node) override;

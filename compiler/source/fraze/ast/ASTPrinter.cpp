@@ -176,21 +176,6 @@ void ASTPrinter::Visit(const sptr<DefaultValueExpression>& node)
     ASTVisitor::Visit(node);
 }
 
-void ASTPrinter::Visit(const sptr<EmitExpression>& node)
-{
-    stream << GetPreamble(node->loc) << "EmitExpression ";
-
-    size_t i = 0;
-    for(auto& emission : node->emissions) {
-        if(i++ > 0) std::cout << ", ";
-        stream << "{ " << OpCodeNames[emission.op.code] << ", " << emission.op.arg1_u64 << " }";
-    }
-
-    stream << std::endl;
-
-    ASTVisitor::Visit(node);
-}
-
 void ASTPrinter::Visit(const sptr<FoldExpression>& node)
 {
     stream << GetPreamble(node->loc) << "FoldExpression" << std::endl;

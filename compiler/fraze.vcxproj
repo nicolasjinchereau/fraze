@@ -70,7 +70,6 @@
     <ClInclude Include="source\fraze\ast\expr\ConvertExpression.h" />
     <ClInclude Include="source\fraze\ast\expr\DefaultValueExpression.h" />
     <ClInclude Include="source\fraze\ast\expr\FoldExpression.h" />
-    <ClInclude Include="source\fraze\ast\expr\EmitExpression.h" />
     <ClInclude Include="source\fraze\ast\expr\IndexExpression.h" />
     <ClInclude Include="source\fraze\ast\expr\AssignExpression.h" />
     <ClInclude Include="source\fraze\ast\expr\BinaryExpression.h" />

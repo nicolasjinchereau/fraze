@@ -243,7 +243,7 @@ void Program::DumpCodeProfile(std::ostream& stream)
 
         totalExecutionNanos += totalNanos;
 
-        counts.push_back(InstructionStats{ code, totalCount, totalNanos, nanosPerCall, 0.0 });
+        counts.push_back(InstructionStats{ code, totalNanos, totalCount, nanosPerCall, 0.0 });
     }
 
     for(auto& item : counts) {

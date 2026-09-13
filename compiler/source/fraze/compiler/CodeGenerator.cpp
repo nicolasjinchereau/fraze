@@ -891,17 +891,6 @@ void CodeGenerator::Visit(const sptr<DefaultValueExpression>& node)
         assert(0);
 }
 
-void CodeGenerator::Visit(const sptr<EmitExpression>& node)
-{
-    VisitChild(node->context);
-
-    for(auto& emission : node->emissions)
-    {
-        program->locations.push_back(emission.loc);
-        program->code.push_back(emission.op);
-    }
-}
-
 void CodeGenerator::Visit(const sptr<FoldExpression>& node)
 {
     auto& statements = node->body->statements;

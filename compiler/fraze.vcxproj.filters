@@ -293,9 +293,6 @@
     <ClInclude Include="source\fraze\ast\stmt\GotoStatement.h">
       <Filter>source\fraze\ast\stmt</Filter>
     </ClInclude>
-    <ClInclude Include="source\fraze\ast\expr\EmitExpression.h">
-      <Filter>source\fraze\ast\expr</Filter>
-    </ClInclude>
     <ClInclude Include="source\fraze\ast\expr\TernaryExpression.h">
       <Filter>source\fraze\ast\expr</Filter>
     </ClInclude>

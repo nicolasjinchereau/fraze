@@ -32,7 +32,6 @@
 #include <fraze/ast/expr/CallExpression.h>
 #include <fraze/ast/expr/ConvertExpression.h>
 #include <fraze/ast/expr/DefaultValueExpression.h>
-#include <fraze/ast/expr/EmitExpression.h>
 #include <fraze/ast/expr/Expression.h>
 #include <fraze/ast/expr/FoldExpression.h>
 #include <fraze/ast/expr/IdentifierExpression.h>

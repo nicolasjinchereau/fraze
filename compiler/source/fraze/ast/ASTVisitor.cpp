@@ -184,12 +184,6 @@ void ASTVisitor::Visit(const sptr<DefaultValueExpression>& node)
     VisitChild(node->typeSpec);
 }
 
-void ASTVisitor::Visit(const sptr<EmitExpression>& node)
-{
-    VisitChild(node->expectedType);
-    VisitChild(node->context);
-}
-
 void ASTVisitor::Visit(const sptr<FoldExpression>& node)
 {
     VisitChild(node->body);
