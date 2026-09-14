@@ -406,7 +406,12 @@ sptr<TypeInfo> RuntimeTypeInfo::GetTypeInfo(Type* type)
         {
             size_t returnSize = 1;
 
-            if(func->returnType->type->IsStruct())
+            if(func->returnType->type->IsVoid())
+            {
+                // calls to void functions leave nothing on the stack
+                returnSize = 0;
+            }
+            else if(func->returnType->type->IsStruct())
             {
                 auto structDef = func->returnType->type->GetDefinition()->ToStructDefinition();
                 returnSize = structDef->size;

@@ -19,6 +19,16 @@ class Compiler;
 class CodeGenerator : public ASTVisitor
 {
     std::unordered_map<const Type*, sptr<TypeInfo>> typeInfo;
+
+    // The expression whose result the current ExpressionStatement will pop.
+    const Expression* pendingPop = nullptr;
+
+    // Cancels the ExpressionStatement's pop of 'expr's result, if one is pending, so that 'expr'
+    // can skip producing the result (e.g. the Dup an assignment makes only to yield its value).
+    // Returns false if 'expr' isn't the statement's expression, meaning its result is used.
+    bool TryCancelExpressionStatementPop(const Expression* expr) {
+        return pendingPop == expr && std::exchange(pendingPop, nullptr);
+    }
 public:
     sptr<Program> program;
 
@@ -46,6 +56,13 @@ public:
     void Emit(const SourceLocation& loc, OpCode op, auto arg1, auto arg2) {
         program->locations.push_back(loc);
         program->code.push_back(Operation(op, arg1, arg2));
+    }
+
+    void EmitReserve(const SourceLocation& loc, size_t size)
+    {
+        // void functions have no return storage
+        if(size != 0)
+            Emit(loc, OpCode::Reserve, size);
     }
 
     void PopExpression(const sptr<Expression>& node, const sptr<Expression>& source);

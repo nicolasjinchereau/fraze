@@ -513,15 +513,18 @@ void CodeGenerator::Visit(const sptr<AssignExpression>& node)
         break;
     }
 
-    // duplicate 'right'
-    auto targetType = node->EvaluateType();
-    size_t varSize = typeInfo[targetType]->GetSize();
-    if(varSize > 1)
-        Emit(node->loc, OpCode::DupN, varSize);
-    else
-        Emit(node->loc, OpCode::Dup);
-    
-    // pop the copy into 'left'
+    // duplicate 'right' so the assignment yields a value
+    if(!TryCancelExpressionStatementPop(node.get()))
+    {
+        auto targetType = node->EvaluateType();
+        size_t varSize = typeInfo[targetType]->GetSize();
+        if(varSize > 1)
+            Emit(node->loc, OpCode::DupN, varSize);
+        else
+            Emit(node->loc, OpCode::Dup);
+    }
+
+    // pop the value into 'left'
     PopExpression(node->left, node->right);
 }
 
@@ -769,7 +772,7 @@ void CodeGenerator::Visit(const sptr<CallExpression>& node)
         }
 
         // return storage
-        Emit(node->loc, OpCode::Reserve, funcInfo->returnSize);
+        EmitReserve(node->loc, funcInfo->returnSize);
 
         // args (reverse order)
         for(auto& arg : std::views::reverse(node->arguments))
@@ -818,7 +821,7 @@ void CodeGenerator::Visit(const sptr<CallExpression>& node)
         auto interfaceTypeInfo = typeInfo[functorInterface->type]->ToInterfaceInfo();
         
         // return storage
-        Emit(node->loc, OpCode::Reserve, invokeFuncInfo->returnSize);
+        EmitReserve(node->loc, invokeFuncInfo->returnSize);
 
         // args (reverse order)
         for(auto& arg : std::views::reverse(node->arguments))
@@ -837,7 +840,7 @@ void CodeGenerator::Visit(const sptr<CallExpression>& node)
         auto invokeFuncInfo = typeInfo[invokeFunc->type]->ToFunctionInfo();
 
         // return storage
-        Emit(node->loc, OpCode::Reserve, invokeFuncInfo->returnSize);
+        EmitReserve(node->loc, invokeFuncInfo->returnSize);
 
         // args (reverse order)
         for(auto& arg : std::views::reverse(node->arguments))
@@ -1073,7 +1076,7 @@ void CodeGenerator::Visit(const sptr<AwaitExpression>& node)
     auto isDoneFunc = taskDef->GetFunction("IsDone");
     auto isDoneFuncInfo = typeInfo[isDoneFunc->type]->ToFunctionInfo();
     auto isDoneFuncID = isDoneFuncInfo->id;
-    Emit(node->loc, OpCode::Reserve, isDoneFuncInfo->returnSize);
+    EmitReserve(node->loc, isDoneFuncInfo->returnSize);
     VisitChild(node->context);
     Emit(node->loc, OpCode::PushWord, awaitedOffset);
     Emit(node->loc, OpCode::CallVirtual, isDoneFuncID, taskInterfaceID);
@@ -1086,14 +1089,14 @@ void CodeGenerator::Visit(const sptr<AwaitExpression>& node)
     auto getValueFuncID = getvalueFuncInfo->id;
     if(!getValueFunc->returnType->IsVoid())
     {
-        Emit(node->loc, OpCode::Reserve, getvalueFuncInfo->returnSize);
+        EmitReserve(node->loc, getvalueFuncInfo->returnSize);
         VisitChild(node->context);
         Emit(node->loc, OpCode::PushWord, awaitedOffset);
         Emit(node->loc, OpCode::CallVirtual, getValueFuncID, taskInterfaceID);
     }
     else
     {
-        Emit(node->loc, OpCode::Reserve, getvalueFuncInfo->returnSize);
+        EmitReserve(node->loc, getvalueFuncInfo->returnSize);
     }
     // jump to end
     size_t jump2 = program->code.size();
@@ -1104,7 +1107,7 @@ void CodeGenerator::Visit(const sptr<AwaitExpression>& node)
     auto setAwaiterType = Type::Get("Awaitable.SetAwaiter");
     auto setAwaiterFuncInfo = typeInfo[setAwaiterType]->ToFunctionInfo();
     auto setAwaiterFuncID = setAwaiterFuncInfo->id;
-    Emit(node->loc, OpCode::Reserve, setAwaiterFuncInfo->returnSize);
+    EmitReserve(node->loc, setAwaiterFuncInfo->returnSize);
     VisitChild(node->context); // push this frame's task as the 'awaiter' arg
     VisitChild(node->context);
     Emit(node->loc, OpCode::PushWord, awaitedOffset);
@@ -1123,21 +1126,22 @@ void CodeGenerator::Visit(const sptr<AwaitExpression>& node)
     Emit(node->loc, OpCode::PushInteger, -1);
     VisitChild(node->context);
     Emit(node->loc, OpCode::PopWord, FieldOffset(node->context, contextDef->GetVariable("$position")->offset));
-    Emit(node->loc, OpCode::PushNull);
+    if(returnSize != 0)
+        Emit(node->loc, OpCode::PushNull);
     Emit(node->loc, OpCode::Return, paramSize, returnSize);
     program->code[resumeLocation].arg1_u64 = program->code.size();
     
     // push $awaited.GetValue()
     if(!getValueFunc->returnType->IsVoid())
     {
-        Emit(node->loc, OpCode::Reserve, getvalueFuncInfo->returnSize);
+        EmitReserve(node->loc, getvalueFuncInfo->returnSize);
         VisitChild(node->context);
         Emit(node->loc, OpCode::PushWord, awaitedOffset);
         Emit(node->loc, OpCode::CallVirtual, getValueFuncID, taskInterfaceID);
     }
     else
     {
-        Emit(node->loc, OpCode::Reserve, getvalueFuncInfo->returnSize);
+        EmitReserve(node->loc, getvalueFuncInfo->returnSize);
     }
     program->code[jump2].arg1_u64 = program->code.size();
 }
@@ -1275,20 +1279,22 @@ void CodeGenerator::Visit(const sptr<PostfixExpression>& node)
     Type* type = node->arg->EvaluateType();
     assert(type);
 
+    VisitChild(node->arg);
+
+    // keep the old value as the result
+    if(!TryCancelExpressionStatementPop(node.get()))
+        Emit(node->loc, OpCode::Dup);
+
     switch(node->operation)
     {
     case TokenType::Increment:
         if(type->IsInteger())
         {
-            VisitChild(node->arg);
-            Emit(node->loc, OpCode::Dup);
             Emit(node->loc, OpCode::PushInteger, 1);
             Emit(node->loc, OpCode::AddInt);
         }
         else if(type->IsNumber())
         {
-            VisitChild(node->arg);
-            Emit(node->loc, OpCode::Dup);
             Emit(node->loc, OpCode::PushNumber, 1.0);
             Emit(node->loc, OpCode::AddNum);
         }
@@ -1300,15 +1306,11 @@ void CodeGenerator::Visit(const sptr<PostfixExpression>& node)
     case TokenType::Decrement:
         if(type->IsInteger())
         {
-            VisitChild(node->arg);
-            Emit(node->loc, OpCode::Dup);
             Emit(node->loc, OpCode::PushInteger, 1);
             Emit(node->loc, OpCode::SubInt);
         }
         else if(type->IsNumber())
         {
-            VisitChild(node->arg);
-            Emit(node->loc, OpCode::Dup);
             Emit(node->loc, OpCode::PushNumber, 1.0);
             Emit(node->loc, OpCode::SubNum);
         }
@@ -1324,7 +1326,7 @@ void CodeGenerator::Visit(const sptr<PostfixExpression>& node)
 
     PopExpression(node->arg, node->arg);
 
-    // old value left on stack
+    // old value left on stack, unless discarded
 }
 
 void CodeGenerator::Visit(const sptr<PrefixExpression>& node)
@@ -1408,7 +1410,10 @@ void CodeGenerator::Visit(const sptr<PrefixExpression>& node)
 
     if (rmw)
     {
-        Emit(node->loc, OpCode::Dup);
+        // keep the new value as the result
+        if(!TryCancelExpressionStatementPop(node.get()))
+            Emit(node->loc, OpCode::Dup);
+
         PopExpression(node->arg, node->arg);
     }
 }
@@ -1485,19 +1490,18 @@ void CodeGenerator::Visit(const sptr<ExposeStatement>& node) {
 
 void CodeGenerator::Visit(const sptr<ExpressionStatement>& node)
 {
-    if(auto emitExpr = node->expression->ToEmitExpression())
-    {
-        if(emitExpr->emissions.size() == 1 && emitExpr->emissions.back().op.code == OpCode::NoOp)
-        {
-            VisitChild(node->expression);
-            return;
-        }
-    }
-
+    // let the expression cancel this pop, then restore any pending pop from an enclosing
+    // statement (a FoldExpression can put statements inside an expression)
+    auto enclosing = std::exchange(pendingPop, node->expression.get());
     ASTVisitor::Visit(node);
+    bool popCancelled = std::exchange(pendingPop, enclosing) == nullptr;
 
     auto exprType = node->expression->EvaluateType();
-    if(exprType->IsStruct())
+    if(popCancelled || exprType->IsVoid())
+    {
+        // nothing was left on the stack
+    }
+    else if(exprType->IsStruct())
     {
         auto structInfo = typeInfo[exprType]->ToStructInfo();
         Emit(node->loc, OpCode::Pop, structInfo->size);
@@ -1625,19 +1629,20 @@ void CodeGenerator::Visit(const sptr<ReturnStatement>& node)
         Emit(node->loc, OpCode::PopWord, FieldOffset(node->context, positionField->offset));
 
         // this.ResumeAwaiter();
-        Emit(node->loc, OpCode::Reserve, resumeAwaiterFuncInfo->returnSize);
+        EmitReserve(node->loc, resumeAwaiterFuncInfo->returnSize);
         VisitChild(node->context);
         Emit(node->loc, OpCode::CallVirtual, resumeAwaiterFuncID, awaitableInterfaceID);
 
         // done!
-        Emit(node->loc, OpCode::PushNull);
+        if(returnSize != 0)
+            Emit(node->loc, OpCode::PushNull);
         Emit(node->loc, OpCode::Return, paramSize, returnSize);
     }
     else
     {
         if(node->expression)
             VisitChild(node->expression);
-        else
+        else if(returnSize != 0)
             Emit(node->loc, OpCode::PushNull);
 
         Emit(node->loc, OpCode::Return, paramSize, returnSize);

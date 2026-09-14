@@ -208,7 +208,8 @@ Word Program::InvokeImpl(const std::string& qualifiedFuncName, const std::span<W
 
     // OpCode::Return will pop rbp and args
     
-    Word result = *(rsp--); // assume 1-word return value for now
+    // void functions have no return storage. Assume at most a 1-word return value for now.
+    Word result = funcInfo->returnSize != 0 ? *(rsp--) : Word(nullptr);
 
     assert(GetStackSize() == previousStackSize);
 
