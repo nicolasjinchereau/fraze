@@ -318,6 +318,8 @@ void Program::VerifyHandlers()
     VERIFY_HANDLER_INDEX(RightShift);
     VERIFY_HANDLER_INDEX(Equal);
     VERIFY_HANDLER_INDEX(EqualN);
+    VERIFY_HANDLER_INDEX(NotEqual);
+    VERIFY_HANDLER_INDEX(NotEqualN);
     VERIFY_HANDLER_INDEX(LessInt);
     VERIFY_HANDLER_INDEX(LessNum);
     VERIFY_HANDLER_INDEX(LessEqualInt);
@@ -728,6 +730,37 @@ void Program::Execute_EqualN(const Operation& op)
     }
 
     lhs->storage = static_cast<uint64_t>(i == op.arg1_u64);
+    rsp = lhs;
+    ++rip;
+}
+
+void Program::Execute_NotEqual(const Operation& op)
+{
+    assert(op.arg1_u64 == 0);
+    Word* top = rsp;
+    uint64_t rhs = (top--)->storage;
+    uint64_t lhs = top->storage;
+    top->storage = (lhs != rhs);
+    rsp = top;
+    ++rip;
+}
+
+void Program::Execute_NotEqualN(const Operation& op)
+{
+    assert(op.arg1_u64 > 1);
+
+    Word* rhs = rsp + 1 - op.arg1_u64;
+    Word* lhs = rhs - op.arg1_u64;
+
+    uint64_t i = 0;
+
+    for( ; i != op.arg1_u64; ++i)
+    {
+        if(rhs[i] != lhs[i])
+            break;
+    }
+
+    lhs->storage = static_cast<uint64_t>(i != op.arg1_u64);
     rsp = lhs;
     ++rip;
 }
@@ -1248,6 +1281,7 @@ void Program::PrintOperation(size_t index, std::ostream& stream)
     case OpCode::LeftShift:
     case OpCode::RightShift:
     case OpCode::Equal:
+    case OpCode::NotEqual:
     case OpCode::LessInt:
     case OpCode::LessNum:
     case OpCode::LessEqualInt:
@@ -1307,6 +1341,7 @@ void Program::PrintOperation(size_t index, std::ostream& stream)
         break;
 
     case OpCode::EqualN:
+    case OpCode::NotEqualN:
     case OpCode::PushLocal:
     case OpCode::PushLocalAddr:
     case OpCode::PopLocal:

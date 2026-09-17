@@ -59,10 +59,12 @@ class Array
     extern static int GetCount(object arr);
     extern static int GetSize(object arr);
 
-    static T[] CheckBounds<T>(T[] arr, int index, string message, string file, int line, int column, string lineText)
+    static T[] CheckBounds<T>(T[] arr, int index, int siteId)
     {
-        if(index < 0 || index >= GetCount(arr))
-            Debug.Fail(message, file, line, column, lineText);
+        if(arr == null)
+            Debug.Fail("object reference is null", siteId);
+        if(index < 0 || index >= arr.Count)
+            Debug.Fail(null, siteId);
         return arr;
     }
 }
@@ -79,25 +81,26 @@ extern class Type
 
 class Debug
 {
-    static void Assert(bool condition, string message, string file, int line, int column, string lineText)
+    static void Assert(bool condition, string message, int siteId)
     {
         if(!condition)
-            Fail(message, file, line, column, lineText);
+            Fail(message, siteId);
     }
 
-    static T AssertNotNull<T>(T obj, string message, string file, int line, int column, string lineText)
+    static T AssertNotNull<T>(T obj, int siteId)
     {
         if(obj == null)
-            Fail(message, file, line, column, lineText);
+            Fail(null, siteId);
         return obj;
     }
 
-    static object CheckType(object obj, Type type, string message, string file, int line, int column, string lineText)
+    static object CheckType(object obj, Type type, int siteId)
     {
         if(!Type.IsInstance(obj, type))
-            Fail(message, file, line, column, lineText);
+            Fail(null, siteId);
         return obj;
     }
 
-    extern static void Fail(string message, string file, int line, int column, string lineText);
+    // siteId indexes Program::checkSites; a null message uses the site's message
+    extern static void Fail(string message, int siteId);
 }

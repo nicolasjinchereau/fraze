@@ -4,6 +4,7 @@
 
 #pragma once
 #include <cstddef>
+#include <cstdint>
 #include <string>
 #include <source_location>
 #include <fraze/common/SharedString.h>
@@ -12,33 +13,40 @@ namespace fraze {
 
 struct SourceLocation
 {
-    size_t line;
-    size_t column;
     shared_string file;
-    shared_string lineText;
+    uint32_t line;
+    uint32_t column;
+    uint32_t lineStart; // byte offset in 'file' of the line's first character
+    uint32_t lineEnd;   // byte offset in 'file' of the line's terminating '\n' (or end of file)
 
-    SourceLocation(size_t line = 0, size_t column = 0, shared_string file = shared_string(), shared_string lineText = shared_string())
-        : line(line),
+    SourceLocation(shared_string file = shared_string(), uint32_t line = 0, uint32_t column = 0, uint32_t lineStart = 0, uint32_t lineEnd = 0)
+        : file(file),
+          line(line),
           column(column),
-          file(file),
-          lineText(lineText)
+          lineStart(lineStart),
+          lineEnd(lineEnd)
     {
     }
 
     SourceLocation(const std::source_location& loc)
-        : line(loc.line()),
+        : file(loc.file_name()),
+          line(loc.line()),
           column(loc.column()),
-          file(loc.file_name()),
-          lineText(loc.function_name())
+          lineStart(0),
+          lineEnd(0)
     {
     }
 
+    // reads the line from 'file'; only meant for error reporting, so nothing is cached
+    std::string GetLineText() const;
+
     bool operator==(const SourceLocation& other) const
     {
-        return line == other.line &&
+        return file == other.file && 
+            line == other.line &&
             column == other.column &&
-            file == other.file &&
-            lineText == other.lineText;
+            lineStart == other.lineStart &&
+            lineEnd == other.lineEnd;
     }
 };
 

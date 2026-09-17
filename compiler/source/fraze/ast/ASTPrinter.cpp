@@ -194,6 +194,18 @@ void ASTPrinter::Visit(const sptr<IndexExpression>& node)
     ASTVisitor::Visit(node);
 }
 
+void ASTPrinter::Visit(const sptr<ArrayCountExpression>& node)
+{
+    stream << GetPreamble(node->loc) << "ArrayCountExpression" << std::endl;
+    ASTVisitor::Visit(node);
+}
+
+void ASTPrinter::Visit(const sptr<CheckSiteExpression>& node)
+{
+    stream << GetPreamble(node->loc) << "CheckSite \"" << node->message << "\"" << std::endl;
+    ASTVisitor::Visit(node);
+}
+
 void ASTPrinter::Visit(const sptr<IntegerLiteralExpression>& node)
 {
     stream << GetPreamble(node->loc) << "IntegerLiteral " << node->value << std::endl;

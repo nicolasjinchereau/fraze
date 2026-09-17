@@ -54,6 +54,7 @@ public:
     virtual void Visit(const sptr<TemplateParameterDefinition>& node);
     virtual void Visit(const sptr<VariableDefinition>& node);
 
+    virtual void Visit(const sptr<ArrayCountExpression>& node);
     virtual void Visit(const sptr<AsExpression>& node);
     virtual void Visit(const sptr<AssignExpression>& node);
     virtual void Visit(const sptr<AwaitExpression>& node);
@@ -62,6 +63,7 @@ public:
     virtual void Visit(const sptr<CachedExpression>& node);
     virtual void Visit(const sptr<CastExpression>& node);
     virtual void Visit(const sptr<CallExpression>& node);
+    virtual void Visit(const sptr<CheckSiteExpression>& node);
     virtual void Visit(const sptr<ConvertExpression>& node);
     virtual void Visit(const sptr<DefaultValueExpression>& node);
     virtual void Visit(const sptr<FoldExpression>& node);

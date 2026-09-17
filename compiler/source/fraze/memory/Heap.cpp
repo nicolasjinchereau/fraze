@@ -488,7 +488,7 @@ void Heap::LogLocation(const char* tag, const SourceLocation* pLoc)
         tag,
         pLoc ? pLoc->file : std::string_view("<unknown file>"),
         pLoc ? pLoc->line : std::size_t(0),
-        pLoc ? trim_left(pLoc->lineText) : std::string_view("<no text>"));
+        pLoc ? trim_left(pLoc->GetLineText()) : std::string_view("<no text>"));
 
     logFile << data;
     std::print("{}", data);

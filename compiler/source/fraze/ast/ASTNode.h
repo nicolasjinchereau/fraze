@@ -61,6 +61,7 @@ public:
     virtual sptr<VariableDefinition> ToVariableDefinition(){ return {}; }
     
     virtual sptr<AssignExpression> ToAssignExpression(){ return {}; }
+    virtual sptr<ArrayCountExpression> ToArrayCountExpression(){ return {}; }
     virtual sptr<AsExpression> ToAsExpression(){ return {}; }
     virtual sptr<AwaitExpression> ToAwaitExpression(){ return {}; }
     virtual sptr<BinaryExpression> ToBinaryExpression(){ return {}; }
@@ -68,6 +69,7 @@ public:
     virtual sptr<CachedExpression> ToCachedExpression(){ return {}; }
     virtual sptr<CastExpression> ToCastExpression(){ return {}; }
     virtual sptr<CallExpression> ToCallExpression(){ return {}; }
+    virtual sptr<CheckSiteExpression> ToCheckSiteExpression(){ return {}; }
     virtual sptr<ConvertExpression> ToConvertExpression(){ return {}; }
     virtual sptr<DefaultValueExpression> ToDefaultValueExpression(){ return {}; }
     virtual sptr<Expression> ToExpression(){ return {}; }

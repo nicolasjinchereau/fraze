@@ -67,7 +67,7 @@ private:
             
             desc = std::format("{}({},{}): {}\n{}\n{}",
                 loc.file, loc.line, loc.column, msg,
-                loc.lineText,
+                loc.GetLineText(),
                 hint);
         }
         else

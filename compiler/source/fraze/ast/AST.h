@@ -22,6 +22,7 @@
 #include <fraze/ast/def/TemplateParameterDefinition.h>
 #include <fraze/ast/def/VariableDefinition.h>
 
+#include <fraze/ast/expr/ArrayCountExpression.h>
 #include <fraze/ast/expr/AsExpression.h>
 #include <fraze/ast/expr/AssignExpression.h>
 #include <fraze/ast/expr/AwaitExpression.h>
@@ -30,6 +31,7 @@
 #include <fraze/ast/expr/CachedExpression.h>
 #include <fraze/ast/expr/CastExpression.h>
 #include <fraze/ast/expr/CallExpression.h>
+#include <fraze/ast/expr/CheckSiteExpression.h>
 #include <fraze/ast/expr/ConvertExpression.h>
 #include <fraze/ast/expr/DefaultValueExpression.h>
 #include <fraze/ast/expr/Expression.h>

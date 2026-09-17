@@ -442,14 +442,14 @@ class Lexer
     std::string::iterator pos;
     std::string::iterator next;
     char32_t value{};
-    SourceLocation location { 1, 1 };
+    SourceLocation location;
     bool staticLocation = false;
     bool allowInternalSymbols = false;
 
     constexpr static int TabLength = 4;
 public:
     Lexer(const std::filesystem::path& sourceFile);
-    Lexer(const std::filesystem::path& sourceFile, const std::string& mixinCode, size_t mixinLineNumber, bool allowInternalSymbols);
+    Lexer(const SourceLocation& mixinLocation, const std::string& mixinCode, bool allowInternalSymbols);
 
     std::vector<Token> Tokenize();
     void Tokenize(std::vector<Token>& outTokens);

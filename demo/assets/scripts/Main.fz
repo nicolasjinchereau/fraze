@@ -123,7 +123,10 @@ class App
         loadingIndicator = null;
 
         Console.WriteLine("Finished loading scene.");
+        measureFPS = true;
     }
+
+    bool measureFPS = false;
 
     Task<void> Run()
     {
@@ -157,7 +160,6 @@ class App
         bool run = true;
         while(run)
         {
-            RecordFrameStart();
 
             int status = window.PumpMessage();
             if(status == 1)
@@ -171,6 +173,9 @@ class App
             }
             else
             {
+                if(measureFPS)
+                    RecordFrameStart();
+
                 // no message processed
 
                 graphics.Clear();
@@ -180,11 +185,12 @@ class App
 
                 graphics.Present();
 
+                if(measureFPS)
+                    RecordFrameEnd();
+
                 // allow task completions to run
                 await YieldAsync();
             }
-
-            RecordFrameEnd();
         }
     }
 }

@@ -11,23 +11,27 @@ Lexer::Lexer(const std::filesystem::path& sourceFile)
     : filePath(sourceFile.string())
 {
     chars = utility::ReadFile(sourceFile);
+    ENFORCE(chars.size() <= UINT32_MAX, SourceLocation(), "source file is larger than 4GB: {}", filePath);
     pos = chars.begin();
     next = pos;
     value = !chars.empty() ? utf8::next(next, chars.end()) : 0;
     location.file = shared_string(filePath);
-    location.lineText = shared_string(std::string_view(chars.begin(), std::find(chars.begin(), chars.end(), '\n')));
+    location.line = 1;
+    location.column = 1;
+    location.lineStart = 0;
+    location.lineEnd = static_cast<uint32_t>(std::find(chars.begin(), chars.end(), '\n') - chars.begin());
 }
 
-Lexer::Lexer(const std::filesystem::path& sourceFile, const std::string& mixinCode, size_t mixinLineNumber, bool allowInternalSymbols)
-    : filePath(sourceFile.string()), allowInternalSymbols(allowInternalSymbols)
+Lexer::Lexer(const SourceLocation& mixinLocation, const std::string& mixinCode, bool allowInternalSymbols)
+    : filePath(mixinLocation.file.view()), allowInternalSymbols(allowInternalSymbols)
 {
     chars = mixinCode;
     pos = chars.begin();
     next = pos;
     value = utf8::next(next, chars.end());
-    location.file = shared_string(filePath);
-    location.lineText = shared_string(std::string_view(chars.begin(), std::find(chars.begin(), chars.end(), '\n')));
-    location.line = mixinLineNumber;
+
+    // mixin code isn't in the file, so all of its tokens report the location it was generated from
+    location = mixinLocation;
     staticLocation = true;
 }
 
@@ -402,9 +406,9 @@ void Lexer::SkipWhitespace()
             {
                 ++location.line;
                 location.column = 1;
+                location.lineStart = static_cast<uint32_t>(next - chars.begin());
+                location.lineEnd = static_cast<uint32_t>(std::find(next, chars.end(), '\n') - chars.begin());
             }
-
-            location.lineText = shared_string(std::string_view(next, std::find(next, chars.end(), '\n')));
         }
         else if (value == '\r' || value == '\v' || value == '\f')
         {
@@ -437,9 +441,9 @@ void Lexer::SkipChar()
         {
             ++location.line;
             location.column = 1;
+            location.lineStart = static_cast<uint32_t>(next - chars.begin());
+            location.lineEnd = static_cast<uint32_t>(std::find(next, chars.end(), '\n') - chars.begin());
         }
-
-        location.lineText = shared_string(std::string_view(next, std::find(next, chars.end(), '\n')));
     }
     else // spaces or non-whitespace
     {
@@ -459,7 +463,7 @@ void Lexer::SkipChars(ptrdiff_t count)
     value = (next != chars.end()) ? utf8::next(next, chars.end()) : 0;
 
     if(!staticLocation)
-        location.column += count;
+        location.column += static_cast<uint32_t>(count);
 }
 
 char32_t Lexer::PeekNext()

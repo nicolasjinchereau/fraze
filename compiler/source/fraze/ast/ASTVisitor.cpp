@@ -203,6 +203,15 @@ void ASTVisitor::Visit(const sptr<IndexExpression>& node)
     VisitChild(node->arg);
 }
 
+void ASTVisitor::Visit(const sptr<ArrayCountExpression>& node)
+{
+    VisitChild(node->array);
+}
+
+void ASTVisitor::Visit(const sptr<CheckSiteExpression>& node)
+{
+}
+
 void ASTVisitor::Visit(const sptr<IntegerLiteralExpression>& node)
 {
 }

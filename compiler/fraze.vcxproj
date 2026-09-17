@@ -28,6 +28,7 @@
     <ClCompile Include="source\fraze\ast\type\Type.cpp" />
     <ClCompile Include="source\fraze\ast\type\TypeSpecifier.cpp" />
     <ClCompile Include="source\fraze\common\Exception.cpp" />
+    <ClCompile Include="source\fraze\common\SourceLocation.cpp" />
     <ClCompile Include="source\fraze\common\Object.cpp" />
     <ClCompile Include="source\fraze\common\Scope.cpp" />
     <ClCompile Include="source\fraze\compiler\Compiler.cpp" />
@@ -83,6 +84,8 @@
     <ClInclude Include="source\fraze\ast\expr\NullLiteralExpression.h" />
     <ClInclude Include="source\fraze\ast\expr\NumberLiteralExpression.h" />
     <ClInclude Include="source\fraze\ast\expr\PostfixExpression.h" />
+    <ClInclude Include="source\fraze\ast\expr\ArrayCountExpression.h" />
+    <ClInclude Include="source\fraze\ast\expr\CheckSiteExpression.h" />
     <ClInclude Include="source\fraze\ast\expr\SizeOfExpression.h" />
     <ClInclude Include="source\fraze\ast\expr\StringLiteralExpression.h" />
     <ClInclude Include="source\fraze\ast\expr\PrefixExpression.h" />
@@ -129,6 +132,7 @@
     <ClInclude Include="source\fraze\memory\ScopedAllocator.h" />
     <ClInclude Include="source\fraze\program\Dispatcher.h" />
     <ClInclude Include="source\fraze\program\OpCode.h" />
+    <ClInclude Include="source\fraze\program\CheckSite.h" />
     <ClInclude Include="source\fraze\program\Operation.h" />
     <ClInclude Include="source\fraze\program\Program.h" />
     <ClInclude Include="source\fraze\program\TypeInfo.h" />

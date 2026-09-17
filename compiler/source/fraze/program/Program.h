@@ -22,6 +22,7 @@
 #include <fraze/common/Utility.h>
 #include <fraze/memory/Heap.h>
 #include <fraze/memory/DefaultAllocator.h>
+#include <fraze/program/CheckSite.h>
 #include <fraze/program/OpCode.h>
 #include <fraze/program/Operation.h>
 #include <fraze/program/TypeInfo.h>
@@ -59,6 +60,7 @@ public:
     std::vector<WordType> dataTypes;
     std::vector<Operation> code;
     std::vector<SourceLocation> locations; // of operations in 'code'
+    std::vector<CheckSite> checkSites;
     std::vector<sptr<TypeInfo>> typeInfo;
     std::vector<IntrinsicFunction> intrinsics;
     size_t globalCount{};
@@ -141,6 +143,8 @@ private:
     void Execute_RightShift(const Operation& op);
     void Execute_Equal(const Operation& op);
     void Execute_EqualN(const Operation& op);
+    void Execute_NotEqual(const Operation& op);
+    void Execute_NotEqualN(const Operation& op);
     void Execute_LessInt(const Operation& op);
     void Execute_LessNum(const Operation& op);
     void Execute_LessEqualInt(const Operation& op);
@@ -215,6 +219,8 @@ private:
         &Program::Execute_RightShift,
         &Program::Execute_Equal,
         &Program::Execute_EqualN,
+        &Program::Execute_NotEqual,
+        &Program::Execute_NotEqualN,
         &Program::Execute_LessInt,
         &Program::Execute_LessNum,
         &Program::Execute_LessEqualInt,

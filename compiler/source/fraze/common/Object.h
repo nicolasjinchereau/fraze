@@ -245,6 +245,10 @@ public:
 inline constexpr size_t ArrayDataOffset = sizeof(Array<void>) / sizeof(Word);
 static_assert(sizeof(Array<void>) % sizeof(Word) == 0);
 
+// word offset of an array object's length (in words), which is the last word of its header
+inline constexpr size_t ArrayLengthOffset = ArrayDataOffset - 1;
+static_assert(sizeof(Array<void>) == sizeof(Object) + sizeof(size_t));
+
 template<class T>
 class Array : public Array<void>
 {

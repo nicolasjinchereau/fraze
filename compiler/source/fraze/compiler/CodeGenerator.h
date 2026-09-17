@@ -29,6 +29,17 @@ class CodeGenerator : public ASTVisitor
     bool TryCancelExpressionStatementPop(const Expression* expr) {
         return pendingPop == expr && std::exchange(pendingPop, nullptr);
     }
+
+    // Generates 'condition' so that one result jumps and the other continues. Pass the jump list for
+    // the result that should jump and null for the one that should fall through.
+    void EmitConditionalJumps(const sptr<Expression>& condition, std::vector<size_t>* trueJumpIndices, std::vector<size_t>* falseJumpIndices);
+
+    // Points jumps already generated at 'destinationCodeIndex'.
+    void PatchJumps(const std::vector<size_t>& jumpIndices, size_t destinationCodeIndex)
+    {
+        for(size_t jumpIndex : jumpIndices)
+            program->code[jumpIndex].arg1_u64 = destinationCodeIndex;
+    }
 public:
     sptr<Program> program;
 
@@ -119,6 +130,8 @@ public:
     virtual void Visit(const sptr<FoldExpression>& node) override;
     virtual void Visit(const sptr<IdentifierExpression>& node) override;
     virtual void Visit(const sptr<IndexExpression>& node) override;
+    virtual void Visit(const sptr<ArrayCountExpression>& node) override;
+    virtual void Visit(const sptr<CheckSiteExpression>& node) override;
     virtual void Visit(const sptr<IntegerLiteralExpression>& node) override;
     virtual void Visit(const sptr<IsExpression>& node) override;
     virtual void Visit(const sptr<NewExpression>& node) override;

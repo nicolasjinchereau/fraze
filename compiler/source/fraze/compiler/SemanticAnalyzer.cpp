@@ -219,7 +219,7 @@ void SemanticAnalyzer::ParseCodeString(Scope* enclosingScope, const std::string&
 {
     auto loc = enclosingScope->owner->loc;
 
-    Lexer lexer(loc.file.view(), code, loc.line, true);
+    Lexer lexer(loc, code, true);
     std::vector<Token> tokens = lexer.Tokenize();
     
     Parser parser(tokens, true);
@@ -2236,6 +2236,10 @@ sptr<Expression> SemanticAnalyzer::WrapWithNullCheck(const sptr<Expression>& val
     if(!compiler->IsNullCheckEnabled() || !valueType->IsNullable())
         return value;
 
+    // 'this' is never null: every call site null-checks the receiver it passes as 'this'
+    if(auto ident = value->ToIdentifierExpression(); ident && !ident->context && ident->value == "this")
+        return value;
+
     auto& loc = value->loc;
     auto scope = value->scope;
 
@@ -2244,13 +2248,9 @@ sptr<Expression> SemanticAnalyzer::WrapWithNullCheck(const sptr<Expression>& val
     targetFunc->templateArgs.push_back(spnew<TypeSpecifier>(loc, valueType));
 
     auto callExpr = spnew<CallExpression>(loc, scope, targetFunc);
-    callExpr->arguments.reserve(6);
+    callExpr->arguments.reserve(2);
     callExpr->arguments.push_back(value);
-    callExpr->arguments.push_back(spnew<StringLiteralExpression>(loc, scope, shared_string("object reference is null")));
-    callExpr->arguments.push_back(spnew<StringLiteralExpression>(loc, scope, loc.file));
-    callExpr->arguments.push_back(spnew<IntegerLiteralExpression>(loc, scope, (int64_t)loc.line));
-    callExpr->arguments.push_back(spnew<IntegerLiteralExpression>(loc, scope, (int64_t)loc.column));
-    callExpr->arguments.push_back(spnew<StringLiteralExpression>(loc, scope, loc.lineText));
+    callExpr->arguments.push_back(spnew<CheckSiteExpression>(loc, scope, shared_string("object reference is null")));
 
     VisitChild(callExpr);
     return callExpr;
@@ -2280,14 +2280,10 @@ sptr<Expression> SemanticAnalyzer::WrapWithTypeCheck(const sptr<Expression>& val
     auto targetFunc = spnew<IdentifierExpression>(loc, scope, context, shared_string("CheckType"));
 
     auto callExpr = spnew<CallExpression>(loc, scope, targetFunc);
-    callExpr->arguments.reserve(7);
+    callExpr->arguments.reserve(3);
     callExpr->arguments.push_back(value);
     callExpr->arguments.push_back(boxType);
-    callExpr->arguments.push_back(spnew<StringLiteralExpression>(loc, scope, shared_string(std::format("object is not of type '{}'", boxTypeName))));
-    callExpr->arguments.push_back(spnew<StringLiteralExpression>(loc, scope, loc.file));
-    callExpr->arguments.push_back(spnew<IntegerLiteralExpression>(loc, scope, (int64_t)loc.line));
-    callExpr->arguments.push_back(spnew<IntegerLiteralExpression>(loc, scope, (int64_t)loc.column));
-    callExpr->arguments.push_back(spnew<StringLiteralExpression>(loc, scope, loc.lineText));
+    callExpr->arguments.push_back(spnew<CheckSiteExpression>(loc, scope, shared_string(std::format("object is not of type '{}'", boxTypeName))));
 
     VisitChild(callExpr);
     return callExpr;
@@ -2627,12 +2623,9 @@ void SemanticAnalyzer::Visit(const sptr<IdentifierExpression>& node)
 
             if(node->value == "Count")
             {
-                auto context = spnew<IdentifierExpression>(loc, astRoot->global->scope.get(), shared_string("Array"));
-                auto targetFunc = spnew<IdentifierExpression>(loc, scope, context, shared_string("GetCount"));
-                auto callExpr = spnew<CallExpression>(loc, scope, targetFunc);
-                callExpr->arguments.push_back(node->context);
-                VisitChild(callExpr);
-                replacement = callExpr;
+                auto countExpr = spnew<ArrayCountExpression>(loc, scope, node->context);
+                VisitChild(countExpr);
+                replacement = countExpr;
                 return;
             }
             else if(node->value == "Size")
@@ -2777,25 +2770,60 @@ void SemanticAnalyzer::Visit(const sptr<IndexExpression>& node)
         }
     }
 
-    auto IsAlreadyBoundsChecked = [](const sptr<Expression>& expr) {
+    auto IsAlreadyBoundsChecked = [](const sptr<Expression>& expr)
+    {
         if(auto call = expr->ToCallExpression())
+        {
             if(auto ident = call->target->ToIdentifierExpression())
                 return ident->value == "CheckBounds";
+        }
         return false;
+    };
+
+    // Fields resolve with a context, so they don't qualify.
+    // Coroutine params/locals are hoisted into the coroutine class as fields, so they don't qualify either.
+    auto AsLocalOrParameterIdentifier = [](const sptr<Expression>& expr) -> sptr<IdentifierExpression>
+    {
+        auto identExpr = expr->ToIdentifierExpression();
+        if(!identExpr || identExpr->context)
+            return nullptr;
+
+        auto targetDef = identExpr->targetDef;
+        auto varDef = targetDef->ToVariableDefinition();
+        if((varDef && !varDef->isStatic) || targetDef->ToParameterDefinition())
+            return identExpr;
+
+        return nullptr;
     };
 
     if(targetType->IsArray() && !IsAlreadyBoundsChecked(node->target))
     {
-        node->target = WrapWithNullCheck(node->target);
-
-        if(Compiler::GetActiveCompiler()->IsBoundsCheckEnabled())
+        if(!Compiler::GetActiveCompiler()->IsBoundsCheckEnabled())
         {
+            node->target = WrapWithNullCheck(node->target);
+        }
+        else
+        {
+            // CheckBounds also fails on a null array, so no separate null check is needed
             auto loc = node->loc;
             auto scope = node->scope;
             auto argLoc = node->arg->loc;
 
-            // evaluate the index once, then share it between the check and the access
-            auto cachedIndex = spnew<CachedExpression>(node->arg, shared_string(std::format("$index_{}", nextUniqueId++)));
+            // Evaluate the index once, then share it between the check and the access,
+            // unless it's a plain local or parameter that can just be read again.
+            sptr<Expression> indexVarExpr;
+            shared_string indexVarName;
+            if(auto localIndexVarExpr = AsLocalOrParameterIdentifier(node->arg))
+            {
+                indexVarExpr = localIndexVarExpr;
+                indexVarName = localIndexVarExpr->value;
+            }
+            else
+            {
+                auto cachedIndexVarExpr = spnew<CachedExpression>(node->arg, shared_string(std::format("$index_{}", nextUniqueId++)));
+                indexVarExpr = cachedIndexVarExpr;
+                indexVarName = cachedIndexVarExpr->value->value;
+            }
 
             // CheckBounds returns the array so the target is also evaluated once
             auto context = spnew<IdentifierExpression>(loc, astRoot->global->scope.get(), shared_string("Array"));
@@ -2803,22 +2831,26 @@ void SemanticAnalyzer::Visit(const sptr<IndexExpression>& node)
             targetFunc->templateArgs.push_back(spnew<TypeSpecifier>(loc, targetType->GetElementType()));
 
             auto callExpr = spnew<CallExpression>(loc, scope, targetFunc);
-            callExpr->arguments.reserve(7);
+            callExpr->arguments.reserve(3);
             callExpr->arguments.push_back(node->target);
-            callExpr->arguments.push_back(cachedIndex);
-            callExpr->arguments.push_back(spnew<StringLiteralExpression>(loc, scope, shared_string("index out of range")));
-            callExpr->arguments.push_back(spnew<StringLiteralExpression>(loc, scope, argLoc.file));
-            callExpr->arguments.push_back(spnew<IntegerLiteralExpression>(loc, scope, (int64_t)argLoc.line));
-            callExpr->arguments.push_back(spnew<IntegerLiteralExpression>(loc, scope, (int64_t)argLoc.column));
-            callExpr->arguments.push_back(spnew<StringLiteralExpression>(loc, scope, argLoc.lineText));
+            callExpr->arguments.push_back(indexVarExpr);
+            callExpr->arguments.push_back(spnew<CheckSiteExpression>(argLoc, scope, shared_string("index out of range")));
 
             node->target = callExpr;
-            node->arg = spnew<IdentifierExpression>(loc, scope, cachedIndex->value->value);
+            node->arg = spnew<IdentifierExpression>(loc, scope, indexVarName);
 
             VisitChild(node->target);
             VisitChild(node->arg);
         }
     }
+}
+
+void SemanticAnalyzer::Visit(const sptr<ArrayCountExpression>& node) {
+    ASTVisitor::Visit(node);
+}
+
+void SemanticAnalyzer::Visit(const sptr<CheckSiteExpression>& node) {
+    ASTVisitor::Visit(node);
 }
 
 void SemanticAnalyzer::Visit(const sptr<IntegerLiteralExpression>& node) {
@@ -3310,13 +3342,10 @@ void SemanticAnalyzer::Visit(const sptr<AssertStatement>& node)
         auto targetFunc = spnew<IdentifierExpression>(node->loc, node->enclosingScope, context, shared_string("Assert"));
 
         auto callExpr = spnew<CallExpression>(node->loc, node->enclosingScope, targetFunc);
-        callExpr->arguments.reserve(6);
+        callExpr->arguments.reserve(3);
         callExpr->arguments.push_back(node->condition);
         callExpr->arguments.push_back(node->message);
-        callExpr->arguments.push_back(spnew<StringLiteralExpression>(node->loc, node->enclosingScope, node->loc.file));
-        callExpr->arguments.push_back(spnew<IntegerLiteralExpression>(node->loc, node->enclosingScope, (int64_t)node->loc.line));
-        callExpr->arguments.push_back(spnew<IntegerLiteralExpression>(node->loc, node->enclosingScope, (int64_t)node->loc.column));
-        callExpr->arguments.push_back(spnew<StringLiteralExpression>(node->loc, node->enclosingScope, node->loc.lineText));
+        callExpr->arguments.push_back(spnew<CheckSiteExpression>(node->loc, node->enclosingScope, shared_string()));
 
         auto exprStmt = spnew<ExpressionStatement>(callExpr, node->enclosingScope);
         VisitChild(exprStmt);

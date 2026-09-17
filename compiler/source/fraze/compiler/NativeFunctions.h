@@ -397,16 +397,20 @@ inline Object* Type_AsInstance(const Object* obj, const TypeInfo& rightTypeInfo)
     return const_cast<Object*>(obj);
 }
 
-inline void Debug_Fail(const String* message, const String* file, Integer line, Integer column, const String* lineText)
+inline void Debug_Fail(Program* program, const String* message, Integer siteId)
 {
+    const CheckSite& site = program->checkSites.at(siteId);
+
+    std::string_view msgView = message ? message->GetView() : site.message.view();
+
     std::string msgText;
 
-    if (message)
-        msgText = std::format("assertion failed: {}", message->GetView());
+    if (!msgView.empty())
+        msgText = std::format("assertion failed: {}", msgView);
     else
         msgText = "assertion failed.";
 
-    Throw(SourceLocation(line, column, shared_string(file->GetView()), shared_string(lineText->GetView())), "{}", msgText);
+    Throw(site.loc, "{}", msgText);
 }
 
 } // fraze

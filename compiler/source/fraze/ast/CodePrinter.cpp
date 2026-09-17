@@ -415,6 +415,17 @@ void CodePrinter::Visit(const sptr<IndexExpression>& node)
     stream << "]";
 }
 
+void CodePrinter::Visit(const sptr<ArrayCountExpression>& node)
+{
+    VisitChild(node->array);
+    stream << ".Count";
+}
+
+void CodePrinter::Visit(const sptr<CheckSiteExpression>& node)
+{
+    stream << "$checksite(\"" << node->message << "\")";
+}
+
 void CodePrinter::Visit(const sptr<IntegerLiteralExpression>& node)
 {
     stream << node->value;

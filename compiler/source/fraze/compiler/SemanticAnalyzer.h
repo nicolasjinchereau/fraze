@@ -55,6 +55,7 @@ public:
     *         EXPRESSIONS        *
     *****************************/
 
+    virtual void Visit(const sptr<ArrayCountExpression>& node) override;
     virtual void Visit(const sptr<AsExpression>& node) override;
     virtual void Visit(const sptr<AssignExpression>& node) override;
     virtual void Visit(const sptr<AwaitExpression>& node) override;
@@ -63,6 +64,7 @@ public:
     virtual void Visit(const sptr<CachedExpression>& node) override;
     virtual void Visit(const sptr<CastExpression>& node) override;
     virtual void Visit(const sptr<CallExpression>& node) override;
+    virtual void Visit(const sptr<CheckSiteExpression>& node) override;
     virtual void Visit(const sptr<ConvertExpression>& node) override;
     virtual void Visit(const sptr<DefaultValueExpression>& node) override;
     virtual void Visit(const sptr<FoldExpression>& node) override;

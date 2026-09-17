@@ -250,6 +250,60 @@ void CodeGenerator::EmitConversion(sptr<Expression>& value, const sptr<TypeSpeci
     }
 }
 
+// Emits 'condition' such that one result jumps and the other falls through, depending on which
+// jump list is given. Normally the condition leaves its result on the stack and gets a JumpIf or
+// JumpIfNot, but &&, || and ! leave nothing on the stack here: they recurse with a destination per
+// operand, so the first operand that decides the outcome performs a jump. The code a jump lands on
+// hasn't been generated yet, so each jump's index is collected in the caller's list, and the caller
+// fills in the destination once it knows where that code starts.
+void CodeGenerator::EmitConditionalJumps(const sptr<Expression>& condition, std::vector<size_t>* trueJumpIndices, std::vector<size_t>* falseJumpIndices)
+{
+    // one result jumps, the other falls through
+    assert(!trueJumpIndices != !falseJumpIndices);
+
+    if(auto binaryExpr = condition->ToBinaryExpression())
+    {
+        if(binaryExpr->operation == TokenType::LogicalAnd || binaryExpr->operation == TokenType::LogicalOr)
+        {
+            // 'left' decides the result by itself when it short circuits: false for &&, true for ||
+            bool isAnd = binaryExpr->operation == TokenType::LogicalAnd;
+            auto shortCircuitJumpIndices = isAnd ? falseJumpIndices : trueJumpIndices;
+
+            if(shortCircuitJumpIndices)
+            {
+                // the short circuit jumps to the same destination as 'right'
+                EmitConditionalJumps(binaryExpr->left, trueJumpIndices, falseJumpIndices);
+                EmitConditionalJumps(binaryExpr->right, trueJumpIndices, falseJumpIndices);
+            }
+            else
+            {
+                // the short circuit continues below instead, so 'left' jumps past 'right'
+                std::vector<size_t> jumpIndicesPastRight;
+                EmitConditionalJumps(binaryExpr->left, isAnd ? nullptr : &jumpIndicesPastRight, isAnd ? &jumpIndicesPastRight : nullptr);
+                EmitConditionalJumps(binaryExpr->right, trueJumpIndices, falseJumpIndices);
+                PatchJumps(jumpIndicesPastRight, program->code.size());
+            }
+
+            return;
+        }
+    }
+    else if(auto prefixExpr = condition->ToPrefixExpression())
+    {
+        if(prefixExpr->operation == TokenType::LogicalNot)
+        {
+            // negation only swaps which result jumps
+            EmitConditionalJumps(prefixExpr->arg, falseJumpIndices, trueJumpIndices);
+            return;
+        }
+    }
+
+    VisitChildNode(condition);
+
+    auto jumpIndices = trueJumpIndices ? trueJumpIndices : falseJumpIndices;
+    jumpIndices->push_back(program->code.size());
+    Emit(condition->loc, trueJumpIndices ? OpCode::JumpIf : OpCode::JumpIfNot, -1);
+}
+
 /*****************************
 *            ROOT            *
 *****************************/
@@ -530,215 +584,170 @@ void CodeGenerator::Visit(const sptr<AssignExpression>& node)
 
 void CodeGenerator::Visit(const sptr<BinaryExpression>& node)
 {
-    if(node->operation == TokenType::LogicalAnd)
+    if(node->operation == TokenType::LogicalAnd || node->operation == TokenType::LogicalOr)
     {
-        Type* leftType = node->left->EvaluateType();
-        Type* rightType = node->right->EvaluateType();
-        assert(leftType);
-        assert(rightType);
-        assert(leftType->IsBoolean());
-        assert(leftType == rightType);
+        // the result is kept, so generate the jumps a condition would make, then push what they decided
+        std::vector<size_t> falseJumpIndices;
+        EmitConditionalJumps(node, nullptr, &falseJumpIndices);
 
-        // push first term
-        VisitChild(node->left);
+        Emit(node->loc, OpCode::PushBoolean, 1);
+        size_t jumpOverFalseValueCodeIndex = program->code.size();
+        Emit(node->loc, OpCode::Jump, -1);
 
-        // duplicate so it's preserved after the conditional jump
-        Emit(node->loc, OpCode::Dup);
+        PatchJumps(falseJumpIndices, program->code.size());
 
-        // if first was false, don't check second, leaving 'false' on the stack
-        size_t jumpOperationLoc = program->code.size();
-        Emit(node->loc, OpCode::JumpIfNot, -1);
-        
-        // first was true, pop that and push next term
-        Emit(node->loc, OpCode::Pop);
-
-        // push second bool
-        VisitChild(node->right);
-        
-        // one bool left on stack
-        program->code[jumpOperationLoc].arg1_u64 = program->code.size();
+        Emit(node->loc, OpCode::PushBoolean, 0);
+        program->code[jumpOverFalseValueCodeIndex].arg1_u64 = program->code.size();
+        return;
     }
-    else if(node->operation == TokenType::LogicalOr)
+
+    // push args to stack
+    VisitChild(node->left);
+    VisitChild(node->right);
+
+    Type* type = node->left->EvaluateType();
+    Type* otherType = node->right->EvaluateType();
+    assert(type);
+    assert(otherType);
+    assert(type == otherType);
+
+    switch(node->operation)
     {
-        Type* leftType = node->left->EvaluateType();
-        Type* rightType = node->right->EvaluateType();
-        assert(leftType);
-        assert(rightType);
-        assert(leftType->IsBoolean());
-        assert(leftType == rightType);
+    case TokenType::BitOr:
+        assert(type->IsInteger() || type->IsEnum());
+        Emit(node->loc, OpCode::BitOr);
+        break;
+    case TokenType::BitXor:
+        assert(type->IsInteger() || type->IsEnum());
+        Emit(node->loc, OpCode::BitXor);
+        break;
+    case TokenType::BitAnd:
+        assert(type->IsInteger() || type->IsEnum());
+        Emit(node->loc, OpCode::BitAnd);
+        break;
+    case TokenType::BitTest:
+        assert(type->IsInteger() || type->IsEnum());
+        Emit(node->loc, OpCode::BitAnd);
+        Emit(node->loc, OpCode::PushInteger, 0);
+        Emit(node->loc, OpCode::GreaterInt);
+        break;
+    case TokenType::LeftShift:
+        assert(type->IsInteger() || type->IsEnum());
+        Emit(node->loc, OpCode::LeftShift);
+        break;
+    case TokenType::RightShift:
+        assert(type->IsInteger() || type->IsEnum());
+        Emit(node->loc, OpCode::RightShift);
+        break;
 
-        // push first term
-        VisitChild(node->left);
-
-        // duplicate so it's preserved after the conditional jump
-        Emit(node->loc, OpCode::Dup);
-
-        // if first was true, don't check second, leaving 'true' on the stack
-        size_t jumpOperationLoc = program->code.size();
-        Emit(node->loc, OpCode::JumpIf, -1);
-
-        // first was false, pop that and push next term
-        Emit(node->loc, OpCode::Pop);
-
-        // push second bool
-        VisitChild(node->right);
-
-        // one bool left on stack
-        program->code[jumpOperationLoc].arg1_u64 = program->code.size();
-    }
-    else
-    {
-        // push args to stack
-        VisitChild(node->left);
-        VisitChild(node->right);
-
-        Type* type = node->left->EvaluateType();
-        Type* otherType = node->right->EvaluateType();
-        assert(type);
-        assert(otherType);
-        assert(type == otherType);
-
-        switch(node->operation)
+    case TokenType::Equal:
+        if(type->IsString())
         {
-        case TokenType::BitOr:
-            assert(type->IsInteger() || type->IsEnum());
-            Emit(node->loc, OpCode::BitOr);
-            break;
-        case TokenType::BitXor:
-            assert(type->IsInteger() || type->IsEnum());
-            Emit(node->loc, OpCode::BitXor);
-            break;
-        case TokenType::BitAnd:
-            assert(type->IsInteger() || type->IsEnum());
-            Emit(node->loc, OpCode::BitAnd);
-            break;
-        case TokenType::BitTest:
-            assert(type->IsInteger() || type->IsEnum());
-            Emit(node->loc, OpCode::BitAnd);
-            Emit(node->loc, OpCode::PushInteger, 0);
-            Emit(node->loc, OpCode::GreaterInt);
-            break;
-        case TokenType::LeftShift:
-            assert(type->IsInteger() || type->IsEnum());
-            Emit(node->loc, OpCode::LeftShift);
-            break;
-        case TokenType::RightShift:
-            assert(type->IsInteger() || type->IsEnum());
-            Emit(node->loc, OpCode::RightShift);
-            break;
-
-        case TokenType::Equal:
-            if(type->IsString())
-            {
-                // should have been lowered to String.Equals(left, right)
-                assert(0);
-            }
-            else
-            {
-                size_t size = typeInfo[type]->GetSize();
-                if(size > 1)
-                    Emit(node->loc, OpCode::EqualN, size);
-                else
-                    Emit(node->loc, OpCode::Equal);
-            }
-            break;
-
-        case TokenType::NotEqual:
-            if(type->IsString())
-            {
-                // should have been lowered to !String.Equals(left, right)
-                assert(0);
-            }
-            else
-            {
-                size_t size = typeInfo[type]->GetSize();
-                if(size > 1)
-                    Emit(node->loc, OpCode::EqualN, size);
-                else
-                    Emit(node->loc, OpCode::Equal);
-            }
-
-            Emit(node->loc, OpCode::PushBoolean, 0);
-            Emit(node->loc, OpCode::Equal);
-            break;
-        
-        case TokenType::Less:
-            if(type->IsInteger())
-                Emit(node->loc, OpCode::LessInt);
-            else if(type->IsNumber())
-                Emit(node->loc, OpCode::LessNum);
-            else
-                assert(0);
-            break;
-        case TokenType::LessEqual:
-            if(type->IsInteger())
-                Emit(node->loc, OpCode::LessEqualInt);
-            else if(type->IsNumber())
-                Emit(node->loc, OpCode::LessEqualNum);
-            else
-                assert(0);
-            break;
-        case TokenType::Greater:
-            if(type->IsInteger())
-                Emit(node->loc, OpCode::GreaterInt);
-            else if(type->IsNumber())
-                Emit(node->loc, OpCode::GreaterNum);
-            else
-                assert(0);
-            break;
-        case TokenType::GreaterEqual:
-            if(type->IsInteger())
-                Emit(node->loc, OpCode::GreaterEqualInt);
-            else if(type->IsNumber())
-                Emit(node->loc, OpCode::GreaterEqualNum);
-            else
-                assert(0);
-            break;
-
-        case TokenType::Add:
-            if (type->IsInteger())
-                Emit(node->loc, OpCode::AddInt);
-            else if (type->IsNumber())
-                Emit(node->loc, OpCode::AddNum);
-            else if (type->IsString())
-                // should have been lowered to String.Concat(left, right)
-                assert(0);
-            else
-                assert(0);
-            break;
-        case TokenType::Sub:
-            if(type->IsInteger())
-                Emit(node->loc, OpCode::SubInt);
-            else if(type->IsNumber())
-                Emit(node->loc, OpCode::SubNum);
-            else
-                assert(0);
-            break;
-        case TokenType::Mul:
-            if(type->IsInteger())
-                Emit(node->loc, OpCode::MulInt);
-            else if(type->IsNumber())
-                Emit(node->loc, OpCode::MulNum);
-            else
-                assert(0);
-            break;
-        case TokenType::Div:
-            if(type->IsInteger())
-                Emit(node->loc, OpCode::DivInt);
-            else if(type->IsNumber())
-                Emit(node->loc, OpCode::DivNum);
-            else
-                assert(0);
-            break;
-        case TokenType::Mod:
-            if(type->IsInteger())
-                Emit(node->loc, OpCode::ModInt);
-            else if(type->IsNumber())
-                Emit(node->loc, OpCode::ModNum);
-            else
-                assert(0);
-            break;
+            // should have been lowered to String.Equals(left, right)
+            assert(0);
         }
+        else
+        {
+            size_t size = typeInfo[type]->GetSize();
+            if(size > 1)
+                Emit(node->loc, OpCode::EqualN, size);
+            else
+                Emit(node->loc, OpCode::Equal);
+        }
+        break;
+
+    case TokenType::NotEqual:
+        if(type->IsString())
+        {
+            // should have been lowered to !String.Equals(left, right)
+            assert(0);
+        }
+        else
+        {
+            size_t size = typeInfo[type]->GetSize();
+            if(size > 1)
+                Emit(node->loc, OpCode::NotEqualN, size);
+            else
+                Emit(node->loc, OpCode::NotEqual);
+        }
+        break;
+    
+    case TokenType::Less:
+        if(type->IsInteger())
+            Emit(node->loc, OpCode::LessInt);
+        else if(type->IsNumber())
+            Emit(node->loc, OpCode::LessNum);
+        else
+            assert(0);
+        break;
+    case TokenType::LessEqual:
+        if(type->IsInteger())
+            Emit(node->loc, OpCode::LessEqualInt);
+        else if(type->IsNumber())
+            Emit(node->loc, OpCode::LessEqualNum);
+        else
+            assert(0);
+        break;
+    case TokenType::Greater:
+        if(type->IsInteger())
+            Emit(node->loc, OpCode::GreaterInt);
+        else if(type->IsNumber())
+            Emit(node->loc, OpCode::GreaterNum);
+        else
+            assert(0);
+        break;
+    case TokenType::GreaterEqual:
+        if(type->IsInteger())
+            Emit(node->loc, OpCode::GreaterEqualInt);
+        else if(type->IsNumber())
+            Emit(node->loc, OpCode::GreaterEqualNum);
+        else
+            assert(0);
+        break;
+
+    case TokenType::Add:
+        if (type->IsInteger())
+            Emit(node->loc, OpCode::AddInt);
+        else if (type->IsNumber())
+            Emit(node->loc, OpCode::AddNum);
+        else if (type->IsString())
+            // should have been lowered to String.Concat(left, right)
+            assert(0);
+        else
+            assert(0);
+        break;
+    case TokenType::Sub:
+        if(type->IsInteger())
+            Emit(node->loc, OpCode::SubInt);
+        else if(type->IsNumber())
+            Emit(node->loc, OpCode::SubNum);
+        else
+            assert(0);
+        break;
+    case TokenType::Mul:
+        if(type->IsInteger())
+            Emit(node->loc, OpCode::MulInt);
+        else if(type->IsNumber())
+            Emit(node->loc, OpCode::MulNum);
+        else
+            assert(0);
+        break;
+    case TokenType::Div:
+        if(type->IsInteger())
+            Emit(node->loc, OpCode::DivInt);
+        else if(type->IsNumber())
+            Emit(node->loc, OpCode::DivNum);
+        else
+            assert(0);
+        break;
+    case TokenType::Mod:
+        if(type->IsInteger())
+            Emit(node->loc, OpCode::ModInt);
+        else if(type->IsNumber())
+            Emit(node->loc, OpCode::ModNum);
+        else
+            assert(0);
+        break;
     }
 }
 
@@ -1146,6 +1155,34 @@ void CodeGenerator::Visit(const sptr<AwaitExpression>& node)
     program->code[jump2].arg1_u64 = program->code.size();
 }
 
+void CodeGenerator::Visit(const sptr<ArrayCountExpression>& node)
+{
+    auto elementType = node->array->EvaluateType()->GetElementType();
+
+    uint64_t elementSize = 1;
+    if(elementType->IsStruct())
+        elementSize = typeInfo[elementType]->ToStructInfo()->size;
+
+    // should leave an Array on the stack
+    VisitChild(node->array);
+
+    // the array header stores its length in words
+    Emit(node->loc, OpCode::PushWord, (uint64_t)ArrayLengthOffset);
+
+    if(elementSize != 1)
+    {
+        Emit(node->loc, OpCode::PushInteger, static_cast<Integer>(elementSize));
+        Emit(node->loc, OpCode::DivInt);
+    }
+}
+
+void CodeGenerator::Visit(const sptr<CheckSiteExpression>& node)
+{
+    auto siteId = static_cast<Integer>(program->checkSites.size());
+    program->checkSites.push_back(CheckSite{ node->message, node->loc });
+    Emit(node->loc, OpCode::PushInteger, siteId);
+}
+
 void CodeGenerator::Visit(const sptr<IntegerLiteralExpression>& node) {
     Emit(node->loc, OpCode::PushInteger, node->value);
 }
@@ -1432,19 +1469,18 @@ void CodeGenerator::Visit(const sptr<StringLiteralExpression>& node) {
 
 void CodeGenerator::Visit(const sptr<TernaryExpression>& node)
 {
-    VisitChild(node->condition);
-    
-    size_t jump1 = program->code.size();
-    Emit(node->loc, OpCode::JumpIfNot, -1);
+    std::vector<size_t> falseJumpIndices;
+    EmitConditionalJumps(node->condition, nullptr, &falseJumpIndices);
 
     VisitChild(node->trueValue);
 
-    size_t jump2 = program->code.size();
+    size_t jumpOverFalseValueCodeIndex = program->code.size();
     Emit(node->loc, OpCode::Jump, -1);
-    
-    program->code[jump1].arg1_u64 = program->code.size();
+
+    PatchJumps(falseJumpIndices, program->code.size());
+
     VisitChild(node->falseValue);
-    program->code[jump2].arg1_u64 = program->code.size();
+    program->code[jumpOverFalseValueCodeIndex].arg1_u64 = program->code.size();
 }
 
 void CodeGenerator::Visit(const sptr<TypeLiteralExpression>& node)
@@ -1519,18 +1555,10 @@ void CodeGenerator::Visit(const sptr<ForStatement>& node)
 
     size_t conditionCodeStart = program->code.size();
 
+    // without a condition, the loop never exits through the top
+    std::vector<size_t> loopExitJumpIndices;
     if(node->condition)
-    {
-        // push condition result onto stack
-        VisitChild(node->condition);
-    }
-    else
-    {
-        Emit(node->loc, OpCode::PushBoolean, 1);
-    }
-
-    size_t jumpOutCodeStart = program->code.size();
-    Emit(node->loc, OpCode::JumpIfNot, -1);
+        EmitConditionalJumps(node->condition, nullptr, &loopExitJumpIndices);
 
     VisitChild(node->body);
 
@@ -1539,8 +1567,7 @@ void CodeGenerator::Visit(const sptr<ForStatement>& node)
 
     Emit(node->loc, OpCode::Jump, conditionCodeStart);
 
-    // fix up exit jump
-    program->code[jumpOutCodeStart].arg1_u64 = program->code.size();
+    PatchJumps(loopExitJumpIndices, program->code.size());
 }
 
 void CodeGenerator::Visit(const sptr<GotoStatement>& node)
@@ -1554,15 +1581,11 @@ void CodeGenerator::Visit(const sptr<GotoStatement>& node)
 
 void CodeGenerator::Visit(const sptr<IfStatement>& node)
 {
-    // push condition expression onto stack
-    VisitChild(node->condition);
-
-    // emit conditional jump
-    size_t jumpOverTrueCodeStart = program->code.size();
-    Emit(node->loc, OpCode::JumpIfNot, -1);
+    // jump over the true branch when the condition is false
+    std::vector<size_t> jumpIndicesOverTrueBranch;
+    EmitConditionalJumps(node->condition, nullptr, &jumpIndicesOverTrueBranch);
 
     // emit true branch
-    size_t trueBranchCodeStart = program->code.size();
     VisitChild(node->trueBranch);
     size_t trueBranchCodeEnd = program->code.size();
 
@@ -1584,8 +1607,7 @@ void CodeGenerator::Visit(const sptr<IfStatement>& node)
         program->code[jumpOverFalseCodeStart].arg1_u64 = falseBranchCodeEnd;
     }
 
-    // fix up jump code pointer
-    program->code[jumpOverTrueCodeStart].arg1_u64 = trueBranchCodeEnd;
+    PatchJumps(jumpIndicesOverTrueBranch, trueBranchCodeEnd);
 }
 
 void CodeGenerator::Visit(const sptr<ReturnStatement>& node)
@@ -1672,25 +1694,16 @@ void CodeGenerator::Visit(const sptr<WhileStatement>& node)
 {
     size_t conditionCodeStart = program->code.size();
 
+    // without a condition, the loop never exits through the top
+    std::vector<size_t> loopExitJumpIndices;
     if(node->condition)
-    {
-        // push condition result onto stack
-        VisitChild(node->condition);
-    }
-    else
-    {
-        Emit(node->loc, OpCode::PushBoolean, 1);
-    }
-
-    size_t jumpOutCodeStart = program->code.size();
-    Emit(node->loc, OpCode::JumpIfNot, -1);
+        EmitConditionalJumps(node->condition, nullptr, &loopExitJumpIndices);
 
     VisitChild(node->body);
 
     Emit(node->loc, OpCode::Jump, conditionCodeStart);
 
-    // fix up exit jump
-    program->code[jumpOutCodeStart].arg1_u64 = program->code.size();
+    PatchJumps(loopExitJumpIndices, program->code.size());
 }
 
 } // fraze

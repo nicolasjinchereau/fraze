@@ -107,9 +107,11 @@ enum class OpCode : uint8_t
     LeftShift,
     RightShift,
 
-    // replaces stack top with result of equality operation on top two (any Word, arg=size)
+    // replaces stack top with result of equality/inequality operation on top two (any Word, arg=size)
     Equal,
     EqualN,
+    NotEqual,
+    NotEqualN,
 
     // replaces stack top with result of equality operation on top two
     LessInt,
@@ -201,6 +203,8 @@ inline std::unordered_map<OpCode, std::string> OpCodeNames {
 
     { OpCode::Equal,           "Equal" },
     { OpCode::EqualN,          "EqualN" },
+    { OpCode::NotEqual,        "NotEqual" },
+    { OpCode::NotEqualN,       "NotEqualN" },
 
     { OpCode::LessInt,         "LessInt" },
     { OpCode::LessNum,         "LessNum" },

@@ -25,6 +25,7 @@ class TemplateDefinition;
 class TemplateParameterDefinition;
 class VariableDefinition;
 
+class ArrayCountExpression;
 class AsExpression;
 class AssignExpression;
 class AwaitExpression;
@@ -33,6 +34,7 @@ class BooleanLiteralExpression;
 class CachedExpression;
 class CastExpression;
 class CallExpression;
+class CheckSiteExpression;
 class ConvertExpression;
 class DefaultValueExpression;
 class Expression;

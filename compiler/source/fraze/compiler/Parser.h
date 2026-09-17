@@ -996,7 +996,7 @@ interface {}
             paramList
         );
 
-        ParseCodeString(mixinCode, functorTok.loc.line);
+        ParseCodeString(mixinCode, functorTok.loc);
 
         auto def = scopes.GetCurrent()->FindDefinition(functorName);
         assert(def);
@@ -1009,9 +1009,9 @@ interface {}
         return functorInterface;
     }
 
-    Scope* ParseCodeString(const std::string& code, size_t lineNumber, bool forceSectionScope = false)
+    Scope* ParseCodeString(const std::string& code, const SourceLocation& mixinLocation, bool forceSectionScope = false)
     {
-        Lexer lexer(token.loc.file.view(), code, lineNumber, true);
+        Lexer lexer(mixinLocation, code, true);
         std::vector<Token> tokens = lexer.Tokenize();
 
         std::vector<Scope*> poppedScopes;
@@ -1267,7 +1267,7 @@ interface {}
                 }
                 const char* storage = isMember && isStatic ? " static" : "";
                 std::string mixinCode = std::format("extern{} void ${}({}, {});", storage, name, taskParam, paramList);
-                ParseCodeString(mixinCode, externFuncLoc.line);
+                ParseCodeString(mixinCode, externFuncLoc);
             }
 
             auto task = ParseTaskObject(def, isExternal);
@@ -1347,7 +1347,7 @@ return $ret;
             def->body = spnew<BlockStatement>(bodyLoc, scopes.GetCurrent());
             scopes.Push(def->body->scope.get());
 
-            ParseCodeString(mixinCode, bodyLoc.line);
+            ParseCodeString(mixinCode, bodyLoc);
 
             scopes.Pop();
 
@@ -1498,7 +1498,7 @@ class ${}_Task
             !yieldTypeIsVoid ? "" : comment
         );
 
-        Scope* scopeOfParse = ParseCodeString(mixinCode, func->parent->loc.line, true);
+        Scope* scopeOfParse = ParseCodeString(mixinCode, func->parent->loc, true);
 
         auto taskObjectName = std::format("${}_Task", func->name);
 
@@ -1960,7 +1960,7 @@ class ${}_Task
         Consume(TokenType::RightParen);
         Consume(TokenType::Semicolon);
 
-        Lexer lexer(tok.loc.file.view(), mixinCode.str(), tok.loc.line, false);
+        Lexer lexer(tok.loc, mixinCode.str(), false);
         std::vector<Token> tokens = lexer.Tokenize();
 
         Parser parser(tokens, false);
