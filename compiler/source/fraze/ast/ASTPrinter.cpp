@@ -147,12 +147,6 @@ void ASTPrinter::Visit(const sptr<BooleanLiteralExpression>& node)
     ASTVisitor::Visit(node);
 }
 
-void ASTPrinter::Visit(const sptr<CachedExpression>& node)
-{
-    stream << GetPreamble(node->loc) << "CachedExpression" << std::endl;
-    ASTVisitor::Visit(node);
-}
-
 void ASTPrinter::Visit(const sptr<CastExpression>& node)
 {
     ASTVisitor::Visit(node);

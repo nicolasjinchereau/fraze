@@ -28,7 +28,6 @@
 #include <fraze/ast/expr/AwaitExpression.h>
 #include <fraze/ast/expr/BinaryExpression.h>
 #include <fraze/ast/expr/BooleanLiteralExpression.h>
-#include <fraze/ast/expr/CachedExpression.h>
 #include <fraze/ast/expr/CastExpression.h>
 #include <fraze/ast/expr/CallExpression.h>
 #include <fraze/ast/expr/CheckSiteExpression.h>

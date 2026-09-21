@@ -152,12 +152,6 @@ void ASTVisitor::Visit(const sptr<BooleanLiteralExpression>& node)
 {
 }
 
-void ASTVisitor::Visit(const sptr<CachedExpression>& node)
-{
-    VisitChild(node->cache);
-    VisitChild(node->value);
-}
-
 void ASTVisitor::Visit(const sptr<CastExpression>& node)
 {
     VisitChild(node->resultTypeSpec);

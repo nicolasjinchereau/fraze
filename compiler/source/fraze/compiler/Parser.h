@@ -30,6 +30,7 @@ class Parser
     ScopeStack scopes;
     sptr<ASTRoot> astRoot;
     int nextUniqueId = 0;
+    size_t foldDepth = 0; // how many fold bodies enclose the statement being parsed
     bool allowInternalSymbols = false;
 public:
 
@@ -2227,6 +2228,9 @@ class ${}_Task
     {
         if(token.IsKeyword(Keyword::Await))
         {
+            // suspending would discard the operands already pushed for the enclosing expression
+            ENFORCE(foldDepth == 0, token.loc, "'await' cannot be used inside a fold expression");
+
             const Token& oper = Consume();
             sptr<Expression> right = ParseAwaitExpr();
             return spnew<AwaitExpression>(oper.loc, scopes.GetCurrent(), right);
@@ -2290,6 +2294,10 @@ class ${}_Task
         else if (token.IsKeyword(Keyword::Functor))
         {
             expr = ParseFunctorExpr();
+        }
+        else if (token.IsKeyword(Keyword::Fold))
+        {
+            expr = ParseFoldExpression();
         }
         else if(token.IsKeyword(Keyword::New))
         {
@@ -2533,6 +2541,20 @@ class ${}_Task
         return expr;
     }
 
+    sptr<Expression> ParseFoldExpression()
+    {
+        auto loc = token.loc;
+
+        Consume(Keyword::Fold);
+
+        ++foldDepth; // controls whether 'await' is allowed
+        auto body = ParseBlockStmt();
+        --foldDepth;
+
+        auto expr = spnew<FoldExpression>(loc, scopes.GetCurrent(), body);
+        return expr;
+    }
+
     sptr<Expression> ParseSizeOfExpression()
     {
         auto loc = token.loc;
@@ -2680,7 +2702,10 @@ class ${}_Task
         
         scopes.Push(functorClass->scope.get()); // functor class
 
+        // a functor body is its own function, so an enclosing fold doesn't reach into it
+        auto enclosingFoldDepth = std::exchange(foldDepth, size_t(0));
         auto func = ParseFunctionDefinition("invoke");
+        foldDepth = enclosingFoldDepth;
         functorClass->isFunctor = true;
         
         ENFORCE(!func->isExternal && !func->isStatic, func->loc, "a functor expression cannot have a storage class");

@@ -2351,40 +2351,13 @@ void SemanticAnalyzer::VisitCallTarget(
                 auto contextType = context->EvaluateType();
                 if (contextType->IsStruct())
                 {
-                    if (!context->ToIdentifierExpression() &&
-                        !context->ToIndexExpression() &&
-                        !context->ToFoldExpression() &&
-                        !context->ToCachedExpression())
+                    if(!StructHasAddress(context))
                     {
-                        context->pushAsRef = false;
-
-                        auto body = spnew<BlockStatement>(context->loc, node->scope);
-
-                        ScopeStack tempScopes;
-                        tempScopes.PushFromRoot(body->scope.get());
-                        Scope* foldScope = tempScopes.GetCurrent();
-
-                        // var tmp = context;
-                        auto varDefStmt = spnew<VariableDefinitionStatement>(context->loc, foldScope);
-                        auto typeSpec = spnew<TypeSpecifier>(context->loc, foldScope, shared_string("var"));
-                        varDefStmt->variableDefinition = spnew<VariableDefinition>(context->loc, foldScope, typeSpec, shared_string("tmp"));
-                        varDefStmt->variableDefinition->initializer = context;
-                        foldScope->AddDefinition(varDefStmt->variableDefinition);
-                        body->statements.push_back(varDefStmt);
-
-                        // tmp;
-                        auto finalTmpExpr = spnew<IdentifierExpression>(context->loc, foldScope, shared_string("tmp"));
-                        finalTmpExpr->pushAsRef = true;  // pushed by reference
-                        auto finalTmpStmt = spnew<ExpressionStatement>(finalTmpExpr, foldScope);
-                        body->statements.push_back(finalTmpStmt);
-
-                        context = spnew<FoldExpression>(context->loc, node->scope, body);
+                        context = CreateTempFold(context, node->scope);
                         VisitChild(context);
                     }
-                    else
-                    {
-                        context->pushAsRef = true;
-                    }
+
+                    SetStructPushAsRef(context); // the callee takes the struct by reference
                 }
             }
             else // functor variable
@@ -2398,11 +2371,6 @@ void SemanticAnalyzer::VisitCallTarget(
             node->context = nullptr;
         }
     }
-}
-
-void SemanticAnalyzer::Visit(const sptr<CachedExpression>& node)
-{
-    ASTVisitor::Visit(node);
 }
 
 void SemanticAnalyzer::Visit(const sptr<CastExpression>& node)
@@ -2528,15 +2496,99 @@ void SemanticAnalyzer::Visit(const sptr<DefaultValueExpression>& node)
     VisitChild(node->typeSpec);
 }
 
+// Returns true if the struct 'expr' can push its address without being stored in a temp.
+// Variables and array elements already have one; SetStructPushAsRef gives a fold's result one.
+bool SemanticAnalyzer::StructHasAddress(const sptr<Expression>& expr)
+{
+    assert(expr->EvaluateType()->IsStruct());
+
+    return expr->ToIdentifierExpression()
+        || expr->ToIndexExpression()
+        || expr->ToFoldExpression();
+}
+
+// Creates 'fold { T tmp = value; tmp; }', which evaluates 'value' once into a local and yields it.
+// The local's name is only visible inside the fold, so use CreateTempFoldValueIdentifier to read it
+// from outside.
+sptr<Expression> SemanticAnalyzer::CreateTempFold(const sptr<Expression>& value, Scope* enclosingScope)
+{
+    value->pushAsRef = false;
+
+    Type* valueType = value->EvaluateType();
+    auto body = spnew<BlockStatement>(value->loc, enclosingScope);
+    Scope* foldScope = body->scope.get();
+
+    // T tmp = value;
+    auto varDefStmt = spnew<VariableDefinitionStatement>(value->loc, foldScope);
+    auto typeSpec = spnew<TypeSpecifier>(value->loc, valueType);
+    varDefStmt->variableDefinition = spnew<VariableDefinition>(value->loc, foldScope, typeSpec, shared_string("tmp"));
+    varDefStmt->variableDefinition->initializer = value;
+    foldScope->AddDefinition(varDefStmt->variableDefinition);
+    body->statements.push_back(varDefStmt);
+
+    // tmp;
+    auto tmpExpr = spnew<IdentifierExpression>(value->loc, foldScope, shared_string("tmp"));
+    body->statements.push_back(spnew<ExpressionStatement>(tmpExpr, foldScope));
+
+    return spnew<FoldExpression>(value->loc, enclosingScope, body);
+}
+
+// Creates an identifier that reads the local a temp fold stored its value in, so the value can be
+// used again outside the fold. The local's name is only visible inside the fold, so the identifier's
+// targetDef is set directly instead of being looked up.
+sptr<IdentifierExpression> SemanticAnalyzer::CreateTempFoldValueIdentifier(const sptr<Expression>& tempFold, Scope* scope)
+{
+    auto fold = tempFold->ToFoldExpression();
+    assert(fold);
+
+    auto varDefStmt = fold->body->statements.front()->ToVariableDefinitionStatement();
+    assert(varDefStmt);
+
+    auto tempDef = varDefStmt->variableDefinition;
+    auto valueExpr = spnew<IdentifierExpression>(fold->loc, scope, tempDef->name);
+    valueExpr->targetDef = tempDef.get();
+
+    return valueExpr;
+}
+
+// Sets 'expr', a struct, to push its address instead of its fields. A fold passes this on to its
+// result, storing the result in a temp first if it's an r-value.
+void SemanticAnalyzer::SetStructPushAsRef(const sptr<Expression>& expr)
+{
+    assert(expr->EvaluateType()->IsStruct());
+
+    expr->pushAsRef = true;
+
+    // a fold pushes whatever its final expression pushes, so the request passes through to it
+    if(auto fold = expr->ToFoldExpression())
+    {
+        auto resultStatement = fold->GetResultStatement();
+
+        // an r-value yielded by the fold needs a temp to take the address of
+        if(!StructHasAddress(resultStatement->expression))
+        {
+            resultStatement->expression = CreateTempFold(resultStatement->expression, resultStatement->enclosingScope);
+            VisitChild(resultStatement->expression);
+        }
+
+        SetStructPushAsRef(resultStatement->expression);
+    }
+}
+
 void SemanticAnalyzer::Visit(const sptr<FoldExpression>& node)
 {
     assert(node->body);
     ENFORCE(!node->body->statements.empty(), node->body->loc, "body cannot be empty");
 
-    auto finalStatement = node->body->statements.back()->ToExpressionStatement();
-    ENFORCE(!!finalStatement, node->body->loc, "final statement must be an expression statement");
+    auto resultStatement = node->GetResultStatement();
+    ENFORCE(!!resultStatement, node->body->loc, "final statement must be an expression statement");
 
     ASTVisitor::Visit(node);
+
+    // the final expression is the result, so it has to produce one
+    Type* resultType = resultStatement->expression->EvaluateType();
+    ENFORCE(resultType && !resultType->IsVoid(), resultStatement->loc,
+        "the final expression of a fold expression cannot be void");
 }
 
 sptr<Definition> SemanticAnalyzer::FindIdentifierTarget(const sptr<IdentifierExpression>& node)
@@ -2694,21 +2746,13 @@ void SemanticAnalyzer::Visit(const sptr<IdentifierExpression>& node)
             auto contextType = context->EvaluateType();
             if(contextType->IsStruct())
             {
-                if( !context->ToIdentifierExpression() &&
-                    !context->ToIndexExpression() &&
-                    !context->ToFoldExpression() &&
-                    !context->ToCachedExpression())
+                if(!StructHasAddress(context))
                 {
-                    context->pushAsRef = false;
-                    auto cachedVarName = std::format("$temp_2_{}", nextUniqueId++);
-                    auto cachedExpression = spnew<CachedExpression>(context, shared_string(std::move(cachedVarName)), true);
-                    context = cachedExpression;
+                    context = CreateTempFold(context, node->scope);
                     VisitChild(context);
                 }
-                else
-                {
-                    context->pushAsRef = true;
-                }
+
+                SetStructPushAsRef(context);
             }
         }
 
@@ -2812,17 +2856,16 @@ void SemanticAnalyzer::Visit(const sptr<IndexExpression>& node)
             // Evaluate the index once, then share it between the check and the access,
             // unless it's a plain local or parameter that can just be read again.
             sptr<Expression> indexVarExpr;
-            shared_string indexVarName;
+            sptr<Expression> indexValueExpr;
             if(auto localIndexVarExpr = AsLocalOrParameterIdentifier(node->arg))
             {
                 indexVarExpr = localIndexVarExpr;
-                indexVarName = localIndexVarExpr->value;
+                indexValueExpr = spnew<IdentifierExpression>(loc, scope, localIndexVarExpr->value);
             }
             else
             {
-                auto cachedIndexVarExpr = spnew<CachedExpression>(node->arg, shared_string(std::format("$index_{}", nextUniqueId++)));
-                indexVarExpr = cachedIndexVarExpr;
-                indexVarName = cachedIndexVarExpr->value->value;
+                indexVarExpr = CreateTempFold(node->arg, scope);
+                indexValueExpr = CreateTempFoldValueIdentifier(indexVarExpr, scope);
             }
 
             // CheckBounds returns the array so the target is also evaluated once
@@ -2837,7 +2880,7 @@ void SemanticAnalyzer::Visit(const sptr<IndexExpression>& node)
             callExpr->arguments.push_back(spnew<CheckSiteExpression>(argLoc, scope, shared_string("index out of range")));
 
             node->target = callExpr;
-            node->arg = spnew<IdentifierExpression>(loc, scope, indexVarName);
+            node->arg = indexValueExpr;
 
             VisitChild(node->target);
             VisitChild(node->arg);
@@ -2962,33 +3005,12 @@ void SemanticAnalyzer::Visit(const sptr<NewExpression>& node)
                 {
                     newExpr = node;
 
-                    // wrap in a fold expression if it's a struct so the arg will be passed by ref
+                    // a struct is passed to its constructor by reference, so it needs an address
                     if (targetType->IsStruct())
                     {
-                        // wrap new struct in a fold expression
-                        auto body = spnew<BlockStatement>(node->loc, node->scope);
-
-                        ScopeStack scopes;
-                        scopes.PushFromRoot(body->scope.get());
-                        Scope* foldScope = scopes.GetCurrent();
-
-                        // var tmp = newExpr;
-                        auto varDefStmt = spnew<VariableDefinitionStatement>(node->loc, foldScope);
-                        auto typeSpec = spnew<TypeSpecifier>(node->loc, foldScope, shared_string("var"));
-                        varDefStmt->variableDefinition = spnew<VariableDefinition>(node->loc, foldScope, typeSpec, shared_string("tmp"));
-                        varDefStmt->variableDefinition->initializer = newExpr;
-                        foldScope->AddDefinition(varDefStmt->variableDefinition);
-                        body->statements.push_back(varDefStmt);
-
-                        // tmp;
-                        auto finalTmpExpr = spnew<IdentifierExpression>(node->loc, foldScope, shared_string("tmp"));
-                        finalTmpExpr->pushAsRef = true;
-                        auto finalTmpStmt = spnew<ExpressionStatement>(finalTmpExpr, foldScope);
-                        body->statements.push_back(finalTmpStmt);
-
-                        auto fold = spnew<FoldExpression>(node->loc, node->scope, body);
-                        VisitChild(fold);
-                        newExpr = fold;
+                        newExpr = CreateTempFold(newExpr, node->scope);
+                        VisitChild(newExpr);
+                        SetStructPushAsRef(newExpr);
                     }
                 }
 

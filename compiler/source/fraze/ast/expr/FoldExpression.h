@@ -42,17 +42,17 @@ public:
         return self();
     }
 
-    sptr<Expression> GetFinalExpression()
+    // the statement whose expression the fold yields
+    sptr<ExpressionStatement> GetResultStatement()
     {
         assert(body);
         assert(!body->statements.empty());
-        auto finalStatement = body->statements.back()->ToExpressionStatement();
-        return finalStatement->expression;
+        return body->statements.back()->ToExpressionStatement();
     }
 
     virtual Type* EvaluateType() override
     {
-        return GetFinalExpression()->EvaluateType();
+        return GetResultStatement()->expression->EvaluateType();
     }
 };
 

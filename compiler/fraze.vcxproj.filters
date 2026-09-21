@@ -314,9 +314,6 @@
     <ClInclude Include="source\fraze\common\ScopeUtil.h">
       <Filter>source\fraze\common</Filter>
     </ClInclude>
-    <ClInclude Include="source\fraze\ast\expr\CachedExpression.h">
-      <Filter>source\fraze\ast\expr</Filter>
-    </ClInclude>
     <ClInclude Include="source\fraze\ast\def\PropertyDefinition.h">
       <Filter>source\fraze\ast\def</Filter>
     </ClInclude>

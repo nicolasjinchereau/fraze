@@ -60,7 +60,6 @@ public:
     virtual void Visit(const sptr<AwaitExpression>& node);
     virtual void Visit(const sptr<BinaryExpression>& node);
     virtual void Visit(const sptr<BooleanLiteralExpression>& node);
-    virtual void Visit(const sptr<CachedExpression>& node);
     virtual void Visit(const sptr<CastExpression>& node);
     virtual void Visit(const sptr<CallExpression>& node);
     virtual void Visit(const sptr<CheckSiteExpression>& node);

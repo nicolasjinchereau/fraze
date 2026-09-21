@@ -755,11 +755,6 @@ void CodeGenerator::Visit(const sptr<BooleanLiteralExpression>& node) {
     Emit(node->loc, OpCode::PushBoolean, node->value ? 1 : 0);
 }
 
-void CodeGenerator::Visit(const sptr<CachedExpression>& node)
-{
-    ASTVisitor::Visit(node);
-}
-
 void CodeGenerator::Visit(const sptr<CallExpression>& node)
 {
     auto targetType = node->target->EvaluateType();
@@ -910,8 +905,8 @@ void CodeGenerator::Visit(const sptr<FoldExpression>& node)
     for(size_t i = 0; i != statements.size() - 1; ++i)
         VisitChild(statements[i]);
 
-    auto finalStatement = statements.back()->ToExpressionStatement();
-    VisitChild(finalStatement->expression);
+    // the statement itself is skipped so its expression isn't discarded like a normal one
+    VisitChild(node->GetResultStatement()->expression);
 
     // expression result left on stack
 }

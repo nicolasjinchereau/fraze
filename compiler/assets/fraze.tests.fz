@@ -1227,6 +1227,255 @@ section VirtualReceiverTests
     }
 }
 
+// a fold expression is a block of statements in expression position. its final statement is
+// an expression, which the fold yields and which gives the fold its type.
+section FoldTests
+{
+    struct Vec
+    {
+        num x;
+        num y;
+
+        num Sum() {
+            return x + y;
+        }
+    }
+
+    functor int IntFunctor();
+
+    class Counter
+    {
+        int count;
+
+        int Bump(int amount) {
+            count += amount;
+            return count;
+        }
+    }
+
+    static Vec MakeVec() {
+        Vec v;
+        v.x = 8;
+        v.y = 9;
+        return v;
+    }
+
+    static int Twice(int value) {
+        return value * 2;
+    }
+
+    // instantiating the template clones the fold, whose final expression has to still find
+    // the local it yields in the copied body's scope
+    T CopyThroughFold<T>(T value) {
+        return fold {
+            T copy = value;
+            copy;
+        };
+    }
+
+    // 'return' inside a fold returns from the enclosing function, abandoning the rest of the
+    // expression the fold is part of, including a call whose argument was already being built
+    static int ReturnFromFold(int value) {
+        int result = Twice(fold {
+            if(value < 0)
+                return -1;
+
+            value;
+        }) + 1;
+
+        return result;
+    }
+
+    Task<int> FoldInCoroutineAsync(int amount)
+    {
+        // a fold in a coroutine, outside any suspension point ('await' inside a fold is an error)
+        int scaled = fold {
+            int doubled = amount * 2;
+            doubled;
+        };
+
+        await WaitAsync(0.01);
+        return scaled;
+    }
+
+    Task<void> CoroutineTest()
+    {
+        int scaled = await FoldInCoroutineAsync(21);
+        assert(scaled == 42);
+    }
+
+    void Run()
+    {
+        // statements run before the final expression, which is the result
+        int x = fold {
+            int a = 1;
+            a += 1;
+            a;
+        };
+        assert(x == 2);
+
+        // the type comes from the final expression, so a fold can yield any type
+        string text = fold { string s = "ab"; s + "c"; };
+        assert(text == "abc");
+
+        num scaled = fold { num n = 1.5; n * 2.0; };
+        assert(scaled == 3.0);
+
+        // branches assign a local that the final expression yields, since 'if' is a statement
+        string message = fold {
+            string m;
+
+            if(x == 1)
+                m = "one";
+            else if(x == 2)
+                m = "two";
+            else
+                m = "many";
+
+            m;
+        };
+        assert(message == "two");
+
+        // a fold nested in the body of another fold
+        int nested = fold {
+            int inner = fold { 6; };
+            inner * 7;
+        };
+        assert(nested == 42);
+
+        // a struct result is yielded by value
+        Vec vec = fold {
+            Vec v;
+            v.x = 3;
+            v.y = 4;
+            v;
+        };
+        assert(vec.x == 3);
+        assert(vec.y == 4);
+
+        // a struct fold used as a receiver is passed by reference
+        num sum = fold {
+            Vec v;
+            v.x = 10;
+            v.y = 5;
+            v;
+        }.Sum();
+        assert(sum == 15);
+
+        // an r-value result has no address of its own, so a fold used as a receiver
+        // stores it in a temp first, the same way a plain r-value receiver does
+        assert(new Vec{ 8, 9 }.Sum() == 17);
+        assert(MakeVec().Sum() == 17);
+        assert(fold { new Vec{ 8, 9 }; }.Sum() == 17);
+        assert(fold { MakeVec(); }.Sum() == 17);
+
+        // the same fold yields the struct by value when nothing asks for its address
+        Vec byValue = fold { new Vec{ 8, 9 }; };
+        assert(byValue.x == 8);
+        assert(byValue.y == 9);
+
+        // a fold in a loop body, evaluated on each pass
+        int total = 0;
+        for(int i = 0; i != 4; ++i)
+        {
+            total += fold {
+                int step = i % 2 == 0 ? i : 10;
+                step;
+            };
+        }
+        assert(total == 22); // 0 + 10 + 2 + 10
+
+        assert(CopyThroughFold<int>(5) == 5);
+        assert(CopyThroughFold<string>("five") == "five");
+        assert(CopyThroughFold<Vec>(new Vec{ 1, 2 }).Sum() == 3);
+
+        assert(ReturnFromFold(5) == 11);
+        assert(ReturnFromFold(-5) == -1);
+
+        // a fold as a call argument, and one nested in another fold's final expression
+        assert(Twice(fold { 3; }) == 6);
+        assert(Twice(fold { Twice(fold { 5; }); }) == 20);
+
+        // a fold as the receiver of a class member call: the class reference is
+        // pushed as-is, not by reference like a struct
+        int bumped = fold {
+            Counter counter = new Counter{};
+            counter.count = 100;
+            counter;
+        }.Bump(5);
+        assert(bumped == 105);
+
+        // a fold result drives a condition and a ternary
+        if(fold { x == 2; })
+            total += 1;
+        else
+            total += 100;
+        assert(total == 23);
+
+        string label = fold { false; } ? "yes" : "no";
+        assert(label == "no");
+
+        // a functor body inside a fold keeps its own returns
+        IntFunctor fun = fold {
+            int captured = 7;
+
+            IntFunctor inner = functor int() {
+                // NOTE: 'captured' is read once because a functor that mentions the same
+                // captured variable twice adds its capture member twice (see GetCaptures)
+                int amount = captured;
+
+                if(amount == 7)
+                    return amount;
+
+                return 0;
+            };
+
+            inner;
+        };
+        assert(fun() == 7);
+
+        // a fold inside a functor body
+        IntFunctor folding = functor int() {
+            return fold {
+                int a = 20;
+                a + 1;
+            };
+        };
+        assert(folding() == 21);
+
+        // the bounds check evaluates a computed index into a temp fold and reads it back for
+        // the element access, so the index is only evaluated once on both sides of an assignment
+        int[] numbers = new int[]{ 10, 20, 30, 40 };
+        int i = 1;
+        assert(numbers[i + 1] == 30);
+        assert(numbers[Twice(1)] == 30);
+
+        numbers[i + 1] = 300;
+        assert(numbers[2] == 300);
+
+        numbers[Twice(1)] += 7;
+        assert(numbers[2] == 307);
+
+        ++numbers[i + 2];
+        assert(numbers[3] == 41);
+
+        // the index is evaluated exactly once, even though the check and the access both read it
+        int calls = 0;
+        int[] counts = new int[]{ 0, 0, 0 };
+        counts[fold { calls += 1; 2; }] = 5;
+        assert(calls == 1);
+        assert(counts[2] == 5);
+
+        // a struct element reached through a computed index
+        Vec[] vectors = new Vec[]{ new Vec{ 1, 2 }, new Vec{ 3, 4 } };
+        assert(vectors[i - 1].Sum() == 3);
+        vectors[i * 1].x = 30;
+        assert(vectors[1].x == 30);
+
+        CoroutineTest();
+    }
+}
+
 void RunAllTests()
 {
     OperatorTests.Run();
@@ -1244,4 +1493,5 @@ void RunAllTests()
     CallableTests.Run();
     VirtualReceiverTests.Run();
     AsyncTests.Run();
+    FoldTests.Run();
 }

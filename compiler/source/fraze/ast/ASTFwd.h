@@ -31,7 +31,6 @@ class AssignExpression;
 class AwaitExpression;
 class BinaryExpression;
 class BooleanLiteralExpression;
-class CachedExpression;
 class CastExpression;
 class CallExpression;
 class CheckSiteExpression;

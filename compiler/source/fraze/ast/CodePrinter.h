@@ -53,7 +53,6 @@ public:
     virtual void Visit(const sptr<AwaitExpression>& node) override;
     virtual void Visit(const sptr<BinaryExpression>& node) override;
     virtual void Visit(const sptr<BooleanLiteralExpression>& node) override;
-    virtual void Visit(const sptr<CachedExpression>& node) override;
     virtual void Visit(const sptr<CastExpression>& node) override;
     virtual void Visit(const sptr<CallExpression>& node) override;
     virtual void Visit(const sptr<CheckSiteExpression>& node) override;

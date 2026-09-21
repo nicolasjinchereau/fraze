@@ -352,11 +352,6 @@ void CodePrinter::Visit(const sptr<BooleanLiteralExpression>& node)
     stream << (node->value ? "true" : "false");
 }
 
-void CodePrinter::Visit(const sptr<CachedExpression>& node)
-{
-    ASTVisitor::Visit(node);
-}
-
 void CodePrinter::Visit(const sptr<CastExpression>& node)
 {
     stream << "cast<" << node->resultTypeSpec->GetTypeName(true) << ">(";
@@ -393,7 +388,8 @@ void CodePrinter::Visit(const sptr<DefaultValueExpression>& node)
 
 void CodePrinter::Visit(const sptr<FoldExpression>& node)
 {
-    ASTVisitor::Visit(node);
+    stream << "fold\n";
+    VisitChild(node->body);
 }
 
 void CodePrinter::Visit(const sptr<IdentifierExpression>& node)

@@ -22,7 +22,6 @@ class Type;
 class SemanticAnalyzer : public ASTVisitor
 {
     sptr<ASTRoot> astRoot;
-    int nextUniqueId = 0;
 public:
 
     SemanticAnalyzer();
@@ -61,7 +60,6 @@ public:
     virtual void Visit(const sptr<AwaitExpression>& node) override;
     virtual void Visit(const sptr<BinaryExpression>& node) override;
     virtual void Visit(const sptr<BooleanLiteralExpression>& node) override;
-    virtual void Visit(const sptr<CachedExpression>& node) override;
     virtual void Visit(const sptr<CastExpression>& node) override;
     virtual void Visit(const sptr<CallExpression>& node) override;
     virtual void Visit(const sptr<CheckSiteExpression>& node) override;
@@ -111,6 +109,10 @@ private:
     sptr<FunctionDefinition> GetUnaryOperatorOverload(Type* structType, TokenType operation, const sptr<Expression>& value);
     static bool IsBoxable(Type* type);
     sptr<Expression> CreateBoxingExpression(const sptr<Expression>& value, Type* primitiveType);
+    static bool StructHasAddress(const sptr<Expression>& expr);
+    sptr<Expression> CreateTempFold(const sptr<Expression>& value, Scope* enclosingScope);
+    sptr<IdentifierExpression> CreateTempFoldValueIdentifier(const sptr<Expression>& tempFold, Scope* scope);
+    void SetStructPushAsRef(const sptr<Expression>& expr);
     sptr<Expression> CreateAllocationCall(const sptr<NewExpression>& node, const shared_string& funcName, const sptr<Expression>& length);
     std::optional<sptr<ASTNode>> CreateAsInstanceCall(const sptr<AsExpression>& node);
     std::optional<sptr<ASTNode>> CreateStringFromTypeCall(const sptr<AsExpression>& node);
