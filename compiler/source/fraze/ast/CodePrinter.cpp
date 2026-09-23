@@ -2,16 +2,395 @@
 *  Copyright (c) 2026 Nicolas Jinchereau. All rights reserved.  *
 *---------------------------------------------------------------*/
 
-#include <sstream>
-#include <utf8.h>
+#include <cmath>
+#include <format>
+#include <string>
 #include <fraze/ast/AST.h>
 #include <fraze/ast/CodePrinter.h>
 
 namespace fraze {
 
-std::string CodePrinter::GetIndent() const
+/*****************************
+*           HELPERS          *
+*****************************/
+
+void CodePrinter::PrintIndent()
 {
-    return std::format("{}", std::string(indent * tabWidth, ' '));
+    stream << std::string(indent * tabWidth, ' ');
+}
+
+// Prints a scope's definitions in declaration order, with a blank line around multi-line definitions.
+void CodePrinter::PrintDefinitions(Scope* scope, bool skipVariables, bool hasPrecedingContent)
+{
+    bool hasPrevious = hasPrecedingContent;
+    bool previousIsMultiLine = hasPrecedingContent;
+    PropertyDefinition* property = nullptr; // the most recent property, whose accessors follow it
+
+    // a section's definitions are split between the files they're located in
+    bool isSectionScope = scope->owner->ToSectionDefinition() != nullptr;
+
+    for(auto& def : scope->definitions)
+    {
+        // template parameters are printed in the header of their template
+        if(def->ToTemplateParameterDefinition())
+            continue;
+
+        if(skipVariables && def->ToVariableDefinition())
+            continue;
+
+        if(isSectionScope && !HasContentInPrintedFile(def))
+            continue;
+
+        // a property and its accessors are printed as a group, without blank lines between them
+        auto func = def->ToFunctionDefinition();
+        bool isAccessor = property && func && (func->name == property->getterName || func->name == property->setterName);
+
+        if(!isAccessor)
+            property = def->ToPropertyDefinition().get();
+
+        bool isMultiLine = IsMultiLine(def);
+
+        if(hasPrevious && !isAccessor && (previousIsMultiLine || isMultiLine))
+            stream << "\n";
+
+        VisitChildNode(def);
+
+        hasPrevious = true;
+        previousIsMultiLine = isMultiLine;
+    }
+}
+
+bool CodePrinter::IsInPrintedFile(const SourceLocation& loc) const
+{
+    return !printedFile || loc.file.view() == *printedFile;
+}
+
+// true if any part of 'def' is printed in the printed file, since a section's contents can come from several files
+bool CodePrinter::HasContentInPrintedFile(const sptr<Definition>& def) const
+{
+    if(!printedFile)
+        return true;
+
+    auto section = def->ToSectionDefinition();
+    if(!section)
+        return IsInPrintedFile(def->loc);
+
+    for(auto& stmt : section->statements)
+    {
+        if(IsInPrintedFile(stmt->loc))
+            return true;
+    }
+
+    // a section's variables are printed with its statements
+    for(auto& child : section->scope->definitions)
+    {
+        if(!child->ToVariableDefinition() && HasContentInPrintedFile(child))
+            return true;
+    }
+
+    return false;
+}
+
+void CodePrinter::PrintTemplateParameters(const sptr<TemplateDefinition>& node)
+{
+    // an instance's name already includes its template arguments
+    if(!node->IsTemplateDeclaration())
+        return;
+
+    stream << "<";
+
+    size_t i = 0;
+    for(const auto& param : node->GetChildren<TemplateParameterDefinition>())
+    {
+        if(i++ > 0) stream << ","; // no space, like TypeSpecifier::GetTemplateArgs, so names match when searched
+        stream << param->name;
+    }
+
+    stream << ">";
+}
+
+// Prints state that has no keyword, named after its C++ field, e.g. '[isCoroutineState, originalClassType: App]'.
+// A definition's attributes go on their own line above it; a parameter's go inline before it.
+void CodePrinter::PrintAttributes(const std::vector<std::string>& attributes, bool ownLine)
+{
+    if(attributes.empty())
+        return;
+
+    if(ownLine)
+        PrintIndent();
+
+    stream << "[";
+
+    size_t i = 0;
+    for(auto& attribute : attributes)
+    {
+        if(i++ > 0) stream << ", ";
+        stream << attribute;
+    }
+
+    stream << "]" << (ownLine ? "\n" : " ");
+}
+
+void CodePrinter::PrintVariable(const sptr<VariableDefinition>& node, bool qualifyName, bool printInitializer)
+{
+    if(node->isPrivate)
+        stream << "private ";
+
+    if(node->isStatic)
+        stream << "static ";
+
+    VisitChildNode(node->typeSpec);
+    stream << " " << (qualifyName ? node->qualifiedName : node->name);
+
+    if(printInitializer && node->initializer)
+    {
+        stream << " = ";
+        PrintExpression(node->initializer, Precedence::Assignment);
+    }
+}
+
+void CodePrinter::PrintBlock(const sptr<BlockStatement>& node, bool endLine)
+{
+    PrintIndent();
+    stream << "{\n";
+    ++indent;
+
+    for(auto& stmt : node->statements)
+        VisitChildNode(stmt);
+
+    --indent;
+    PrintIndent();
+    stream << "}";
+
+    if(endLine)
+        stream << "\n";
+}
+
+// prints the body of an if, for, or while, indenting it unless it's a block
+void CodePrinter::PrintBody(const sptr<Statement>& node)
+{
+    if(node->ToBlockStatement())
+    {
+        VisitChildNode(node);
+    }
+    else
+    {
+        ++indent;
+        VisitChildNode(node);
+        --indent;
+    }
+}
+
+// prints an if statement from the current position, so 'else if' can share a line
+void CodePrinter::PrintIfStatement(const sptr<IfStatement>& node)
+{
+    stream << "if(";
+    PrintExpression(node->condition, Precedence::Assignment);
+    stream << ")\n";
+
+    PrintBody(node->trueBranch);
+
+    if(node->falseBranch)
+    {
+        PrintIndent();
+
+        if(auto elseIf = node->falseBranch->ToIfStatement())
+        {
+            stream << "else ";
+            PrintIfStatement(elseIf);
+        }
+        else
+        {
+            stream << "else\n";
+            PrintBody(node->falseBranch);
+        }
+    }
+}
+
+// prints a for statement's init or iterate statement without indentation or a semicolon
+void CodePrinter::PrintInlineStatement(const sptr<Statement>& node)
+{
+    if(!node)
+        return;
+
+    if(auto varDefStmt = node->ToVariableDefinitionStatement())
+        PrintVariable(varDefStmt->variableDefinition, false, true);
+    else if(auto exprStmt = node->ToExpressionStatement())
+        PrintExpression(exprStmt->expression, Precedence::Assignment);
+}
+
+// Prints 'expr', parenthesized if it binds looser than its position requires. The AST has no
+// grouping nodes, so all parentheses in the output come from here.
+void CodePrinter::PrintExpression(const sptr<Expression>& expr, Precedence minPrecedence)
+{
+    if(!expr)
+        return;
+
+    bool needsParens = GetPrecedence(expr) < minPrecedence;
+
+    if(needsParens)
+        stream << "(";
+
+    VisitChildNode(expr);
+
+    if(needsParens)
+        stream << ")";
+}
+
+void CodePrinter::PrintArguments(const std::vector<sptr<Expression>>& args)
+{
+    size_t i = 0;
+    for(auto& arg : args)
+    {
+        if(i++ > 0) stream << ", ";
+        PrintExpression(arg, Precedence::Assignment);
+    }
+}
+
+void CodePrinter::PrintTemplateArguments(const std::vector<sptr<TypeSpecifier>>& args)
+{
+    if(args.empty())
+        return;
+
+    stream << "<";
+
+    size_t i = 0;
+    for(auto& arg : args)
+    {
+        if(i++ > 0) stream << ","; // no space, like TypeSpecifier::GetTemplateArgs
+        VisitChildNode(arg);
+    }
+
+    stream << ">";
+}
+
+void CodePrinter::PrintStringLiteral(std::string_view value)
+{
+    stream << '"';
+
+    for(char c : value)
+    {
+        switch(c)
+        {
+        case '"':  stream << "\\\""; break;
+        case '\\': stream << "\\\\"; break;
+        case '\n': stream << "\\n"; break;
+        case '\r': stream << "\\r"; break;
+        case '\t': stream << "\\t"; break;
+        case '\b': stream << "\\b"; break;
+        case '\f': stream << "\\f"; break;
+        default:
+            if((unsigned char)c < 0x20)
+                stream << std::format("\\u{:04x}", (unsigned char)c);
+            else
+                stream << c;
+        }
+    }
+
+    stream << '"';
+}
+
+CodePrinter::Precedence CodePrinter::GetPrecedence(const sptr<Expression>& expr)
+{
+    if(auto binary = expr->ToBinaryExpression())
+        return GetBinaryPrecedence(binary->operation);
+
+    if(expr->ToAssignExpression())
+        return Precedence::Assignment;
+
+    if(expr->ToTernaryExpression())
+        return Precedence::Ternary;
+
+    if(expr->ToAwaitExpression())
+        return Precedence::Await;
+
+    if(expr->ToPrefixExpression() || StartsWithSign(expr))
+        return Precedence::Prefix;
+
+    if (expr->ToPostfixExpression() ||
+        expr->ToAsExpression() ||
+        expr->ToIsExpression() ||
+        expr->ToCallExpression() ||
+        expr->ToIndexExpression())
+    {
+        return Precedence::Postfix;
+    }
+
+    if(auto ident = expr->ToIdentifierExpression(); ident && ident->context)
+        return Precedence::Postfix;
+
+    return Precedence::Primary;
+}
+
+CodePrinter::Precedence CodePrinter::GetBinaryPrecedence(TokenType operation)
+{
+    switch(operation)
+    {
+    case TokenType::LogicalOr:
+        return Precedence::LogicalOr;
+    case TokenType::LogicalAnd:
+        return Precedence::LogicalAnd;
+    case TokenType::Equal:
+    case TokenType::NotEqual:
+        return Precedence::Equality;
+    case TokenType::Less:
+    case TokenType::LessEqual:
+    case TokenType::Greater:
+    case TokenType::GreaterEqual:
+        return Precedence::Comparison;
+    case TokenType::BitOr:
+        return Precedence::BitOr;
+    case TokenType::BitXor:
+        return Precedence::BitXor;
+    case TokenType::BitAnd:
+    case TokenType::BitTest:
+        return Precedence::BitAnd;
+    case TokenType::LeftShift:
+    case TokenType::RightShift:
+        return Precedence::Shift;
+    case TokenType::Add:
+    case TokenType::Sub:
+        return Precedence::AddSub;
+    case TokenType::Mul:
+    case TokenType::Div:
+    case TokenType::Mod:
+        return Precedence::MulDivMod;
+    default:
+        return Precedence::Assignment; // unknown, so always parenthesized
+    }
+}
+
+bool CodePrinter::IsMultiLine(const sptr<Definition>& def)
+{
+    if(auto func = def->ToFunctionDefinition())
+        return func->body != nullptr;
+
+    return def->ToClassDefinition()
+        || def->ToPropertyDefinition()
+        || def->ToStructDefinition()
+        || def->ToInterfaceDefinition()
+        || def->ToEnumDefinition()
+        || def->ToSectionDefinition();
+}
+
+// true if 'expr' prints starting with '+' or '-', which would merge with a preceding '+' or '-'
+bool CodePrinter::StartsWithSign(const sptr<Expression>& expr)
+{
+    if(auto prefix = expr->ToPrefixExpression())
+    {
+        return prefix->operation == TokenType::Add
+            || prefix->operation == TokenType::Sub
+            || prefix->operation == TokenType::Increment
+            || prefix->operation == TokenType::Decrement;
+    }
+
+    if(auto integer = expr->ToIntegerLiteralExpression())
+        return integer->value < 0;
+
+    if(auto number = expr->ToNumberLiteralExpression())
+        return std::signbit(number->value);
+
+    return false;
 }
 
 /*****************************
@@ -21,6 +400,7 @@ std::string CodePrinter::GetIndent() const
 void CodePrinter::Visit(const sptr<ASTRoot>& node)
 {
     ASTVisitor::Visit(node);
+    VisitChildNode(node->global);
 }
 
 /*****************************
@@ -29,290 +409,276 @@ void CodePrinter::Visit(const sptr<ASTRoot>& node)
 
 void CodePrinter::Visit(const sptr<BasicTypeDefinition>& node)
 {
-    //stream << node->name << std::endl;
-    stream << GetIndent() << "__basic_type " << node->name << ";\n";
-    ASTVisitor::Visit(node);
+    PrintIndent();
+    stream << "__basic_type " << node->name << ";\n";
 }
 
 void CodePrinter::Visit(const sptr<ClassDefinition>& node)
 {
-    stream << GetIndent() << "class " << node->name;
+    std::vector<std::string> attributes;
+
+    if(node->isFunctor)
+        attributes.push_back("isFunctor");
+
+    if(node->isCoroutineState)
+        attributes.push_back("isCoroutineState");
+
+    if(node->originalClassType)
+        attributes.push_back(std::format("originalClassType: {}", node->originalClassType->GetTypeName(true).view()));
+
+    PrintAttributes(attributes, true);
+    PrintIndent();
+
+    if(node->isExternal)
+        stream << "extern ";
+
+    stream << "class " << node->name;
+    PrintTemplateParameters(node);
 
     if(!node->interfaces.empty())
     {
-        int i = 0;
         stream << " : ";
+
+        size_t i = 0;
         for(auto& itf : node->interfaces)
         {
             if(i++ > 0) stream << ", ";
-            stream << itf->GetTypeName(true);
+            VisitChildNode(itf);
         }
     }
-    
+
     stream << "\n";
-    stream << GetIndent() << "{\n";
+    PrintIndent();
+    stream << "{\n";
     ++indent;
 
-    for (auto& def : node->scope->definitions)
-    {
-        if(auto varDef = def->ToClassDefinition())
-            VisitChild(def);
-    }
-
-    for (auto& def : node->scope->definitions)
-    {
-        if(auto varDef = def->ToVariableDefinition())
-            VisitChild(def);
-    }
-
-    for (auto& def : node->scope->definitions)
-    {
-        if(auto varDef = def->ToFunctionDefinition())
-            VisitChild(def);
-    }
-
-    for (auto& def : node->scope->definitions)
-    {
-        if (!def->ToClassDefinition() &&
-            !def->ToVariableDefinition() &&
-            !def->ToFunctionDefinition())
-        {
-            VisitChild(def);
-        }
-    }
+    PrintDefinitions(node->scope.get(), false, false);
 
     --indent;
-    stream << GetIndent() << "}\n";
+    PrintIndent();
+    stream << "}\n";
 }
 
 void CodePrinter::Visit(const sptr<EnumDefinition>& node)
 {
-    stream << GetIndent() << "enum " << node->name << "\n";
-    stream << GetIndent() << "{\n";
+    PrintIndent();
+    stream << "enum " << node->name << "\n";
+    PrintIndent();
+    stream << "{\n";
     ++indent;
 
-    int i = 0;
-
+    size_t i = 0;
     for(auto& def : node->scope->definitions)
     {
-        VisitChild(def);
+        VisitChildNode(def);
 
-        ++i;
+        if(++i != node->scope->definitions.size())
+            stream << ",";
 
-        if(i < node->scope->definitions.size())
-            stream << ",\n";
+        stream << "\n";
     }
 
     --indent;
-    stream << GetIndent() << "}\n";
+    PrintIndent();
+    stream << "}\n";
 }
 
 void CodePrinter::Visit(const sptr<EnumMemberDefinition>& node)
 {
-    stream << GetIndent() << node->name;
+    PrintIndent();
+    stream << node->name;
 
     if(node->value)
     {
         stream << " = ";
-        VisitChild(node->value);
+        PrintExpression(node->value, Precedence::Assignment);
     }
 }
 
 void CodePrinter::Visit(const sptr<FunctionDefinition>& node)
 {
-    stream << GetIndent();
+    std::vector<std::string> attributes;
 
-    if(node->isExternal)
-        stream << "extern ";
+    if(node->isAbstract)
+        attributes.push_back("isAbstract");
+
+    if(node->isConstructor)
+        attributes.push_back("isConstructor");
+
+    if(node->isCoroutine)
+        attributes.push_back("isCoroutine");
+
+    if(node->externalIntrinsic)
+        attributes.push_back("externalIntrinsic");
+
+    PrintAttributes(attributes, true);
+    PrintIndent();
+
+    if(node->isPrivate)
+        stream << "private ";
 
     if(node->isStatic)
         stream << "static ";
 
-    stream << node->returnType->GetTypeName(true) << " " << node->name;
+    if(node->isExternal)
+        stream << "extern ";
 
-    auto templateParams = node->GetChildren<TemplateParameterDefinition>();
-    if(!templateParams.empty())
-    {
-        stream << "<";
-
-        int t = 0;
-        for(const auto& param : templateParams)
-        {
-            if(t++ > 0) stream << ", ";
-            stream << param->name;
-        }
-
-        stream << ">";
-    }
-
+    VisitChildNode(node->returnType);
+    stream << " " << node->name;
+    PrintTemplateParameters(node);
     stream << "(";
-    
-    int i = 0;
+
+    size_t i = 0;
     for(const auto& param : node->GetChildren<ParameterDefinition>())
     {
         if(i++ > 0) stream << ", ";
-        stream << param->typeSpec->GetTypeName(true) << " " << param->name;
+        VisitChildNode(param);
     }
+
+    stream << ")";
 
     if(node->body)
     {
-        stream << ")\n";
-        VisitChild(node->body);
+        stream << "\n";
+        PrintBlock(node->body, true);
     }
     else
     {
-        stream << ");\n";
+        stream << ";\n";
     }
 }
 
 void CodePrinter::Visit(const sptr<InterfaceDefinition>& node)
 {
-    stream << GetIndent() << "interface " << node->name << "\n";
-    stream << GetIndent() << "{\n";
+    if(node->isFunctor)
+        PrintAttributes({ "isFunctor" }, true);
+
+    PrintIndent();
+    stream << "interface " << node->name;
+    PrintTemplateParameters(node);
+    stream << "\n";
+    PrintIndent();
+    stream << "{\n";
     ++indent;
 
-    ASTVisitor::Visit(node);
+    PrintDefinitions(node->scope.get(), false, false);
 
     --indent;
-    stream << GetIndent() << "}\n";
+    PrintIndent();
+    stream << "}\n";
 }
 
 void CodePrinter::Visit(const sptr<ParameterDefinition>& node)
 {
-    ASTVisitor::Visit(node);
+    if(node->isReference)
+        PrintAttributes({ "isReference" }, false);
+
+    VisitChildNode(node->typeSpec);
+    stream << " " << node->name;
 }
 
 void CodePrinter::Visit(const sptr<PropertyDefinition>& node)
 {
-    stream << GetIndent() << node->typeSpec->GetTypeName(true) << " " << node->name;
+    PrintIndent();
+
+    if(node->isPrivate)
+        stream << "private ";
+
+    if(node->isStatic)
+        stream << "static ";
+
+    VisitChildNode(node->typeSpec);
+    stream << " " << node->name << " { ";
+
+    if(!node->getterName.empty())
+        stream << "get: " << node->getterName << "; ";
+
+    if(!node->setterName.empty())
+        stream << "set: " << node->setterName << "; ";
+
+    stream << "}";
 
     if(node->initializer)
     {
         stream << " = ";
-        VisitChild(node->initializer);
+        PrintExpression(node->initializer, Precedence::Assignment);
+        stream << ";";
     }
 
-    stream << ";\n";
+    stream << "\n";
 }
 
 void CodePrinter::Visit(const sptr<SectionDefinition>& node)
 {
-    stream << GetIndent() << "section " << node->name << "\n";
-    stream << GetIndent() << "{\n";
-    ++indent;
+    // the global section's contents are printed at the top level
+    bool isGlobal = node->IsGlobal();
 
-    for (auto& def : node->scope->definitions)
+    if(!isGlobal)
     {
-        if(auto varDef = def->ToBasicTypeDefinition())
-            VisitChild(def);
+        PrintIndent();
+        stream << "section " << node->name << "\n";
+        PrintIndent();
+        stream << "{\n";
+        ++indent;
     }
 
-    for (auto& def : node->scope->definitions)
+    // The section's code runs before anything else in it, and its variables are defined by
+    // statements in that code, so they're printed there instead of with the other definitions.
+    bool hasStatements = false;
+
+    for(auto& stmt : node->statements)
     {
-        if(auto varDef = def->ToInterfaceDefinition())
-            VisitChild(def);
+        if(!IsInPrintedFile(stmt->loc))
+            continue;
+
+        VisitChildNode(stmt);
+        hasStatements = true;
     }
 
-    for (auto& def : node->scope->definitions)
-    {
-        if(auto varDef = def->ToClassDefinition())
-            VisitChild(def);
-    }
+    PrintDefinitions(node->scope.get(), true, hasStatements);
 
-    for (auto& def : node->scope->definitions)
+    if(!isGlobal)
     {
-        if(auto varDef = def->ToVariableDefinition())
-            VisitChild(def);
+        --indent;
+        PrintIndent();
+        stream << "}\n";
     }
-
-    for (auto& def : node->scope->definitions)
-    {
-        if(auto varDef = def->ToFunctionDefinition())
-            VisitChild(def);
-    }
-
-    for (auto& def : node->scope->definitions)
-    {
-        if(auto varDef = def->ToSectionDefinition())
-            VisitChild(def);
-    }
-
-    for (auto& def : node->scope->definitions)
-    {
-        if (!def->ToBasicTypeDefinition() &&
-            !def->ToInterfaceDefinition() &&
-            !def->ToClassDefinition() &&
-            !def->ToVariableDefinition() &&
-            !def->ToFunctionDefinition() &&
-            !def->ToSectionDefinition())
-        {
-            VisitChild(def);
-        }
-    }
-
-    --indent;
-    stream << GetIndent() << "}\n";
 }
 
 void CodePrinter::Visit(const sptr<StructDefinition>& node)
 {
-    stream << GetIndent() << "struct " << node->name;
-
-    stream << GetIndent() << "{\n";
+    PrintIndent();
+    stream << "struct " << node->name;
+    PrintTemplateParameters(node);
+    stream << "\n";
+    PrintIndent();
+    stream << "{\n";
     ++indent;
 
-    for (auto& def : node->scope->definitions)
-    {
-        if(auto varDef = def->ToClassDefinition())
-            VisitChild(def);
-    }
-
-    for (auto& def : node->scope->definitions)
-    {
-        if(auto varDef = def->ToVariableDefinition())
-            VisitChild(def);
-    }
-
-    for (auto& def : node->scope->definitions)
-    {
-        if(auto varDef = def->ToFunctionDefinition())
-            VisitChild(def);
-    }
-
-    for (auto& def : node->scope->definitions)
-    {
-        if (!def->ToClassDefinition() &&
-            !def->ToVariableDefinition() &&
-            !def->ToFunctionDefinition())
-        {
-            VisitChild(def);
-        }
-    }
+    PrintDefinitions(node->scope.get(), false, false);
 
     --indent;
-    stream << GetIndent() << "}\n";
+    PrintIndent();
+    stream << "}\n";
 }
 
 void CodePrinter::Visit(const sptr<TemplateDefinition>& node)
 {
-    ASTVisitor::Visit(node);
 }
 
 void CodePrinter::Visit(const sptr<TemplateParameterDefinition>& node)
 {
-    ASTVisitor::Visit(node);
+    stream << node->name;
 }
 
 void CodePrinter::Visit(const sptr<VariableDefinition>& node)
 {
-    stream << GetIndent() << node->typeSpec->GetTypeName(true) << " " << node->name;
-    
-    if(node->initializer)
-    {
-        stream << " = ";
-        VisitChild(node->initializer);
-    }
+    // a static field's initializer runs in a statement in the global section,
+    // except in a template declaration, which is never instantiated as-is
+    bool printInitializer = !node->isStatic || node->IsPartOfTemplateDeclaration();
 
+    PrintIndent();
+    PrintVariable(node, false, printInitializer);
     stream << ";\n";
 }
 
@@ -320,31 +686,40 @@ void CodePrinter::Visit(const sptr<VariableDefinition>& node)
 *         EXPRESSIONS        *
 *****************************/
 
+void CodePrinter::Visit(const sptr<ArrayCountExpression>& node)
+{
+    stream << "countof(";
+    PrintExpression(node->array, Precedence::Assignment);
+    stream << ")";
+}
+
 void CodePrinter::Visit(const sptr<AsExpression>& node)
 {
-    VisitChild(node->value);
+    PrintExpression(node->value, Precedence::Postfix);
     stream << " as ";
-    VisitChild(node->typeSpec);
+    VisitChildNode(node->typeSpec);
 }
 
 void CodePrinter::Visit(const sptr<AssignExpression>& node)
 {
-    VisitChild(node->left);
+    PrintExpression(node->left, Precedence::Ternary);
     stream << " " << TokenNames.at(node->operation) << " ";
-    VisitChild(node->right);
+    PrintExpression(node->right, Precedence::Assignment);
 }
 
 void CodePrinter::Visit(const sptr<AwaitExpression>& node)
 {
     stream << "await ";
-    VisitChild(node->expression);
+    PrintExpression(node->expression, Precedence::Await);
 }
 
 void CodePrinter::Visit(const sptr<BinaryExpression>& node)
 {
-    VisitChild(node->left);
+    // binary operators are left-associative, so only the right operand needs to bind tighter
+    Precedence precedence = GetBinaryPrecedence(node->operation);
+    PrintExpression(node->left, precedence);
     stream << " " << TokenNames.at(node->operation) << " ";
-    VisitChild(node->right);
+    PrintExpression(node->right, Precedence(int(precedence) + 1));
 }
 
 void CodePrinter::Visit(const sptr<BooleanLiteralExpression>& node)
@@ -354,72 +729,82 @@ void CodePrinter::Visit(const sptr<BooleanLiteralExpression>& node)
 
 void CodePrinter::Visit(const sptr<CastExpression>& node)
 {
-    stream << "cast<" << node->resultTypeSpec->GetTypeName(true) << ">(";
-    VisitChild(node->value);
+    stream << "cast<";
+    VisitChildNode(node->resultTypeSpec);
+    stream << ">(";
+    PrintExpression(node->value, Precedence::Assignment);
     stream << ")";
 }
 
 void CodePrinter::Visit(const sptr<CallExpression>& node)
 {
-    VisitChild(node->target);
+    // a resolved function is named in full to show which overload or template instance was chosen
+    auto ident = node->target->ToIdentifierExpression();
+    auto func = ident && ident->targetDef ? ident->targetDef->ToFunctionDefinition() : nullptr;
+
+    if(func)
+        stream << func->qualifiedName;
+    else
+        PrintExpression(node->target, Precedence::Postfix);
+
     stream << "(";
+    PrintArguments(node->arguments);
+    stream << ")";
+}
 
-    int i = 0;
-    for(auto& arg : node->arguments)
-    {
-        if(i++ > 0) stream << ", ";
-        VisitChild(arg);
-    }
-
+void CodePrinter::Visit(const sptr<CheckSiteExpression>& node)
+{
+    stream << "checksite(";
+    PrintStringLiteral(node->message);
     stream << ")";
 }
 
 void CodePrinter::Visit(const sptr<ConvertExpression>& node)
 {
-    stream << "convert<" << node->resultTypeSpec->GetTypeName(true) << ">(";
-    VisitChild(node->value);
+    stream << "convert<";
+    VisitChildNode(node->resultTypeSpec);
+    stream << ">(";
+    PrintExpression(node->value, Precedence::Assignment);
     stream << ")";
 }
 
 void CodePrinter::Visit(const sptr<DefaultValueExpression>& node)
 {
-    stream << "default(" << node->typeSpec->GetTypeName(true) << ")";
+    stream << "default(";
+
+    // a coroutine field declared 'var' has no type until it's inferred during analysis
+    if(node->typeSpec)
+        VisitChildNode(node->typeSpec);
+    else
+        stream << "var";
+
+    stream << ")";
 }
 
 void CodePrinter::Visit(const sptr<FoldExpression>& node)
 {
     stream << "fold\n";
-    VisitChild(node->body);
+    PrintBlock(node->body, false);
 }
 
 void CodePrinter::Visit(const sptr<IdentifierExpression>& node)
 {
     if(node->context)
     {
-        VisitChild(node->context);
+        PrintExpression(node->context, Precedence::Postfix);
         stream << ".";
     }
 
     stream << node->value;
+    PrintTemplateArguments(node->templateArgs);
 }
 
 void CodePrinter::Visit(const sptr<IndexExpression>& node)
 {
-    VisitChild(node->target);
+    PrintExpression(node->target, Precedence::Postfix);
     stream << "[";
-    VisitChild(node->arg);
+    PrintExpression(node->arg, Precedence::Assignment);
     stream << "]";
-}
-
-void CodePrinter::Visit(const sptr<ArrayCountExpression>& node)
-{
-    VisitChild(node->array);
-    stream << ".Count";
-}
-
-void CodePrinter::Visit(const sptr<CheckSiteExpression>& node)
-{
-    stream << "$checksite(\"" << node->message << "\")";
 }
 
 void CodePrinter::Visit(const sptr<IntegerLiteralExpression>& node)
@@ -429,36 +814,43 @@ void CodePrinter::Visit(const sptr<IntegerLiteralExpression>& node)
 
 void CodePrinter::Visit(const sptr<IsExpression>& node)
 {
-    VisitChild(node->value);
+    PrintExpression(node->value, Precedence::Postfix);
     stream << " is ";
-    VisitChild(node->typeSpec);
+    VisitChildNode(node->typeSpec);
 }
 
 void CodePrinter::Visit(const sptr<NewExpression>& node)
 {
-    stream << "new " << node->typeSpec->GetTypeName(true) << "(";
+    stream << "new";
+
+    if(node->allocExpression)
+    {
+        stream << "(";
+        PrintExpression(node->allocExpression, Precedence::Assignment);
+        stream << ")";
+    }
+
+    stream << " ";
 
     if(node->argumentExpression)
     {
-        stream << "\n" << GetIndent() << "[{\n";
-        ++indent;
-        stream << GetIndent();
-        VisitChild(node->argumentExpression);
-        --indent;
-        stream << "\n";
-        stream << GetIndent() << "}]";
+        // Parser counts the brackets around the length as one of the type's array dimensions
+        stream << node->typeSpec->GetElementTypeName(true);
+
+        for(int i = 1; i < node->typeSpec->arrayDimensions; ++i)
+            stream << "[]";
+
+        stream << "[";
+        PrintExpression(node->argumentExpression, Precedence::Assignment);
+        stream << "]";
     }
     else
     {
-        int i = 0;
-        for(auto& arg : node->arguments)
-        {
-            if(i++ > 0) stream << ", ";
-            VisitChild(arg);
-        }
+        VisitChildNode(node->typeSpec);
+        stream << "{";
+        PrintArguments(node->arguments);
+        stream << "}";
     }
-
-    stream << ")";
 }
 
 void CodePrinter::Visit(const sptr<NullLiteralExpression>& node)
@@ -468,48 +860,65 @@ void CodePrinter::Visit(const sptr<NullLiteralExpression>& node)
 
 void CodePrinter::Visit(const sptr<NumberLiteralExpression>& node)
 {
-    stream << node->value;
+    std::string text = std::format("{}", node->value);
+
+    // without a decimal point or exponent, a num would read as an int
+    if(text.find_first_of(".en") == std::string::npos)
+        text += ".0";
+
+    stream << text;
 }
 
 void CodePrinter::Visit(const sptr<PostfixExpression>& node)
 {
-    VisitChild(node->arg);
+    PrintExpression(node->arg, Precedence::Postfix);
     stream << TokenNames.at(node->operation);
 }
 
 void CodePrinter::Visit(const sptr<PrefixExpression>& node)
 {
     stream << TokenNames.at(node->operation);
-    VisitChild(node->arg);
+
+    // keeps '- -x' from printing as '--x'
+    if(StartsWithSign(node) && StartsWithSign(node->arg))
+        stream << " ";
+
+    PrintExpression(node->arg, Precedence::Prefix);
 }
 
 void CodePrinter::Visit(const sptr<SizeOfExpression>& node)
 {
-    stream << "sizeof(" << node->typeSpec->GetTypeName() << ")";
+    stream << "sizeof(";
+    VisitChildNode(node->typeSpec);
+    stream << ")";
 }
 
 void CodePrinter::Visit(const sptr<StringLiteralExpression>& node)
 {
-    stream << "\"" << node->value << "\"";
+    PrintStringLiteral(node->value);
 }
 
 void CodePrinter::Visit(const sptr<TernaryExpression>& node)
 {
-    VisitChild(node->condition);
+    PrintExpression(node->condition, Precedence::LogicalOr);
     stream << " ? ";
-    VisitChild(node->trueValue);
+    PrintExpression(node->trueValue, Precedence::Assignment);
     stream << " : ";
-    VisitChild(node->falseValue);
+    PrintExpression(node->falseValue, Precedence::Ternary);
 }
 
 void CodePrinter::Visit(const sptr<TypeLiteralExpression>& node)
 {
-    stream << "type(" << node->value << ")";
+    stream << "typeid(";
+    PrintStringLiteral(node->value);
+    stream << ")";
 }
 
 void CodePrinter::Visit(const sptr<TypeOfExpression>& node)
 {
-    stream << "typeof(" << node->typeSpec->GetTypeName() << ")";
+    stream << "typeof(";
+    VisitChildNode(node->typeSpec);
+    stream << ")";
 }
 
 /****************************
@@ -527,162 +936,101 @@ void CodePrinter::Visit(const sptr<TypeSpecifier>& node)
 
 void CodePrinter::Visit(const sptr<AssertStatement>& node)
 {
-    stream << GetIndent() << "assert(" << std::endl;
-    VisitChild(node->condition);
-
-    if(node->message)
-    {
-        stream << ", ";
-        VisitChild(node->message);
-    }
-
+    PrintIndent();
+    stream << "assert(";
+    PrintExpression(node->condition, Precedence::Assignment);
+    stream << ", ";
+    PrintExpression(node->message, Precedence::Assignment);
     stream << ");\n";
 }
 
 void CodePrinter::Visit(const sptr<BlockStatement>& node)
 {
-    stream << GetIndent() << "{\n";
-    ++indent;
-
-    for(auto& stmt : node->statements)
-    {
-        stream << GetIndent();
-        VisitChild(stmt);
-    }
-
-    --indent;
-    stream << GetIndent() << "}\n";
+    PrintBlock(node, true);
 }
 
 void CodePrinter::Visit(const sptr<EmptyStatement>& node)
 {
+    PrintIndent();
     stream << ";\n";
 }
 
 void CodePrinter::Visit(const sptr<ExposeStatement>& node)
 {
-    stream << GetIndent() << "expose " << node->section->GetTypeName(true) << ";\n";
+    PrintIndent();
+    stream << "expose ";
+    VisitChildNode(node->section);
+    stream << ";\n";
 }
 
 void CodePrinter::Visit(const sptr<ExpressionStatement>& node)
 {
-    VisitChild(node->expression);
+    PrintIndent();
+    PrintExpression(node->expression, Precedence::Assignment);
     stream << ";\n";
 }
 
 void CodePrinter::Visit(const sptr<ForStatement>& node)
 {
+    PrintIndent();
     stream << "for(";
-    if(node->init)
-        VisitChild(node->init);
-    else
-        stream << " ";
-    
+    PrintInlineStatement(node->init);
     stream << "; ";
-
-    VisitChild(node->condition);
+    PrintExpression(node->condition, Precedence::Assignment);
     stream << "; ";
-
-    VisitChild(node->init);
-
+    PrintInlineStatement(node->iterate);
     stream << ")\n";
 
-    if(node->body->ToBlockStatement())
-    {
-        VisitChild(node->body);
-    }
-    else
-    {
-        ++indent;
-        VisitChild(node->body);
-        --indent;
-    }
+    PrintBody(node->body);
 }
 
 void CodePrinter::Visit(const sptr<GotoStatement>& node)
 {
-    stream << GetIndent() << "goto ";
-    VisitChild(node->expression);
+    PrintIndent();
+    stream << "goto ";
+    PrintExpression(node->expression, Precedence::Assignment);
     stream << ";\n";
 }
 
 void CodePrinter::Visit(const sptr<IfStatement>& node)
 {
-    stream << "if(";
-    VisitChild(node->condition);
-    stream << ")\n";
-
-    if(node->trueBranch->ToBlockStatement())
-    {
-        VisitChild(node->trueBranch);
-    }
-    else
-    {
-        ++indent;
-        stream << GetIndent();
-        VisitChild(node->trueBranch);
-        --indent;
-    }
-
-    if(node->falseBranch)
-    {
-        stream << GetIndent() << "else\n";
-
-        if(node->falseBranch->ToBlockStatement())
-        {
-            VisitChild(node->falseBranch);
-        }
-        else
-        {
-            ++indent;
-            stream << GetIndent();
-            VisitChild(node->falseBranch);
-            --indent;
-        }
-    }
+    PrintIndent();
+    PrintIfStatement(node);
 }
 
 void CodePrinter::Visit(const sptr<ReturnStatement>& node)
 {
+    PrintIndent();
     stream << "return";
+
     if(node->expression)
     {
         stream << " ";
-        VisitChild(node->expression);
+        PrintExpression(node->expression, Precedence::Assignment);
     }
+
     stream << ";\n";
 }
 
 void CodePrinter::Visit(const sptr<VariableDefinitionStatement>& node)
 {
-    auto varDef = node->variableDefinition;
-    stream << varDef->typeSpec->GetTypeName(true) << " " << varDef->name;
+    // a static field is initialized by a statement in the global section, so it's named in full there
+    auto& varDef = node->variableDefinition;
+    bool isOwnedElsewhere = varDef->parent != node->enclosingScope->owner;
 
-    if(varDef->initializer)
-    {
-        stream << " = ";
-        VisitChild(varDef->initializer);
-    }
-
+    PrintIndent();
+    PrintVariable(varDef, isOwnedElsewhere, true);
     stream << ";\n";
 }
 
 void CodePrinter::Visit(const sptr<WhileStatement>& node)
 {
-    stream << GetIndent() << "while(";
-    VisitChild(node->condition);
+    PrintIndent();
+    stream << "while(";
+    PrintExpression(node->condition, Precedence::Assignment);
     stream << ")\n";
 
-    if(node->body->ToBlockStatement())
-    {
-        VisitChild(node->body);
-    }
-    else
-    {
-        ++indent;
-        VisitChild(node->body);
-        --indent;
-    }
+    PrintBody(node->body);
 }
 
 } // fraze

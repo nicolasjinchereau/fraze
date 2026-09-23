@@ -3381,6 +3381,21 @@ void SemanticAnalyzer::Visit(const sptr<AssertStatement>& node)
     }
 }
 
+void SemanticAnalyzer::Visit(const sptr<BlockStatement>& node)
+{
+    auto& statements = node->statements;
+
+    for(size_t i = 0; i != statements.size(); )
+    {
+        VisitChild(statements[i]);
+
+        if(statements[i]->ToEmptyStatement())
+            statements.erase(statements.begin() + i);
+        else
+            ++i;
+    }
+}
+
 void SemanticAnalyzer::Visit(const sptr<EmptyStatement>& node)
 {
     ASTVisitor::Visit(node);

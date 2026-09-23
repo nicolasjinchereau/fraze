@@ -1499,7 +1499,8 @@ class ${}_Task
             !yieldTypeIsVoid ? "" : comment
         );
 
-        Scope* scopeOfParse = ParseCodeString(mixinCode, func->parent->loc, true);
+        // located at the function, since a global function's parent (the global section) has no location
+        Scope* scopeOfParse = ParseCodeString(mixinCode, func->loc, true);
 
         auto taskObjectName = std::format("${}_Task", func->name);
 

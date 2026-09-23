@@ -129,16 +129,17 @@ Compiler& Compiler::DisableTypeCheck()
     return *this;
 }
 
-Compiler& Compiler::PrintParsedCode()
-{
-    printParsedCode = true;
-    return *this;
-}
-
 Compiler& Compiler::ExportAST(std::string_view outputPath)
 {
     exportAST = true;
     astOutputPath = outputPath;
+    return *this;
+}
+
+Compiler& Compiler::ExportLoweredCode(std::string_view outputPath)
+{
+    exportLoweredCode = true;
+    loweredCodeOutputPath = outputPath;
     return *this;
 }
 
@@ -193,14 +194,35 @@ sptr<Program> Compiler::Compile()
         SemanticAnalyzer analyzer;
         analyzer.VisitChild(root);
 
-        if(printParsedCode)
+        if(exportLoweredCode)
         {
-            std::stringstream stream;
+            std::filesystem::path outputPath = !loweredCodeOutputPath.empty() ? loweredCodeOutputPath : ".";
 
-            fraze::CodePrinter printer(stream, 4);
-            printer.VisitChild(root);
+            std::error_code ec;
+            std::filesystem::create_directories(outputPath, ec);
 
-            std::cout << stream.str() << std::endl << std::endl;
+            if(ec)
+            {
+                Throw("Failed to create output path for lowered code: {}", ec.message());
+            }
+
+            auto exportFile = [&](std::string_view sourceFile, const std::string& fileName)
+            {
+                std::filesystem::path outputFile = outputPath;
+                outputFile /= fileName;
+                outputFile.make_preferred();
+
+                std::ofstream stream(outputFile);
+                fraze::CodePrinter printer(stream, 4, sourceFile);
+                printer.VisitChild(root);
+            };
+
+            // one file per source file, named after its path like the bytecode export's files
+            for(auto& [path, info] : sourceFiles)
+                exportFile(path, utility::ReplaceAllOf(path, "\\/", '.'));
+
+            // definitions the compiler creates without a source location, like the basic types
+            exportFile("", "__global.fz");
         }
 
         CodeGenerator generator;

@@ -36,14 +36,15 @@ class Type;
 
 class Compiler
 {
-    bool printParsedCode = false;
     bool exportAST = false;
+    bool exportLoweredCode = false;
     bool exportBytecode = false;
     bool assertEnabled = true;
     bool nullCheckEnabled = true;
     bool boundsCheckEnabled = true;
     bool typeCheckEnabled = true;
     std::string astOutputPath;
+    std::string loweredCodeOutputPath;
     std::string bytecodeOutputPath;
 
     string_view_map<SourceFile> sourceFiles;
@@ -68,8 +69,8 @@ public:
     Compiler& DisableNullCheck();
     Compiler& DisableBoundsCheck();
     Compiler& DisableTypeCheck();
-    Compiler& PrintParsedCode();
     Compiler& ExportAST(std::string_view outputPath = "");
+    Compiler& ExportLoweredCode(std::string_view outputPath = "");
     Compiler& ExportBytecode(std::string_view outputPath = "");
 
     template<class Ret, class... Args>

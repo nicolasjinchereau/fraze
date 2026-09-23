@@ -2,6 +2,7 @@ compiler/obj/
 compiler/lib/
 demo/obj/
 demo/bin/
+demo/output/
 syntax-extensions/VisualStudio/obj/
 syntax-extensions/VisualStudio/bin/
 *.vcxproj.user

@@ -3,30 +3,88 @@
 *---------------------------------------------------------------*/
 
 #pragma once
-#include <sstream>
+#include <optional>
+#include <ostream>
 #include <print>
+#include <sstream>
+#include <string>
+#include <string_view>
+#include <vector>
 #include <fraze/ast/ASTVisitor.h>
+#include <fraze/compiler/Lexer.h>
 
 namespace fraze {
 
+class Scope;
+
+// Prints the AST as Fraze-like code, true to its lowered form after semantic analysis.
+// Nodes with no source syntax use pseudo-forms (cast<T>(x), default(T), typeid("T"), etc.),
+// and state with no keyword is printed as attributes named after its C++ field
+// ([isCoroutine], [originalClassType: App], etc.). The output is meant for reading while
+// debugging the compiler; it isn't expected to compile.
 class CodePrinter : public ASTVisitor
 {
-    std::stringstream& stream;
+    // binding strength of each expression level, loosest first, following Parser's descent order
+    enum class Precedence
+    {
+        Assignment,
+        Ternary,
+        LogicalOr,
+        LogicalAnd,
+        Equality,
+        Comparison,
+        BitOr,
+        BitXor,
+        BitAnd,
+        Shift,
+        AddSub,
+        MulDivMod,
+        Await,
+        Prefix,
+        Postfix,
+        Primary,
+    };
+
+    std::ostream& stream;
     int tabWidth{};
     int indent{};
 
-    std::string GetIndent() const;
+    // Only a section's definitions and statements located in this file are printed; the sections
+    // containing them are reopened in each file, like in source. Everything is printed if unset.
+    std::optional<std::string_view> printedFile;
+
+    void PrintIndent();
+    void PrintDefinitions(Scope* scope, bool skipVariables, bool hasPrecedingContent);
+    bool IsInPrintedFile(const SourceLocation& loc) const;
+    bool HasContentInPrintedFile(const sptr<Definition>& def) const;
+    void PrintTemplateParameters(const sptr<TemplateDefinition>& node);
+    void PrintAttributes(const std::vector<std::string>& attributes, bool ownLine);
+    void PrintVariable(const sptr<VariableDefinition>& node, bool qualifyName, bool printInitializer);
+    void PrintBlock(const sptr<BlockStatement>& node, bool endLine);
+    void PrintBody(const sptr<Statement>& node);
+    void PrintIfStatement(const sptr<IfStatement>& node);
+    void PrintInlineStatement(const sptr<Statement>& node);
+    void PrintExpression(const sptr<Expression>& expr, Precedence minPrecedence);
+    void PrintArguments(const std::vector<sptr<Expression>>& args);
+    void PrintTemplateArguments(const std::vector<sptr<TypeSpecifier>>& args);
+    void PrintStringLiteral(std::string_view value);
+
+    static Precedence GetPrecedence(const sptr<Expression>& expr);
+    static Precedence GetBinaryPrecedence(TokenType operation);
+    static bool IsMultiLine(const sptr<Definition>& def);
+    static bool StartsWithSign(const sptr<Expression>& expr);
 public:
-    CodePrinter(std::stringstream& stream, int tabWidth = 4, int startingIndent = 0)
+    CodePrinter(std::ostream& stream, int tabWidth = 4, std::optional<std::string_view> printedFile = {}, int startingIndent = 0)
         : stream(stream)
         , tabWidth(tabWidth)
         , indent(startingIndent)
+        , printedFile(printedFile)
     {
     }
 
     static void Print(const sptr<ASTNode>& node) {
         std::stringstream stream;
-        fraze::CodePrinter printer(stream, 2);
+        fraze::CodePrinter printer(stream, 4);
         printer.VisitChildNode(node);
         std::println("{}", stream.str());
     }

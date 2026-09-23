@@ -21,6 +21,7 @@ int main(int argc, char** argv)
         
 #if !FRAZE_ASSERTS
         compiler.DisableAssert().DisableNullCheck().DisableBoundsCheck().DisableTypeCheck();
+        //compiler.ExportLoweredCode("output/code");
 #endif
 
         auto program = compiler.Compile();
