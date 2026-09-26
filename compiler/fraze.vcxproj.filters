@@ -411,6 +411,6 @@
     <None Include="assets\fraze.table.fz">
       <Filter>assets</Filter>
     </None>
-    <None Include="..\.github\copilot-instructions.md" />
+    <None Include="..\AGENTS.md" />
   </ItemGroup>
 </Project>

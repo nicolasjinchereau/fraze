@@ -140,7 +140,7 @@
     <Natvis Include="natvis\fraze.natvis" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\.github\copilot-instructions.md" />
+    <None Include="..\AGENTS.md" />
     <None Include="assets\fraze.list.fz" />
     <None Include="assets\fraze.math.fz" />
     <None Include="assets\fraze.system.fz" />
