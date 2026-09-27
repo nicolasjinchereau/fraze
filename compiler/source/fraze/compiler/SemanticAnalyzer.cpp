@@ -4,6 +4,7 @@
 
 #include <fraze/common/Utility.h>
 #include <fraze/compiler/Compiler.h>
+#include <fraze/compiler/LoweringBuilder.h>
 #include <fraze/compiler/Parser.h>
 #include <fraze/compiler/SemanticAnalyzer.h>
 #include <fraze/ast/type/Type.h>
@@ -12,6 +13,7 @@
 #include <format>
 #include <print>
 #include <ranges>
+#include <unordered_set>
 
 namespace fraze {
 
@@ -754,6 +756,9 @@ void SemanticAnalyzer::Visit(const sptr<FunctionDefinition>& node)
 
     ASTVisitor::Visit(node);
 
+    if(node->body)
+        ResolveGotoLabels(node->body);
+
     if(node->isExternal)
     {
         if(!node->externalFunction && !node->externalIntrinsic)
@@ -889,18 +894,6 @@ void SemanticAnalyzer::Visit(const sptr<FunctionDefinition>& node)
     else if(node->isAbstract)
     {
 
-    }
-    else if(auto owningClass = node->parent->ToClassDefinition();
-        owningClass != nullptr && owningClass->isCoroutineState)
-    {
-        auto valueField = owningClass->GetVariable("$value");
-        if(valueField) // $value wouldn't exist for Task<void>
-        {
-            auto& stmts = node->body->statements;
-            
-            ENFORCE(!stmts.empty() && stmts.back()->ToReturnStatement(),
-                node->loc, "function missing return statement");
-        }
     }
     else if(!node->returnType->IsVoid())
     {
@@ -1408,17 +1401,14 @@ void SemanticAnalyzer::Visit(const sptr<AssignExpression>& node)
     ProcessAssignment(node->left->loc, node->left->EvaluateType(), node->right, node->operation);
 }
 
+// Rejects an 'await' wherever it can't be lowered. A statement lowers the awaits it contains
+// instead of visiting them, so this only runs for an 'await' in an unsupported context.
 void SemanticAnalyzer::Visit(const sptr<AwaitExpression>& node)
 {
-    ASTVisitor::Visit(node);
+    auto func = node->scope->owner->ToFunctionDefinition();
+    ENFORCE(func && func->isCoroutine, node->loc, "'await' can only be used in a coroutine");
 
-    if(node->expression)
-    {
-        //auto func = node->expression->scope->owner->ToFunctionDefinition();
-        //auto& returnType = func->returnType;
-        //ENFORCE(returnType->baseTypeName == "bool", returnType->loc, "await can only be used in a coroutine");
-        //ProcessAssignment(returnType->loc, returnType->templateArgs.back()->type, node->expression);
-    }
+    Throw(node->loc, "'await' can only be a whole statement, the right side of an assignment, or a returned value");
 }
 
 std::pair<sptr<FunctionDefinition>, bool> SemanticAnalyzer::GetBinaryOperatorOverload(
@@ -3406,26 +3396,240 @@ void SemanticAnalyzer::Visit(const sptr<GotoStatement>& node)
     ASTVisitor::Visit(node);
 }
 
-void SemanticAnalyzer::Visit(const sptr<ReturnStatement>& node)
+// Labels belong to the whole function, so a goto can't be resolved until the body has been scanned.
+// A goto can't enter or leave a fold, since the stack holds the fold's partial expression, and it
+// can't jump past a variable definition into that variable's scope, since frames aren't zeroed.
+void SemanticAnalyzer::ResolveGotoLabels(const sptr<BlockStatement>& body)
+{
+    // where a label or goto is: its innermost fold, and the local variables in scope there
+    struct Position
+    {
+        const FoldExpression* fold{};
+        std::vector<const VariableDefinition*> varsInScope;
+    };
+
+    class LabelScanner : public ASTVisitor
+    {
+    public:
+        Position current;
+        std::unordered_map<std::string_view, std::pair<sptr<LabelStatement>, Position>> labels;
+        std::vector<std::pair<sptr<GotoStatement>, Position>> gotos;
+
+        // Every construct that opens a name scope (block, if, for, while, fold body) is a statement,
+        // so dropping the variables defined inside a statement when it ends mirrors the parser's
+        // scopes. A variable definition's own variable is kept, since its scope is the enclosing one.
+        virtual void VisitChildNode(const sptr<ASTNode>& node) override
+        {
+            size_t varCount = current.varsInScope.size();
+            ASTVisitor::VisitChildNode(node);
+
+            // drop what the child defined, unless the child is the definition itself
+            if(!node || !node->ToVariableDefinitionStatement())
+                current.varsInScope.resize(varCount);
+        }
+
+        virtual void Visit(const sptr<VariableDefinitionStatement>& node) override
+        {
+            ASTVisitor::Visit(node);
+            current.varsInScope.push_back(node->variableDefinition.get());
+        }
+
+        virtual void Visit(const sptr<FoldExpression>& node) override
+        {
+            auto enclosingFold = std::exchange(current.fold, node.get());
+            ASTVisitor::Visit(node);
+            current.fold = enclosingFold;
+        }
+
+        virtual void Visit(const sptr<LabelStatement>& node) override
+        {
+            bool isNewLabel = labels.try_emplace(node->name, node, current).second;
+            ENFORCE(isNewLabel, node->loc, "label '{}' is already defined", node->name);
+        }
+
+        virtual void Visit(const sptr<GotoStatement>& node) override
+        {
+            gotos.emplace_back(node, current);
+        }
+    };
+
+    LabelScanner scanner;
+    body->Accept(scanner);
+
+    for(auto& [gotoStmt, gotoPosition] : scanner.gotos)
+    {
+        auto it = scanner.labels.find(gotoStmt->labelName);
+        ENFORCE(it != scanner.labels.end(), gotoStmt->loc, "label '{}' is not defined", gotoStmt->labelName);
+
+        auto& [label, labelPosition] = it->second;
+        ENFORCE(gotoPosition.fold == labelPosition.fold, gotoStmt->loc, "goto cannot jump into or out of a fold expression");
+
+        // Scopes nest, so the variables in scope at the label must be a prefix of those at the goto.
+        // The first variable that differs is one the goto would skip the definition of.
+        auto [skippedVar, _] = std::ranges::mismatch(labelPosition.varsInScope, gotoPosition.varsInScope);
+        ENFORCE(skippedVar == labelPosition.varsInScope.end(), gotoStmt->loc,
+            "goto '{}' skips the definition of '{}'", label->name, (*skippedVar)->name);
+
+        gotoStmt->label = label;
+    }
+}
+
+void SemanticAnalyzer::Visit(const sptr<SwitchStatement>& node)
 {
     ASTVisitor::Visit(node);
-    
+
+    Type* valueType = node->value->EvaluateType();
+    ENFORCE(valueType && (valueType->IsInteger() || valueType->IsEnum()), node->value->loc,
+        "switch value must be an int or an enum");
+
+    std::unordered_set<int64_t> handledValues;
+
+    for(auto& section : node->sections)
+    {
+        for(auto& caseValue : section.caseValues)
+        {
+            auto value = SwitchStatement::GetCaseValue(caseValue);
+            ENFORCE(value.has_value(), caseValue->loc, "case value must be an integer literal or an enum member");
+            ENFORCE(caseValue->EvaluateType() == valueType, caseValue->loc, "case value must be of type '{}'", valueType->GetName());
+            ENFORCE(handledValues.insert(*value).second, caseValue->loc, "case value {} is already handled", *value);
+        }
+    }
+}
+
+// The 'await' a statement suspends on: one that is the whole expression, or the right side of its
+// assignment. Returns null for a statement that doesn't suspend.
+sptr<AwaitExpression> SemanticAnalyzer::GetSuspendingAwait(const sptr<ExpressionStatement>& node)
+{
+    auto assign = node->expression->ToAssignExpression();
+    return (assign ? assign->right : node->expression)->ToAwaitExpression();
+}
+
+// Appends to 'block' the statements that go before the statement an 'await' is in: they store the
+// awaited task and, if it isn't done, suspend with $position set to a new state. The state's case in
+// the coroutine's prologue switch jumps back to a label after them, where the returned expression
+// reads the task's value. Returns null for a Task<void>, which has no value.
+sptr<Expression> SemanticAnalyzer::LowerAwait(const sptr<AwaitExpression>& node, const sptr<BlockStatement>& block)
+{
+    auto func = node->scope->owner->ToFunctionDefinition();
+    ENFORCE(func && func->isCoroutine, node->loc, "'await' can only be used in a coroutine");
+
+    VisitChild(node->expression);
+    Type* taskType = node->expression->EvaluateType();
+    ENFORCE(taskType && taskType->GetName().starts_with("Task"), node->loc, "only a Task can be awaited");
+
+    // the prologue's first case is 'case -1', so each await's state is the next section's index
+    auto prologue = func->body->statements.front()->ToSwitchStatement();
+    int64_t state = prologue->sections.size();
+    shared_string resumeLabelName(std::format("$resume{}", state));
+
+    Scope* scope = block->scope.get();
+    LoweringBuilder builder{ node->loc, scope };
+
+    // '$awaited' holds any task as an Awaitable, so it's cast back to this Task<T> for its members
+    auto AwaitedTask = [&]{
+        return spnew<CastExpression>(node->loc, scope, spnew<TypeSpecifier>(node->loc, taskType), builder.Identifier("$awaited"));
+    };
+
+    // $awaited = task;
+    auto awaitable = spnew<CastExpression>(node->loc, scope, spnew<TypeSpecifier>(node->loc, Type::Get("Awaitable")), node->expression);
+    block->statements.push_back(builder.AssignStatement(builder.Identifier("$awaited"), awaitable));
+
+    // if(!$awaited.IsDone()) { $awaited.SetAwaiter(this); $position = state; return; }
+    auto suspend = spnew<IfStatement>(node->loc, scope);
+    suspend->condition = spnew<PrefixExpression>(node->loc, scope, TokenType::LogicalNot, builder.Call(AwaitedTask(), "IsDone"));
+
+    auto suspendBody = spnew<BlockStatement>(node->loc, suspend->scope.get());
+    suspendBody->statements = {
+        builder.ExprStatement(builder.Call(builder.Identifier("$awaited"), "SetAwaiter", { builder.Identifier("this") })),
+        builder.AssignStatement(builder.Identifier("$position"), spnew<IntegerLiteralExpression>(node->loc, scope, state)),
+        builder.Return(),
+    };
+    suspend->trueBranch = suspendBody;
+    block->statements.push_back(suspend);
+
+    // $resumeN:
+    block->statements.push_back(spnew<LabelStatement>(node->loc, scope, resumeLabelName));
+
+    // case N: goto $resumeN;
+    auto& section = prologue->sections.emplace_back();
+    section.caseValues.push_back(spnew<IntegerLiteralExpression>(node->loc, prologue->enclosingScope, state));
+    section.body = spnew<BlockStatement>(node->loc, prologue->enclosingScope);
+    section.body->statements.push_back(spnew<GotoStatement>(node->loc, section.body->scope.get(), resumeLabelName));
+
+    if(taskType->GetTemplateArgs().back()->IsVoid())
+        return nullptr;
+
+    return builder.Call(AwaitedTask(), "GetValue");
+}
+
+// 'await task;' and 'value = await task;' are lowered here, so the statement can continue after
+// the suspension. Visit(AwaitExpression) rejects an 'await' anywhere else.
+void SemanticAnalyzer::Visit(const sptr<ExpressionStatement>& node)
+{
+    auto awaitExpr = GetSuspendingAwait(node);
+
+    if(!awaitExpr)
+    {
+        ASTVisitor::Visit(node);
+        return;
+    }
+
+    auto block = spnew<BlockStatement>(node->loc, node->enclosingScope);
+    auto value = LowerAwait(awaitExpr, block);
+
+    // a bare 'await task;' doesn't use the value
+    if(auto assign = node->expression->ToAssignExpression())
+    {
+        ENFORCE(!!value, awaitExpr->loc, "a Task<void> has no value");
+        assign->right = value;
+        block->statements.push_back(node);
+    }
+
+    VisitChild(block);
+    replacement = block;
+}
+
+// A coroutine's return stores its value, marks the task done and resumes whatever awaits it, then
+// returns plainly. The value of 'return await task;' is read once that await is lowered ahead of it.
+void SemanticAnalyzer::Visit(const sptr<ReturnStatement>& node)
+{
+    if(node->isCoroutineCompletion)
+    {
+        auto block = spnew<BlockStatement>(node->loc, node->enclosingScope);
+        LoweringBuilder builder{ node->loc, block->scope.get() };
+
+        if(node->expression)
+        {
+            auto taskClass = node->enclosingScope->owner->parent->ToClassDefinition();
+            ENFORCE(!!taskClass->GetVariable("$value"), node->loc, "a Task<void> coroutine cannot return a value");
+
+            auto value = node->expression;
+
+            if(auto awaitExpr = value->ToAwaitExpression())
+            {
+                value = LowerAwait(awaitExpr, block);
+                ENFORCE(!!value, awaitExpr->loc, "a Task<void> has no value");
+            }
+
+            block->statements.push_back(builder.AssignStatement(builder.Identifier("$value"), value));
+        }
+
+        block->statements.push_back(builder.AssignStatement(builder.Identifier("$position"), spnew<IntegerLiteralExpression>(node->loc, block->scope.get(), -1)));
+        block->statements.push_back(builder.ExprStatement(builder.Call(nullptr, "ResumeAwaiter")));
+        block->statements.push_back(builder.Return());
+
+        VisitChild(block);
+        replacement = block;
+        return;
+    }
+
+    ASTVisitor::Visit(node);
+
     if(node->expression)
     {
-        if(node->context)
-        {
-            Type* contextType = node->context->EvaluateType();
-            sptr<ClassDefinition> classDef = contextType->GetDefinition()->ToClassDefinition();
-            auto valueField = classDef->GetVariable("$value");
-            ENFORCE(!!valueField, node->loc, "Return type is void");
-            ProcessAssignment(node->loc, valueField->typeSpec->type, node->expression);
-        }
-        else
-        {
-            auto func = node->expression->scope->owner->ToFunctionDefinition();
-            auto& returnType = func->returnType;
-            ProcessAssignment(returnType->loc, returnType->type, node->expression);
-        }
+        auto func = node->expression->scope->owner->ToFunctionDefinition();
+        auto& returnType = func->returnType;
+        ProcessAssignment(returnType->loc, returnType->type, node->expression);
     }
 }
 

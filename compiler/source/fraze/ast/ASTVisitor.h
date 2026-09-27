@@ -91,7 +91,9 @@ public:
     virtual void Visit(const sptr<ForStatement>& node);
     virtual void Visit(const sptr<GotoStatement>& node);
     virtual void Visit(const sptr<IfStatement>& node);
+    virtual void Visit(const sptr<LabelStatement>& node);
     virtual void Visit(const sptr<ReturnStatement>& node);
+    virtual void Visit(const sptr<SwitchStatement>& node);
     virtual void Visit(const sptr<VariableDefinitionStatement>& node);
     virtual void Visit(const sptr<WhileStatement>& node);
 };

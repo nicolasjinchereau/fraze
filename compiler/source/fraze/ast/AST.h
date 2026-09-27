@@ -60,7 +60,9 @@
 #include <fraze/ast/stmt/ForStatement.h>
 #include <fraze/ast/stmt/GotoStatement.h>
 #include <fraze/ast/stmt/IfStatement.h>
+#include <fraze/ast/stmt/LabelStatement.h>
 #include <fraze/ast/stmt/ReturnStatement.h>
 #include <fraze/ast/stmt/Statement.h>
+#include <fraze/ast/stmt/SwitchStatement.h>
 #include <fraze/ast/stmt/VariableDefinitionStatement.h>
 #include <fraze/ast/stmt/WhileStatement.h>

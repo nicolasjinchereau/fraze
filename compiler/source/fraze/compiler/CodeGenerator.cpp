@@ -304,6 +304,13 @@ void CodeGenerator::EmitConditionalJumps(const sptr<Expression>& condition, std:
     Emit(condition->loc, trueJumpIndices ? OpCode::JumpIf : OpCode::JumpIfNot, -1);
 }
 
+// Points jumps already generated at 'destinationCodeIndex'.
+void CodeGenerator::PatchJumps(const std::ranges::input_range auto& jumpIndices, size_t destinationCodeIndex)
+{
+    for(size_t jumpIndex : jumpIndices)
+        program->code[jumpIndex].arg1_u64 = destinationCodeIndex;
+}
+
 /*****************************
 *            ROOT            *
 *****************************/
@@ -1049,107 +1056,6 @@ void CodeGenerator::Visit(const sptr<IndexExpression>& node)
         Emit(node->loc, OpCode::PushWordN, 0ull, pushSize);
 }
 
-// NOTE: 'await' must be the whole of a statement or the whole of a variable
-// initializer. Suspending emits a Return that discards the operand stack, so any
-// values already pushed for an enclosing expression are lost and the resumed code
-// runs with an underflowed stack. Locals are safe because Parser hoists a
-// coroutine's locals into fields of the state object, but partially evaluated
-// expressions are not. There is currently no diagnostic for this.
-void CodeGenerator::Visit(const sptr<AwaitExpression>& node)
-{
-    auto awaitableType = Type::Get("Awaitable");
-    size_t awaitableInterfaceID = typeInfo[awaitableType]->ToInterfaceInfo()->id;
-
-    auto awaiterType = Type::Get("Awaiter");
-    size_t awaiterInterfaceID = typeInfo[awaiterType]->ToInterfaceInfo()->id;
-
-    auto exprType = node->expression->EvaluateType();
-    auto taskDef = exprType->GetDefinition()->ToInterfaceDefinition();
-    size_t taskInterfaceID = typeInfo[exprType]->ToInterfaceInfo()->id;
-
-    auto contextDef = node->context->EvaluateType()->GetDefinition();
-    auto awaited = contextDef->GetVariable("$awaited");
-    uint64_t awaitedOffset = FieldOffset(node->context, awaited->offset);
-
-    // push Task<T> and save to temporary
-    VisitChild(node->expression);
-    VisitChild(node->context);
-    Emit(node->loc, OpCode::PopWord, awaitedOffset);
-
-    // if( awaitable.IsDone() )
-    auto isDoneFunc = taskDef->GetFunction("IsDone");
-    auto isDoneFuncInfo = typeInfo[isDoneFunc->type]->ToFunctionInfo();
-    auto isDoneFuncID = isDoneFuncInfo->id;
-    EmitReserve(node->loc, isDoneFuncInfo->returnSize);
-    VisitChild(node->context);
-    Emit(node->loc, OpCode::PushWord, awaitedOffset);
-    Emit(node->loc, OpCode::CallVirtual, isDoneFuncID, taskInterfaceID);
-    size_t jump1 = program->code.size();
-    Emit(node->loc, OpCode::JumpIfNot, -1);
-    
-    // push awaitable.GetValue()
-    auto getValueFunc = taskDef->GetFunction("GetValue");
-    auto getvalueFuncInfo = typeInfo[getValueFunc->type]->ToFunctionInfo();
-    auto getValueFuncID = getvalueFuncInfo->id;
-    if(!getValueFunc->returnType->IsVoid())
-    {
-        EmitReserve(node->loc, getvalueFuncInfo->returnSize);
-        VisitChild(node->context);
-        Emit(node->loc, OpCode::PushWord, awaitedOffset);
-        Emit(node->loc, OpCode::CallVirtual, getValueFuncID, taskInterfaceID);
-    }
-    else
-    {
-        EmitReserve(node->loc, getvalueFuncInfo->returnSize);
-    }
-    // jump to end
-    size_t jump2 = program->code.size();
-    Emit(node->loc, OpCode::Jump, -1);
-    
-    program->code[jump1].arg1_u64 = program->code.size();
-    // awaitable.SetAwaiter(this)
-    auto setAwaiterType = Type::Get("Awaitable.SetAwaiter");
-    auto setAwaiterFuncInfo = typeInfo[setAwaiterType]->ToFunctionInfo();
-    auto setAwaiterFuncID = setAwaiterFuncInfo->id;
-    EmitReserve(node->loc, setAwaiterFuncInfo->returnSize);
-    VisitChild(node->context); // push this frame's task as the 'awaiter' arg
-    VisitChild(node->context);
-    Emit(node->loc, OpCode::PushWord, awaitedOffset);
-    Emit(node->loc, OpCode::CallVirtual, setAwaiterFuncID, awaitableInterfaceID);
-
-    size_t paramSize = 0;
-    size_t returnSize = 1;
-    if(auto func = node->scope->owner->ToFunctionDefinition())
-    {
-        paramSize = func->paramSize;
-        returnSize = typeInfo[func->type]->ToFunctionInfo()->returnSize;
-    }
-
-    // store the resume location in $position and return
-    size_t resumeLocation = program->code.size();
-    Emit(node->loc, OpCode::PushInteger, -1);
-    VisitChild(node->context);
-    Emit(node->loc, OpCode::PopWord, FieldOffset(node->context, contextDef->GetVariable("$position")->offset));
-    if(returnSize != 0)
-        Emit(node->loc, OpCode::PushNull);
-    Emit(node->loc, OpCode::Return, paramSize, returnSize);
-    program->code[resumeLocation].arg1_u64 = program->code.size();
-    
-    // push $awaited.GetValue()
-    if(!getValueFunc->returnType->IsVoid())
-    {
-        EmitReserve(node->loc, getvalueFuncInfo->returnSize);
-        VisitChild(node->context);
-        Emit(node->loc, OpCode::PushWord, awaitedOffset);
-        Emit(node->loc, OpCode::CallVirtual, getValueFuncID, taskInterfaceID);
-    }
-    else
-    {
-        EmitReserve(node->loc, getvalueFuncInfo->returnSize);
-    }
-    program->code[jump2].arg1_u64 = program->code.size();
-}
-
 void CodeGenerator::Visit(const sptr<ArrayCountExpression>& node)
 {
     auto elementType = node->array->EvaluateType()->GetElementType();
@@ -1567,11 +1473,29 @@ void CodeGenerator::Visit(const sptr<ForStatement>& node)
 
 void CodeGenerator::Visit(const sptr<GotoStatement>& node)
 {
-    // the code location
-    VisitChild(node->expression);
+    assert(node->label);
 
-    // jump to location on stack top
-    Emit(node->loc, OpCode::Goto);
+    if(auto it = labelCodeIndices.find(node->label.get()); it != labelCodeIndices.end())
+    {
+        // label already exists, emit backward jump
+        Emit(node->loc, OpCode::Jump, it->second);
+    }
+    else
+    {
+        // label doesn't exist, so track this jump and fix it up when the label is visited
+        pendingGotoJumpIndices.emplace(node->label.get(), program->code.size());
+        Emit(node->loc, OpCode::Jump, -1);
+    }
+}
+
+void CodeGenerator::Visit(const sptr<LabelStatement>& node)
+{
+    size_t codeIndex = program->code.size();
+    labelCodeIndices[node.get()] = codeIndex;
+
+    auto [first, last] = pendingGotoJumpIndices.equal_range(node.get());
+    PatchJumps(std::ranges::subrange(first, last) | std::views::values, codeIndex);
+    pendingGotoJumpIndices.erase(first, last);
 }
 
 void CodeGenerator::Visit(const sptr<IfStatement>& node)
@@ -1615,55 +1539,115 @@ void CodeGenerator::Visit(const sptr<ReturnStatement>& node)
         returnSize = typeInfo[func->type]->ToFunctionInfo()->returnSize;
     }
 
-    if(node->context)
+    // semantic analysis lowers a coroutine's returns
+    assert(!node->isCoroutineCompletion);
+
+    if(node->expression)
+        VisitChild(node->expression);
+    else if(returnSize != 0)
+        Emit(node->loc, OpCode::PushNull);
+
+    Emit(node->loc, OpCode::Return, paramSize, returnSize);
+}
+
+// Emits a jump table when the case values are dense enough, and emits an if-chain when they're not.
+void CodeGenerator::Visit(const sptr<SwitchStatement>& node)
+{
+    auto& sections = node->sections;
+
+    // each case's value and the index of its section, where one past the last section is the end
+    std::vector<std::pair<int64_t, size_t>> cases;
+    size_t defaultSectionIndex = sections.size();
+
+    for(size_t i = 0; i != sections.size(); ++i)
     {
-        auto awaitableType = Type::Get("Awaitable");
-        size_t awaitableInterfaceID = typeInfo[awaitableType]->ToInterfaceInfo()->id;
-        auto resumeAwaiterFuncType = Type::Get("Awaitable.ResumeAwaiter");
-        auto resumeAwaiterFuncInfo = typeInfo[resumeAwaiterFuncType]->ToFunctionInfo();
-        auto resumeAwaiterFuncID = resumeAwaiterFuncInfo->id;
-        auto contextDef = node->context->EvaluateType()->GetDefinition();
+        for(auto& caseValue : sections[i].caseValues)
+            cases.emplace_back(*SwitchStatement::GetCaseValue(caseValue), i);
 
-        // this.$value = node.expression;
-        if(node->expression)
+        if(sections[i].isDefault)
+            defaultSectionIndex = i;
+    }
+
+    // jumps waiting for each section's code to start, and last, for the end of the switch
+    std::vector<std::vector<size_t>> sectionJumpIndices(sections.size() + 1);
+
+    auto EmitSectionJump = [&](size_t sectionIndex) {
+        sectionJumpIndices[sectionIndex].push_back(program->code.size());
+        Emit(node->loc, OpCode::Jump, -1);
+    };
+
+    // a table is used when at least half its entries are cases, the rest going to the default
+    int64_t minCase = 0;
+    uint64_t tableSize = 0;
+
+    if(!cases.empty())
+    {
+        auto [min, max] = std::ranges::minmax(cases | std::views::keys);
+        uint64_t caseSpan = static_cast<uint64_t>(max) - static_cast<uint64_t>(min);
+
+        if(caseSpan < 2 * cases.size())
         {
-            auto valueField = contextDef->GetVariable("$value");
-            VisitChild(node->expression);
-            VisitChild(node->context);
-
-            uint64_t valueOffset = FieldOffset(node->context, valueField->offset);
-
-            if(valueField->size > 1)
-                Emit(node->loc, OpCode::PopWordN, valueOffset, valueField->size);
-            else
-                Emit(node->loc, OpCode::PopWord, valueOffset);
+            minCase = min;
+            tableSize = caseSpan + 1;
         }
+    }
 
-        // this.$position = -1;
-        auto positionField = contextDef->GetVariable("$position");
-        Emit(node->loc, OpCode::PushInteger, -1);
-        VisitChild(node->context);
-        Emit(node->loc, OpCode::PopWord, FieldOffset(node->context, positionField->offset));
+    VisitChild(node->value);
 
-        // this.ResumeAwaiter();
-        EmitReserve(node->loc, resumeAwaiterFuncInfo->returnSize);
-        VisitChild(node->context);
-        Emit(node->loc, OpCode::CallVirtual, resumeAwaiterFuncID, awaitableInterfaceID);
+    if(tableSize != 0)
+    {
+        std::vector<size_t> tableSectionIndices(tableSize, defaultSectionIndex);
 
-        // done!
-        if(returnSize != 0)
-            Emit(node->loc, OpCode::PushNull);
-        Emit(node->loc, OpCode::Return, paramSize, returnSize);
+        for(auto [value, sectionIndex] : cases)
+            tableSectionIndices[static_cast<uint64_t>(value) - static_cast<uint64_t>(minCase)] = sectionIndex;
+
+        Emit(node->loc, OpCode::Switch, minCase, tableSize);
+
+        for(size_t sectionIndex : tableSectionIndices)
+            EmitSectionJump(sectionIndex);
+
+        EmitSectionJump(defaultSectionIndex);
     }
     else
     {
-        if(node->expression)
-            VisitChild(node->expression);
-        else if(returnSize != 0)
-            Emit(node->loc, OpCode::PushNull);
+        // A match still has the value on the stack, so each matched section gets a Pop that
+        // jumps to it. Without a match (or any cases), the value is popped before the default.
+        std::vector<std::vector<size_t>> matchJumpIndices(sections.size());
 
-        Emit(node->loc, OpCode::Return, paramSize, returnSize);
+        for(auto [value, sectionIndex] : cases)
+        {
+            Emit(node->loc, OpCode::Dup);
+            Emit(node->loc, OpCode::PushInteger, value);
+            Emit(node->loc, OpCode::Equal);
+            matchJumpIndices[sectionIndex].push_back(program->code.size());
+            Emit(node->loc, OpCode::JumpIf, -1);
+        }
+
+        Emit(node->loc, OpCode::Pop, 1);
+        EmitSectionJump(defaultSectionIndex);
+
+        for(size_t i = 0; i != sections.size(); ++i)
+        {
+            if(matchJumpIndices[i].empty())
+                continue;
+
+            PatchJumps(matchJumpIndices[i], program->code.size());
+            Emit(node->loc, OpCode::Pop, 1);
+            EmitSectionJump(i);
+        }
     }
+
+    for(size_t i = 0; i != sections.size(); ++i)
+    {
+        PatchJumps(sectionJumpIndices[i], program->code.size());
+        VisitChild(sections[i].body);
+
+        // sections don't fall through, so every one but the last jumps to the end
+        if(i + 1 != sections.size())
+            EmitSectionJump(sections.size());
+    }
+
+    PatchJumps(sectionJumpIndices.back(), program->code.size());
 }
 
 void CodeGenerator::Visit(const sptr<VariableDefinitionStatement>& node)

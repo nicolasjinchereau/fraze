@@ -98,8 +98,10 @@ public:
     virtual sptr<ForStatement> ToForStatement(){ return {}; }
     virtual sptr<GotoStatement> ToGotoStatement(){ return {}; }
     virtual sptr<IfStatement> ToIfStatement(){ return {}; }
+    virtual sptr<LabelStatement> ToLabelStatement(){ return {}; }
     virtual sptr<ReturnStatement> ToReturnStatement(){ return {}; }
     virtual sptr<Statement> ToStatement(){ return {}; }
+    virtual sptr<SwitchStatement> ToSwitchStatement(){ return {}; }
     virtual sptr<VariableDefinitionStatement> ToVariableDefinitionStatement(){ return {}; }
     virtual sptr<WhileStatement> ToWhileStatement(){ return {}; }
 };

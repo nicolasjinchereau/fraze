@@ -529,7 +529,11 @@ private:
 
             if(TryConsume(TokenType::Assign))
             {
-                auto valueExpr = ParseIntegerLiteral();
+                // parsed as a prefix expression, so a negated literal folds into a negative one
+                SourceLocation valueLoc = token.loc;
+                auto valueExpr = ParsePrefixExpr()->ToIntegerLiteralExpression();
+                ENFORCE(!!valueExpr, valueLoc, "enum member value must be an integer literal");
+
                 member->value = valueExpr;
                 previousValue = valueExpr->value;
             }
@@ -658,6 +662,18 @@ private:
             return false;
 
         return true;
+    }
+
+    bool IsLabel()
+    {
+        auto it = Peek();
+
+        if(it->type != TokenType::Identifier || it->IsKeyword())
+            return false;
+
+        ++it;
+
+        return it->type == TokenType::Colon;
     }
 
     bool IsVariableDefinition()
@@ -1438,7 +1454,8 @@ class ${}_Task
     // isCoroutine set after
     void Resume()
     {{
-        {}if($position != 0) goto $position;
+        // each 'await' adds a case here that jumps back to where it suspended
+        {}switch($position) {{ case -1: return; }}
 
         // body parsed below...
     }}
@@ -1489,7 +1506,7 @@ class ${}_Task
             // {}
             paramList,
 
-            // {}if($position != 0) goto $position;
+            // {}switch($position) {{ case -1: return; }}
             !isExternal ? "" : comment,
 
             // {} GetValue()
@@ -1519,6 +1536,9 @@ class ${}_Task
         else
         {
             auto resumeFunc = taskObject->GetFunction("Resume");
+
+            // Set between parsing the mixin and the body: the body's returns become coroutine completions
+            // and its 'this' becomes '$this', while the return in the mixin's $position switch stays plain.
             resumeFunc->isCoroutine = true;
 
             // since return works differently for coroutines, return type is always void, and implicit return is always added
@@ -1531,13 +1551,20 @@ class ${}_Task
             const Token* closingBrace = nullptr;
             ParseBlockStmt(resumeFunc->body, &closingBrace);
 
+            // checked here rather than in semantic analysis, which lowers a coroutine's returns into blocks
+            bool endsWithReturn = resumeFunc->body->statements.back()->ToReturnStatement() != nullptr;
+
             if(yieldType->IsVoid())
             {
-                if(resumeFunc->body->statements.empty() || !resumeFunc->body->statements.back()->ToReturnStatement())
+                if(!endsWithReturn)
                 {
                     auto ret = spnew<ReturnStatement>(closingBrace->loc, scopes.GetCurrent());
                     resumeFunc->body->statements.push_back(ret);
                 }
+            }
+            else
+            {
+                ENFORCE(endsWithReturn, func->loc, "function missing return statement");
             }
 
             scopes.Pop();
@@ -1750,6 +1777,8 @@ class ${}_Task
             stmt = ParseForStmt();
         else if (token.IsKeyword(Keyword::While))
             stmt = ParseWhileStmt();
+        else if (token.IsKeyword(Keyword::Switch))
+            stmt = ParseSwitchStmt();
         else if (token.IsKeyword(Keyword::Return))
             stmt = ParseReturnStmt();
         else if (token.IsKeyword(Keyword::Goto))
@@ -1758,6 +1787,8 @@ class ${}_Task
             stmt = ParseAssertStmt();
         else if (token.IsKeyword(Keyword::Code))
             stmt = ParseCodeStmt();
+        else if (IsLabel())
+            stmt = ParseLabelStmt();
         else if (IsVariableDefinition())
             stmt = ParseVarDefinitionStmt();
         else
@@ -1907,6 +1938,60 @@ class ${}_Task
         return stmt;
     }
 
+    sptr<SwitchStatement> ParseSwitchStmt()
+    {
+        auto stmt = spnew<SwitchStatement>(token.loc, scopes.GetCurrent());
+
+        Consume(Keyword::Switch);
+        Consume(TokenType::LeftParen);
+        stmt->value = ParseExpression();
+        Consume(TokenType::RightParen);
+        Consume(TokenType::LeftBrace);
+
+        auto isSectionLabel = [&]{ return token.IsKeyword(Keyword::Case) || token.IsKeyword(Keyword::Default); };
+        bool hasDefault = false;
+
+        while(token.type != TokenType::RightBrace)
+        {
+            ENFORCE(isSectionLabel(), token.loc, "expected 'case' or 'default'");
+
+            // consecutive labels share one section
+            auto& section = stmt->sections.emplace_back();
+
+            while(isSectionLabel())
+            {
+                if(token.IsKeyword(Keyword::Default))
+                {
+                    ENFORCE(!hasDefault, token.loc, "switch already has a default label");
+                    Consume(Keyword::Default);
+                    section.isDefault = hasDefault = true;
+                }
+                else
+                {
+                    Consume(Keyword::Case);
+
+                    do {
+                        section.caseValues.push_back(ParseExpression());
+                    } while(TryConsume(TokenType::Comma));
+                }
+
+                Consume(TokenType::Colon);
+            }
+
+            // the section's statements run until the next label, in a scope of their own
+            section.body = spnew<BlockStatement>(token.loc, scopes.GetCurrent());
+            scopes.Push(section.body->scope.get());
+
+            while(token.type != TokenType::RightBrace && !isSectionLabel())
+                section.body->statements.push_back(ParseStatement());
+
+            scopes.Pop();
+        }
+
+        Consume(TokenType::RightBrace);
+        return stmt;
+    }
+
     sptr<Statement> ParseReturnStmt()
     {
         sptr<Statement> stmt;
@@ -1926,13 +2011,19 @@ class ${}_Task
 
     sptr<Statement> ParseGotoStmt()
     {
-        auto stmt = spnew<GotoStatement>(token.loc, scopes.GetCurrent());
-
-        Consume(Keyword::Goto);
-        stmt->expression = ParseExpression();
+        const Token& gotoTok = Consume(Keyword::Goto);
+        const Token& nameTok = Consume(TokenType::Identifier);
         Consume(TokenType::Semicolon);
 
-        return stmt;
+        return spnew<GotoStatement>(gotoTok.loc, scopes.GetCurrent(), nameTok.GetIdentifier());
+    }
+
+    sptr<Statement> ParseLabelStmt()
+    {
+        const Token& nameTok = Consume(TokenType::Identifier);
+        Consume(TokenType::Colon);
+
+        return spnew<LabelStatement>(nameTok.loc, scopes.GetCurrent(), nameTok.GetIdentifier());
     }
     
     sptr<Statement> ParseAssertStmt()
@@ -2252,6 +2343,18 @@ class ${}_Task
         {
             const Token& oper = Consume();
             sptr<Expression> right = ParsePrefixExpr();
+
+            // a negated literal is a negative literal, while a literal with a postfix like
+            // '-2.Abs()' isn't a literal anymore, so it stays a negation
+            if(oper.type == TokenType::Sub)
+            {
+                if(auto literal = right->ToIntegerLiteralExpression())
+                    return spnew<IntegerLiteralExpression>(oper.loc, scopes.GetCurrent(), -literal->value);
+
+                if(auto literal = right->ToNumberLiteralExpression())
+                    return spnew<NumberLiteralExpression>(oper.loc, scopes.GetCurrent(), -literal->value);
+            }
+
             return spnew<PrefixExpression>(oper.loc, scopes.GetCurrent(), oper.type, right);
         }
 

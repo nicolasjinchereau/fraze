@@ -15,17 +15,15 @@ class AwaitExpression : public Expression
 {
 public:
     sptr<Expression> expression;
-    sptr<IdentifierExpression> context; // 'this' refering to the task enclosure
 
     AwaitExpression(const SourceLocation& loc, Scope* enclosingScope, const sptr<Expression>& expression)
         : Expression(loc, enclosingScope), expression(expression)
     {
-        context = spnew<IdentifierExpression>(loc, enclosingScope, shared_string("this"));
     }
 
     virtual sptr<ASTNode> Clone(ScopeStack& scopes, const sptr<TypeSpecifier>& templateType) override
     {
-        auto copy = spnew<AwaitExpression>(loc, scope, expression->Clone(scopes, nullptr)->ToAwaitExpression());
+        auto copy = spnew<AwaitExpression>(loc, scopes.GetCurrent(), expression->Clone(scopes, nullptr)->ToExpression());
 
         copy->pushAsRef = pushAsRef;
 

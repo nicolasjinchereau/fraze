@@ -100,7 +100,7 @@
                 },
                 {
                     "name": "keyword.control.fraze",
-                    "match": "\\b(?:assert|if|else|for|return|while|goto|code)\\b"
+                    "match": "\\b(?:assert|if|else|for|return|while|switch|case|default|goto|code)\\b"
                 },
                 {
                     "name": "keyword.other.fraze",

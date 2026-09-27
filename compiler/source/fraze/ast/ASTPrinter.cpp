@@ -324,7 +324,7 @@ void ASTPrinter::Visit(const sptr<ForStatement>& node)
 
 void ASTPrinter::Visit(const sptr<GotoStatement>& node)
 {
-    stream << GetPreamble(node->loc) << "GotoStatement" << std::endl;
+    stream << GetPreamble(node->loc) << "GotoStatement " << node->labelName << std::endl;
     ASTVisitor::Visit(node);
 }
 
@@ -334,9 +334,21 @@ void ASTPrinter::Visit(const sptr<IfStatement>& node)
     ASTVisitor::Visit(node);
 }
 
+void ASTPrinter::Visit(const sptr<LabelStatement>& node)
+{
+    stream << GetPreamble(node->loc) << "LabelStatement " << node->name << std::endl;
+    ASTVisitor::Visit(node);
+}
+
 void ASTPrinter::Visit(const sptr<ReturnStatement>& node)
 {
     stream << GetPreamble(node->loc) << "ReturnStatement" << std::endl;
+    ASTVisitor::Visit(node);
+}
+
+void ASTPrinter::Visit(const sptr<SwitchStatement>& node)
+{
+    stream << GetPreamble(node->loc) << "SwitchStatement" << std::endl;
     ASTVisitor::Visit(node);
 }
 

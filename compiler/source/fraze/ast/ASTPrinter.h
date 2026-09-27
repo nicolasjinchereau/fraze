@@ -86,7 +86,9 @@ public:
     virtual void Visit(const sptr<ForStatement>& node) override;
     virtual void Visit(const sptr<GotoStatement>& node) override;
     virtual void Visit(const sptr<IfStatement>& node) override;
+    virtual void Visit(const sptr<LabelStatement>& node) override;
     virtual void Visit(const sptr<ReturnStatement>& node) override;
+    virtual void Visit(const sptr<SwitchStatement>& node) override;
     virtual void Visit(const sptr<VariableDefinitionStatement>& node) override;
     virtual void Visit(const sptr<WhileStatement>& node) override;
 };

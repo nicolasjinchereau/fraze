@@ -251,6 +251,9 @@
     <ClInclude Include="source\fraze\common\ExternalFunction.h">
       <Filter>source\fraze\common</Filter>
     </ClInclude>
+    <ClInclude Include="source\fraze\compiler\LoweringBuilder.h">
+      <Filter>source\fraze\compiler</Filter>
+    </ClInclude>
     <ClInclude Include="source\fraze\compiler\SemanticAnalyzer.h">
       <Filter>source\fraze\compiler</Filter>
     </ClInclude>
@@ -294,6 +297,12 @@
       <Filter>source\fraze\ast\def</Filter>
     </ClInclude>
     <ClInclude Include="source\fraze\ast\stmt\GotoStatement.h">
+      <Filter>source\fraze\ast\stmt</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\stmt\LabelStatement.h">
+      <Filter>source\fraze\ast\stmt</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\ast\stmt\SwitchStatement.h">
       <Filter>source\fraze\ast\stmt</Filter>
     </ClInclude>
     <ClInclude Include="source\fraze\ast\expr\TernaryExpression.h">

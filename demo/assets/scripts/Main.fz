@@ -160,7 +160,6 @@ class App
         bool run = true;
         while(run)
         {
-
             int status = window.PumpMessage();
             if(status == 1)
             {

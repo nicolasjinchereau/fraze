@@ -16,7 +16,7 @@ public:
     sptr<Scope> scope;
     sptr<Statement> init;
     sptr<Expression> condition;
-    sptr<ExpressionStatement> iterate;
+    sptr<Statement> iterate;
     sptr<Statement> body;
 
     ForStatement(const SourceLocation& loc, Scope* enclosingScope)
@@ -35,7 +35,7 @@ public:
 
         copy->init = init ? init->Clone(scopes, nullptr)->ToStatement() : decltype(init){};
         copy->condition = condition ? condition->Clone(scopes, nullptr)->ToExpression() : decltype(condition){};
-        copy->iterate = iterate ? iterate->Clone(scopes, nullptr)->ToExpressionStatement() : decltype(iterate){};
+        copy->iterate = iterate ? iterate->Clone(scopes, nullptr)->ToStatement() : decltype(iterate){};
         copy->body = body ? body->Clone(scopes, nullptr)->ToStatement() : decltype(body){};
 
         scopes.Pop();

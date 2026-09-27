@@ -5,7 +5,9 @@
 #pragma once
 #include <cassert>
 #include <optional>
+#include <ranges>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 #include <fraze/ast/AST.h>
@@ -34,12 +36,12 @@ class CodeGenerator : public ASTVisitor
     // the result that should jump and null for the one that should fall through.
     void EmitConditionalJumps(const sptr<Expression>& condition, std::vector<size_t>* trueJumpIndices, std::vector<size_t>* falseJumpIndices);
 
-    // Points jumps already generated at 'destinationCodeIndex'.
-    void PatchJumps(const std::vector<size_t>& jumpIndices, size_t destinationCodeIndex)
-    {
-        for(size_t jumpIndex : jumpIndices)
-            program->code[jumpIndex].arg1_u64 = destinationCodeIndex;
-    }
+    // Where each generated label starts. A goto that comes before its label waits in
+    // 'pendingGotoJumpIndices' until the label is generated and patches it.
+    std::unordered_map<const LabelStatement*, size_t> labelCodeIndices;
+    std::unordered_multimap<const LabelStatement*, size_t> pendingGotoJumpIndices;
+
+    void PatchJumps(const std::ranges::input_range auto& jumpIndices, size_t destinationCodeIndex);
 public:
     sptr<Program> program;
 
@@ -119,7 +121,6 @@ public:
 
     virtual void Visit(const sptr<AsExpression>& node) override;
     virtual void Visit(const sptr<AssignExpression>& node) override;
-    virtual void Visit(const sptr<AwaitExpression>& node) override;
     virtual void Visit(const sptr<BinaryExpression>& node) override;
     virtual void Visit(const sptr<BooleanLiteralExpression>& node) override;
     virtual void Visit(const sptr<CastExpression>& node) override;
@@ -162,7 +163,9 @@ public:
     virtual void Visit(const sptr<ForStatement>& node) override;
     virtual void Visit(const sptr<GotoStatement>& node) override;
     virtual void Visit(const sptr<IfStatement>& node) override;
+    virtual void Visit(const sptr<LabelStatement>& node) override;
     virtual void Visit(const sptr<ReturnStatement>& node) override;
+    virtual void Visit(const sptr<SwitchStatement>& node) override;
     virtual void Visit(const sptr<VariableDefinitionStatement>& node) override;
     virtual void Visit(const sptr<WhileStatement>& node) override;
 };

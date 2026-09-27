@@ -155,8 +155,9 @@ enum class OpCode : uint8_t
     JumpIf, // jump to code[arg] if stack[top] is true and pop stack
     JumpIfNot, // jump to code[arg] if stack[top] is false and pop stack
 
-    // jump to stack[top]
-    Goto,
+    // Jump table: pop a value and step to entry (value - arg1) of the arg2 Jumps that follow,
+    // or to the Jump after them when the value is outside the table.
+    Switch,
 
     // number of enum members
     COUNT,
@@ -238,7 +239,7 @@ inline std::unordered_map<OpCode, std::string> OpCodeNames {
     { OpCode::Jump,            "Jump" },
     { OpCode::JumpIf,          "JumpIf" },
     { OpCode::JumpIfNot,       "JumpIfNot" },
-    { OpCode::Goto,            "Goto" },
+    { OpCode::Switch,          "Switch" },
     { OpCode::Return,          "Return" },
 };
 

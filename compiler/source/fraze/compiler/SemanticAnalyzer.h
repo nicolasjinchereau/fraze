@@ -95,8 +95,10 @@ public:
     virtual void Visit(const sptr<AssertStatement>& node);
     virtual void Visit(const sptr<BlockStatement>& node);
     virtual void Visit(const sptr<EmptyStatement>& node);
+    virtual void Visit(const sptr<ExpressionStatement>& node);
     virtual void Visit(const sptr<GotoStatement>& node);
     virtual void Visit(const sptr<ReturnStatement>& node);
+    virtual void Visit(const sptr<SwitchStatement>& node);
 
 private:
     Type* EvaluateTypeChecked(const sptr<Expression>& expr);
@@ -114,6 +116,9 @@ private:
     sptr<Expression> CreateTempFold(const sptr<Expression>& value, Scope* enclosingScope);
     sptr<IdentifierExpression> CreateTempFoldValueIdentifier(const sptr<Expression>& tempFold, Scope* scope);
     void SetStructPushAsRef(const sptr<Expression>& expr);
+    void ResolveGotoLabels(const sptr<BlockStatement>& body);
+    static sptr<AwaitExpression> GetSuspendingAwait(const sptr<ExpressionStatement>& node);
+    sptr<Expression> LowerAwait(const sptr<AwaitExpression>& node, const sptr<BlockStatement>& block);
     sptr<Expression> CreateAllocationCall(const sptr<NewExpression>& node, const shared_string& funcName, const sptr<Expression>& length);
     std::optional<sptr<ASTNode>> CreateAsInstanceCall(const sptr<AsExpression>& node);
     std::optional<sptr<ASTNode>> CreateStringFromTypeCall(const sptr<AsExpression>& node);

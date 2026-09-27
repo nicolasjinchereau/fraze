@@ -868,10 +868,9 @@ class TopLevelAcc
 
 section AsyncTests
 {
-    // NOTE: 'await' must be the whole of a statement or the whole of a variable
-    // initializer. Awaiting inside a larger expression (e.g. 'assert(await F() == 5)')
-    // silently corrupts the stack, because suspending discards any operands already
-    // pushed for the enclosing expression. See CodeGenerator::Visit(AwaitExpression).
+    // NOTE: 'await' can only be a whole statement, the right side of an assignment, or a
+    // returned value, since suspending would discard operands already pushed for a larger
+    // expression. Anywhere else is a compile error. See SemanticAnalyzer::LowerAwait.
 
     // a non-static member coroutine: the receiver is captured by the coroutine
     // state object and is used to reach fields and methods across suspension points
@@ -911,6 +910,58 @@ section AsyncTests
     {
         AsyncFunc1();
         MemberCoroutineTest();
+        MultiAwaitTest();
+    }
+
+    Task<int> ValueAsync(int value)
+    {
+        await YieldAsync();
+        return value;
+    }
+
+    // each pass resumes at the same await
+    Task<int> LoopAsync(int count)
+    {
+        int n = 0;
+        while(n < count)
+        {
+            await YieldAsync();
+            n += 1;
+        }
+        return n;
+    }
+
+    // an await in the iterate statement, which is a statement like any other
+    Task<int> IterateAsync(int count)
+    {
+        int total = 0;
+        for(int i = 0; i < count; i = await ValueAsync(i + 1))
+            total += i;
+        return total;
+    }
+
+    // every place an await can be, each one resuming at its own state
+    Task<int> SequenceAsync()
+    {
+        int a = await ValueAsync(1);
+        var b = await ValueAsync(2);
+        int c = 0;
+        c = await ValueAsync(3);
+        if(a + b + c == 6)
+            await YieldAsync();
+        return await ValueAsync(a + b + c);
+    }
+
+    Task<void> MultiAwaitTest()
+    {
+        int n = await LoopAsync(3);
+        assert(n == 3);
+
+        int sum = await SequenceAsync();
+        assert(sum == 6);
+
+        int total = await IterateAsync(4);
+        assert(total == 6);
     }
 
     Task<void> MemberCoroutineTest()
@@ -1476,6 +1527,343 @@ section FoldTests
     }
 }
 
+section GotoTests
+{
+    // a template instance clones the body, so its goto has to find the cloned label
+    T Sum<T>(T[] values) {
+        T total;
+        int i = 0;
+    loop:
+        if(i == values.Count)
+            goto done;
+        total += values[i];
+        ++i;
+        goto loop;
+    done:
+        return total;
+    }
+
+    Task<int> CountAsync(int count)
+    {
+        // a coroutine's locals are fields, so jumping back past one is just a jump
+        int n = 0;
+    again:
+        await YieldAsync();
+        int next = n + 1;
+        n = next;
+        if(n < count)
+            goto again;
+        return n;
+    }
+
+    Task<void> CoroutineTest()
+    {
+        int n = await CountAsync(3);
+        assert(n == 3);
+    }
+
+    void Run()
+    {
+        // forward over statements
+        int x = 1;
+        goto skip;
+        x = 2;
+    skip:
+        assert(x == 1);
+
+        // backward, jumping past a definition again, which reruns its initializer
+        int sum = 0;
+        int i = 0;
+    top:
+        int doubled = i * 2;
+        sum += doubled;
+        ++i;
+        if(i < 4)
+            goto top;
+        assert(sum == 12);
+
+        // out of nested loops
+        int found = -1;
+        for(int a = 0; a < 5; ++a)
+        {
+            for(int b = 0; b < 5; ++b)
+            {
+                if(a * b == 6)
+                {
+                    found = a * 10 + b;
+                    goto foundIt;
+                }
+            }
+        }
+    foundIt:
+        assert(found == 23);
+
+        // into a block, to a label that ends it
+        int entered = 0;
+        goto inside;
+        {
+            entered = 1;
+        inside:
+        }
+        assert(entered == 0);
+
+        // within a fold
+        int folded = fold {
+            int n = 0;
+        more:
+            n += 5;
+            if(n < 20)
+                goto more;
+            n;
+        };
+        assert(folded == 20);
+
+        assert(Sum<int>(new int[]{ 1, 2, 3 }) == 6);
+        assert(Sum<num>(new num[]{ 0.5, 0.25 }) == 0.75);
+
+        CoroutineTest();
+    }
+}
+
+section SwitchTests
+{
+    enum Color
+    {
+        Red,
+        Green,
+        Blue
+    }
+
+    // a negative member, which the ones after it count up from
+    enum Offset
+    {
+        Back = -1,
+        Here,
+        Ahead
+    }
+
+    static int Steps(Offset offset) {
+        switch(offset)
+        {
+            case Offset.Back:
+                return -10;
+            case Offset.Here:
+                return 0;
+            case Offset.Ahead:
+                return 10;
+        }
+        return 99;
+    }
+
+    // dense, so it dispatches with a jump table
+    static int Dense(int value) {
+        int result = -1;
+        switch(value)
+        {
+            case 0:
+                result = 10;
+            case 1:
+                result = 11;
+            case 3:
+                result = 13;
+            default:
+                result = 99;
+        }
+        return result;
+    }
+
+    // negative cases shift the table
+    static int Negative(int value) {
+        int result = 0;
+        switch(value)
+        {
+            case -2:
+                result = 2;
+            case -1:
+                result = 1;
+        }
+        return result;
+    }
+
+    // too sparse for a table, so it compares against each case
+    static int Sparse(int value) {
+        int result = 0;
+        switch(value)
+        {
+            case 1:
+                result = 1;
+            case 1000:
+                result = 1000;
+            case -100000:
+                result = -100000;
+            default:
+                result = 7;
+        }
+        return result;
+    }
+
+    // stacked and listed labels share a section, and the default can share one too
+    static string Shared(int value) {
+        string result = "";
+        switch(value)
+        {
+            case 1:
+            case 2:
+                result = "low";
+            case 3, 4:
+                result = "mid";
+            case 5:
+            default:
+                result = "other";
+        }
+        return result;
+    }
+
+    static string Name(Color color) {
+        switch(color)
+        {
+            case Color.Red:
+                return "red";
+            case Color.Green:
+                return "green";
+            case Color.Blue:
+                return "blue";
+        }
+        return "";
+    }
+
+    // each section is its own scope, so they can reuse a name
+    static int Scoped(int value) {
+        switch(value)
+        {
+            case 0:
+                int n = 5;
+                return n;
+            default:
+                int n = 6;
+                return n;
+        }
+        return 0;
+    }
+
+    // a goto leaves a section without the dispatched value left on the stack
+    static int LeaveSection(int value) {
+        int result = 0;
+        switch(value)
+        {
+            case 0:
+                result = 1;
+                goto after;
+            default:
+                result = 2;
+        }
+        result += 10;
+    after:
+        return result;
+    }
+
+    Task<int> SwitchAsync(int value)
+    {
+        int result = 0;
+        switch(value)
+        {
+            case 1:
+                await YieldAsync();
+                result = 10;
+            default:
+                // a return inside a section completes the task from there
+                return 20;
+        }
+        return result;
+    }
+
+    Task<void> CoroutineTest()
+    {
+        int n = await SwitchAsync(1);
+        assert(n == 10);
+
+        int m = await SwitchAsync(9);
+        assert(m == 20);
+    }
+
+    void Run()
+    {
+        assert(Dense(0) == 10);
+        assert(Dense(1) == 11);
+        assert(Dense(2) == 99);
+        assert(Dense(3) == 13);
+        assert(Dense(-1) == 99);
+        assert(Dense(4) == 99);
+
+        assert(Negative(-2) == 2);
+        assert(Negative(-1) == 1);
+        assert(Negative(0) == 0);
+        assert(Negative(-3) == 0);
+
+        assert(Sparse(1) == 1);
+        assert(Sparse(1000) == 1000);
+        assert(Sparse(-100000) == -100000);
+        assert(Sparse(2) == 7);
+
+        assert(Shared(1) == "low");
+        assert(Shared(2) == "low");
+        assert(Shared(3) == "mid");
+        assert(Shared(4) == "mid");
+        assert(Shared(5) == "other");
+        assert(Shared(9) == "other");
+
+        assert(Steps(Offset.Back) == -10);
+        assert(Steps(Offset.Here) == 0);
+        assert(Steps(Offset.Ahead) == 10);
+
+        assert(Name(Color.Red) == "red");
+        assert(Name(Color.Green) == "green");
+        assert(Name(Color.Blue) == "blue");
+
+        assert(Scoped(0) == 5);
+        assert(Scoped(1) == 6);
+
+        assert(LeaveSection(0) == 1);
+        assert(LeaveSection(5) == 12);
+
+        // the switch value is evaluated once, and nothing is left on the stack in a loop
+        int calls = 0;
+        int total = 0;
+        for(int i = 0; i < 100; ++i)
+        {
+            switch(fold { calls += 1; i % 4; })
+            {
+                case 0:
+                    total += 1;
+                case 2:
+                    total += 100;
+            }
+
+            switch(i * 1000)
+            {
+                case 0:
+                    total += 10000;
+            }
+        }
+        assert(calls == 100);
+        assert(total == 25 + 2500 + 10000);
+
+        // empty and default-only
+        int untouched = 1;
+        switch(untouched) { }
+        assert(untouched == 1);
+
+        switch(untouched)
+        {
+            default:
+                untouched = 2;
+        }
+        assert(untouched == 2);
+
+        CoroutineTest();
+    }
+}
+
 void RunAllTests()
 {
     OperatorTests.Run();
@@ -1494,4 +1882,6 @@ void RunAllTests()
     VirtualReceiverTests.Run();
     AsyncTests.Run();
     FoldTests.Run();
+    GotoTests.Run();
+    SwitchTests.Run();
 }

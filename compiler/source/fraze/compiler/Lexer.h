@@ -117,6 +117,9 @@ enum class Keyword : uint8_t
     For,
     Return,
     While,
+    Switch,
+    Case,
+    Default,
     Goto,
     Code,
 
@@ -172,6 +175,9 @@ const string_view_map<const Keyword> Keywords
     { "for",       Keyword::For },
     { "return",    Keyword::Return },
     { "while",     Keyword::While },
+    { "switch",    Keyword::Switch },
+    { "case",      Keyword::Case },
+    { "default",   Keyword::Default },
     { "goto",      Keyword::Goto },
     { "code",      Keyword::Code },
 
@@ -222,6 +228,9 @@ const std::unordered_map<Keyword, const std::string> KeywordNames
     { Keyword::For,       "for" },
     { Keyword::Return,    "return" },
     { Keyword::While,     "while" },
+    { Keyword::Switch,    "switch" },
+    { Keyword::Case,      "case" },
+    { Keyword::Default,   "default" },
     { Keyword::Goto,      "goto" },
     { Keyword::Code,      "code" },
 

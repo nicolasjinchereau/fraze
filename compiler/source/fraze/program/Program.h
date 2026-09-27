@@ -175,7 +175,7 @@ private:
     void Execute_Jump(const Operation& op);
     void Execute_JumpIf(const Operation& op);
     void Execute_JumpIfNot(const Operation& op);
-    void Execute_Goto(const Operation& op);
+    void Execute_Switch(const Operation& op);
     
     // static asserts to check handler index against OpCode values
     void VerifyHandlers();
@@ -251,7 +251,7 @@ private:
         &Program::Execute_Jump,
         &Program::Execute_JumpIf,
         &Program::Execute_JumpIfNot,
-        &Program::Execute_Goto,
+        &Program::Execute_Switch,
     };
 
 };

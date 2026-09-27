@@ -139,7 +139,6 @@ void ASTVisitor::Visit(const sptr<AssignExpression>& node)
 void ASTVisitor::Visit(const sptr<AwaitExpression>& node)
 {
     VisitChild(node->expression);
-    VisitChild(node->context);
 }
 
 void ASTVisitor::Visit(const sptr<BinaryExpression>& node)
@@ -312,7 +311,6 @@ void ASTVisitor::Visit(const sptr<ForStatement>& node)
 
 void ASTVisitor::Visit(const sptr<GotoStatement>& node)
 {
-    VisitChild(node->expression);
 }
 
 void ASTVisitor::Visit(const sptr<IfStatement>& node)
@@ -322,10 +320,26 @@ void ASTVisitor::Visit(const sptr<IfStatement>& node)
     VisitChild(node->falseBranch);
 }
 
+void ASTVisitor::Visit(const sptr<LabelStatement>& node)
+{
+}
+
 void ASTVisitor::Visit(const sptr<ReturnStatement>& node)
 {
     VisitChild(node->expression);
-    VisitChild(node->context);
+}
+
+void ASTVisitor::Visit(const sptr<SwitchStatement>& node)
+{
+    VisitChild(node->value);
+
+    for(auto& section : node->sections)
+    {
+        for(auto& caseValue : section.caseValues)
+            VisitChild(caseValue);
+
+        VisitChild(section.body);
+    }
 }
 
 void ASTVisitor::Visit(const sptr<VariableDefinitionStatement>& node)

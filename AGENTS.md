@@ -89,8 +89,11 @@ These serve two goals: being able to move or delete AST nodes freely, and keepin
   - Name a value after what it is, with a noun phrase, not a verb phrase or a process it takes part in: `expectedValue`, not `jumpWhen`; `isTrustedInput`, not `skipsValidation`.
   - Make a name informative rather than redundant: surface what the reader can't see where it's used, but through what the thing is, not through internals they'd have to go and read, since a name is read before the feature is understood. A field named `finalizer` is a good model: a noun that says what it is and gives insight into its purpose without naming anything hidden. For a function, that includes side effects: one isn't named like a query (`TryTakeCachedResult`, not `HasCachedResult`), and an effect beyond what the caller can already read is named (`TryCancelScheduledSave`, not `TryTakePendingSave`).
   - Don't rename existing code unless asked.
-- **Comments:** one per function, on its definition.
-  - The first sentence says concretely what the function does or returns; the why comes after, briefly.
+- **Comments:** one per function, on its definition, and on a field whose name can't carry its meaning.
+  - The first sentence says concretely what the thing does, returns or holds, not what it isn't; the why comes after, briefly.
+  - Name the calls made and the state changed rather than a verb that stands in for them: "stores the value, marks it done and calls Finish", not "completes the operation".
+  - Leave out what the reader can infer: which pass does a step when only one pass does that kind of work, or a property that follows from how the thing was built.
+  - Describe a node by what the source wrote and what it lowers to, not by the other parts that lowering emits.
   - Usually 1–2 lines; a mechanism spanning several functions can take about 7.
   - At compile time, code "emits"; the emitted code "evaluates", "pushes" or "jumps".
 

@@ -97,6 +97,8 @@
     <ClInclude Include="source\fraze\ast\stmt\GotoStatement.h" />
     <ClInclude Include="source\fraze\ast\stmt\ForStatement.h" />
     <ClInclude Include="source\fraze\ast\stmt\IfStatement.h" />
+    <ClInclude Include="source\fraze\ast\stmt\LabelStatement.h" />
+    <ClInclude Include="source\fraze\ast\stmt\SwitchStatement.h" />
     <ClInclude Include="source\fraze\ast\stmt\VariableDefinitionStatement.h" />
     <ClInclude Include="source\fraze\ast\stmt\ExpressionStatement.h" />
     <ClInclude Include="source\fraze\ast\stmt\ExposeStatement.h" />
@@ -121,6 +123,7 @@
     <ClInclude Include="source\fraze\compiler\Compiler.h" />
     <ClInclude Include="source\fraze\compiler\CodeGenerator.h" />
     <ClInclude Include="source\fraze\compiler\RuntimeTypeInfo.h" />
+    <ClInclude Include="source\fraze\compiler\LoweringBuilder.h" />
     <ClInclude Include="source\fraze\compiler\SemanticAnalyzer.h" />
     <ClInclude Include="source\fraze\compiler\Lexer.h" />
     <ClInclude Include="source\fraze\compiler\Parser.h" />

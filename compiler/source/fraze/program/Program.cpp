@@ -350,7 +350,7 @@ void Program::VerifyHandlers()
     VERIFY_HANDLER_INDEX(Jump);
     VERIFY_HANDLER_INDEX(JumpIf);
     VERIFY_HANDLER_INDEX(JumpIfNot);
-    VERIFY_HANDLER_INDEX(Goto);
+    VERIFY_HANDLER_INDEX(Switch);
 }
 
 void Program::Execute_NoOp(const Operation& op)
@@ -1143,9 +1143,11 @@ void Program::Execute_JumpIfNot(const Operation& op)
         ++rip;
 }
 
-void Program::Execute_Goto(const Operation& op)
+void Program::Execute_Switch(const Operation& op)
 {
-    rip = (rsp--)->integer;
+    // unsigned, so a value below the table wraps around to past its end
+    uint64_t entry = static_cast<uint64_t>((rsp--)->integer) - op.arg1_u64;
+    rip += 1 + std::min(entry, op.arg2_u64);
 }
 
 void Program::Execute(const Operation& op)

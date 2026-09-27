@@ -214,9 +214,20 @@ void CodePrinter::PrintInlineStatement(const sptr<Statement>& node)
         return;
 
     if(auto varDefStmt = node->ToVariableDefinitionStatement())
+    {
         PrintVariable(varDefStmt->variableDefinition, false, true);
+    }
     else if(auto exprStmt = node->ToExpressionStatement())
+    {
         PrintExpression(exprStmt->expression, Precedence::Assignment);
+    }
+    else
+    {
+        // a lowering can leave a block here, which is too tall for the header line
+        stream << "\n";
+        PrintBody(node);
+        PrintIndent();
+    }
 }
 
 // Prints 'expr', parenthesized if it binds looser than its position requires. The AST has no
@@ -987,15 +998,19 @@ void CodePrinter::Visit(const sptr<ForStatement>& node)
 void CodePrinter::Visit(const sptr<GotoStatement>& node)
 {
     PrintIndent();
-    stream << "goto ";
-    PrintExpression(node->expression, Precedence::Assignment);
-    stream << ";\n";
+    stream << "goto " << node->labelName << ";\n";
 }
 
 void CodePrinter::Visit(const sptr<IfStatement>& node)
 {
     PrintIndent();
     PrintIfStatement(node);
+}
+
+// labels aren't indented, so they stand out from the statements around them
+void CodePrinter::Visit(const sptr<LabelStatement>& node)
+{
+    stream << node->name << ":\n";
 }
 
 void CodePrinter::Visit(const sptr<ReturnStatement>& node)
@@ -1010,6 +1025,46 @@ void CodePrinter::Visit(const sptr<ReturnStatement>& node)
     }
 
     stream << ";\n";
+}
+
+void CodePrinter::Visit(const sptr<SwitchStatement>& node)
+{
+    PrintIndent();
+    stream << "switch(";
+    PrintExpression(node->value, Precedence::Assignment);
+    stream << ")\n";
+
+    PrintIndent();
+    stream << "{\n";
+    ++indent;
+
+    for(auto& section : node->sections)
+    {
+        for(auto& caseValue : section.caseValues)
+        {
+            PrintIndent();
+            stream << "case ";
+            PrintExpression(caseValue, Precedence::Assignment);
+            stream << ":\n";
+        }
+
+        if(section.isDefault)
+        {
+            PrintIndent();
+            stream << "default:\n";
+        }
+
+        ++indent;
+
+        for(auto& stmt : section.body->statements)
+            VisitChildNode(stmt);
+
+        --indent;
+    }
+
+    --indent;
+    PrintIndent();
+    stream << "}\n";
 }
 
 void CodePrinter::Visit(const sptr<VariableDefinitionStatement>& node)

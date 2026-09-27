@@ -3,30 +3,24 @@
 *---------------------------------------------------------------*/
 
 #pragma once
-#include <fraze/ast/ASTNode.h>
 #include <fraze/ast/stmt/Statement.h>
-#include <fraze/ast/stmt/LabelStatement.h>
 #include <fraze/common/SharedString.h>
 
 namespace fraze {
 
-class GotoStatement : public Statement
+class LabelStatement : public Statement
 {
 public:
-    shared_string labelName;
+    shared_string name;
 
-    // resolved from 'labelName' during semantic analysis
-    sptr<LabelStatement> label;
-
-    GotoStatement(const SourceLocation& loc, Scope* enclosingScope, const shared_string& labelName)
-        : Statement(loc, enclosingScope), labelName(labelName)
+    LabelStatement(const SourceLocation& loc, Scope* enclosingScope, const shared_string& name)
+        : Statement(loc, enclosingScope), name(name)
     {
     }
 
     virtual sptr<ASTNode> Clone(ScopeStack& scopes, const sptr<TypeSpecifier>& templateType) override
     {
-        // 'label' is left unresolved, since the copy's label is a different node
-        auto copy = spnew<GotoStatement>(loc, scopes.GetCurrent(), labelName);
+        auto copy = spnew<LabelStatement>(loc, scopes.GetCurrent(), name);
 
         return copy;
     }
@@ -36,7 +30,7 @@ public:
         visitor.Visit(self());
     }
 
-    virtual sptr<GotoStatement> ToGotoStatement() override
+    virtual sptr<LabelStatement> ToLabelStatement() override
     {
         return self();
     }

@@ -13,14 +13,16 @@ class ReturnStatement : public Statement
 {
 public:
     sptr<Expression> expression;
-    sptr<IdentifierExpression> context; // 'this' refering to the task enclosure
+
+    // Indicates this return was written in a coroutine and will be lowered to a block that
+    // stores its expression in the coroutine's task, marks it done, and calls ResumeAwaiter.
+    bool isCoroutineCompletion = false;
 
     ReturnStatement(const SourceLocation& loc, Scope* enclosingScope, const sptr<Expression>& expression = {})
         : Statement(loc, enclosingScope), expression(expression)
     {
         auto func = enclosingScope->owner->ToFunctionDefinition();
-        if(func && func->isCoroutine)
-            context = spnew<IdentifierExpression>(loc, enclosingScope, shared_string("this"));
+        isCoroutineCompletion = func && func->isCoroutine;
     }
 
     virtual sptr<ASTNode> Clone(ScopeStack& scopes, const sptr<TypeSpecifier>& templateType) override
@@ -28,6 +30,8 @@ public:
         auto copy = spnew<ReturnStatement>(
             loc, scopes.GetCurrent(),
             expression ? expression->Clone(scopes, nullptr)->ToExpression() : decltype(expression){});
+
+        copy->isCoroutineCompletion = isCoroutineCompletion;
 
         return copy;
     }
