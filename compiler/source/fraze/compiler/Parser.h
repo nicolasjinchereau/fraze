@@ -2342,7 +2342,9 @@ class ${}_Task
             TokenType::LogicalNot))
         {
             const Token& oper = Consume();
-            sptr<Expression> right = ParsePrefixExpr();
+
+            // parsed as an await expression, so a prefix operator can be applied to an awaited value
+            sptr<Expression> right = ParseAwaitExpr();
 
             // a negated literal is a negative literal, while a literal with a postfix like
             // '-2.Abs()' isn't a literal anymore, so it stays a negation

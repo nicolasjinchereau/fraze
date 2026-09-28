@@ -868,9 +868,11 @@ class TopLevelAcc
 
 section AsyncTests
 {
-    // NOTE: 'await' can only be a whole statement, the right side of an assignment, or a
-    // returned value, since suspending would discard operands already pushed for a larger
-    // expression. Anywhere else is a compile error. See SemanticAnalyzer::LowerAwait.
+    // NOTE: the operands around an 'await' are spilled into fields of the coroutine's task, so
+    // suspending discards nothing and an 'await' can sit anywhere in an expression. An operand of
+    // '&&', '||' or a ternary becomes a branch of an if statement, keeping the short circuit. The
+    // positions left out are a loop condition, an assignment target, the right of a compound
+    // assignment, and inside a fold. See SemanticAnalyzer::SpillAwaits.
 
     // a non-static member coroutine: the receiver is captured by the coroutine
     // state object and is used to reach fields and methods across suspension points
@@ -911,6 +913,211 @@ section AsyncTests
         AsyncFunc1();
         MemberCoroutineTest();
         MultiAwaitTest();
+        SpilledAwaitTest();
+        AwaitPositionTest();
+        ShortCircuitAwaitTest();
+    }
+
+    int awaitCount = 0;
+
+    Task<bool> CountedFlagAsync(bool value) { awaitCount += 1; await YieldAsync(); return value; }
+    Task<int> CountedValueAsync(int value) { awaitCount += 1; await YieldAsync(); return value; }
+
+    // an operand of '&&', '||' or a ternary runs only sometimes, so its await lowers into a branch
+    Task<void> ShortCircuitAwaitTest()
+    {
+        // '&&' awaits its right side only when the left is true
+        awaitCount = 0;
+        bool andTaken = true && await CountedFlagAsync(true);
+        assert(andTaken);
+        assert(awaitCount == 1);
+
+        awaitCount = 0;
+        bool andSkipped = false && await CountedFlagAsync(true);
+        assert(!andSkipped);
+        assert(awaitCount == 0);
+
+        // '||' awaits its right side only when the left is false
+        awaitCount = 0;
+        bool orSkipped = true || await CountedFlagAsync(false);
+        assert(orSkipped);
+        assert(awaitCount == 0);
+
+        awaitCount = 0;
+        bool orTaken = false || await CountedFlagAsync(true);
+        assert(orTaken);
+        assert(awaitCount == 1);
+
+        // a ternary awaits only the arm it takes
+        awaitCount = 0;
+        int fromTrue = true ? await CountedValueAsync(1) : await CountedValueAsync(2);
+        assert(fromTrue == 1);
+        assert(awaitCount == 1);
+
+        awaitCount = 0;
+        int fromFalse = false ? await CountedValueAsync(1) : await CountedValueAsync(2);
+        assert(fromFalse == 2);
+        assert(awaitCount == 1);
+
+        // a condition always runs, so an await in one lowers ahead of the branches
+        awaitCount = 0;
+        bool fromCondition = await CountedFlagAsync(true) && true;
+        assert(fromCondition);
+        assert(awaitCount == 1);
+
+        int fromComparison = await ValueAsync(5) > 3 ? 10 : 20;
+        assert(fromComparison == 10);
+
+        // chained, and nested inside a larger expression
+        awaitCount = 0;
+        bool chained = await CountedFlagAsync(true) && await CountedFlagAsync(true) || await CountedFlagAsync(false);
+        assert(chained);
+        assert(awaitCount == 2);
+
+        int sum = (true ? await ValueAsync(3) : 0) + (false ? 0 : await ValueAsync(4));
+        assert(sum == 7);
+    }
+
+    int tally = 0;
+
+    int Count(int value) {
+        tally += value;
+        return value;
+    }
+
+    struct Pair
+    {
+        int a;
+        int b;
+        int Sum() { return a + b; }
+    }
+
+    struct Counter
+    {
+        int total;
+        void Add(int v) { total += v; }
+    }
+
+    class Holder
+    {
+        int value;
+        int Doubled() { return value * 2; }
+        void Bump(int v) { value += v; }
+    }
+
+    Task<bool> FlagAsync(bool value) { await YieldAsync(); return value; }
+    Task<string> TextAsync(string value) { await YieldAsync(); return value; }
+    Task<Holder> HolderAsync(int value) { await YieldAsync(); return new Holder{ value }; }
+    Task<Pair> PairAsync(int a, int b) { await YieldAsync(); return new Pair{ a, b }; }
+    Task<int[]> NumbersAsync() { await YieldAsync(); return new int[]{ 5, 6, 7 }; }
+
+    // the expression positions an await can be spilled out of
+    Task<void> AwaitPositionTest()
+    {
+        // an index, and a write through one
+        int[] numbers = new int[]{ 10, 11, 12 };
+        assert(numbers[await ValueAsync(2)] == 12);
+        numbers[1] = await ValueAsync(3);
+        assert(numbers[1] == 3);
+
+        // 'await' binds tighter than the arithmetic around it
+        assert(await ValueAsync(3) * 2 + 1 == 7);
+        assert(2 * await ValueAsync(3) == 6);
+
+        // a prefix operator applies to the awaited value, not to the expression it came from
+        assert(-await ValueAsync(3) == -3);
+        assert(!await FlagAsync(false));
+        assert(~await ValueAsync(0) == -1);
+        assert(-await ValueAsync(3) + 10 == 7);
+
+        // a member, a method, Count and an index, all on an awaited value
+        assert((await HolderAsync(4)).value == 4);
+        assert((await HolderAsync(5)).Doubled() == 10);
+        assert((await NumbersAsync()).Count == 3);
+        assert((await NumbersAsync())[1] == 6);
+
+        // an awaited struct is spilled into a field, which its address can be taken from
+        assert((await PairAsync(1, 2)).a == 1);
+        assert((await PairAsync(3, 4)).Sum() == 7);
+
+        // a receiver the caller already had stays an l-value, so a mutation still lands on it
+        Counter counter = new Counter{ 1 };
+        counter.Add(await ValueAsync(5));
+        assert(counter.total == 6);
+
+        Holder holder = new Holder{ 2 };
+        holder.Bump(await ValueAsync(7));
+        assert(holder.value == 9);
+
+        Pair pair = new Pair{ 0, 0 };
+        pair.b = await ValueAsync(20);
+        assert(pair.Sum() + await ValueAsync(100) == 120);
+
+        // an await inside the expression another await is awaiting
+        assert(await ValueAsync(await ValueAsync(6)) == 6);
+
+        // initializer arguments of a struct, a class and an array
+        Pair made = new Pair{ await ValueAsync(7), await ValueAsync(8) };
+        assert(made.a == 7);
+        assert(made.b == 8);
+
+        Holder built = new Holder{ await ValueAsync(9) };
+        assert(built.value == 9);
+
+        int[] listed = new int[]{ await ValueAsync(1), await ValueAsync(2) };
+        assert(listed[0] == 1);
+        assert(listed[1] == 2);
+
+        // a string operand and a bool result
+        assert("a" + await TextAsync("b") == "ab");
+        assert(await FlagAsync(true));
+
+        // three awaits in one call, each keeping its own value
+        assert(Mix3(await ValueAsync(1), await ValueAsync(2), await ValueAsync(3)) == 123);
+    }
+
+    static int Mix3(int a, int b, int c) {
+        return a * 100 + b * 10 + c;
+    }
+
+    // the operands around an await are spilled into the task, so they survive the suspension
+    Task<void> SpilledAwaitTest()
+    {
+        assert(await ValueAsync(5) == 5);
+
+        int sum = await ValueAsync(2) + await ValueAsync(3);
+        assert(sum == 5);
+
+        // the operands on either side of the await run in source order, before and after it
+        tally = 0;
+        int mixed = Mix3(Count(1), await ValueAsync(2), Count(3));
+        assert(mixed == 123);
+        assert(tally == 4);
+
+        int[] values = new int[2];
+        values[1] = await ValueAsync(7);
+        assert(values[1] == 7);
+
+        if(await ValueAsync(1) == 1)
+            tally = 9;
+        assert(tally == 9);
+
+        switch(await ValueAsync(2))
+        {
+            case 2:
+                tally = 20;
+            default:
+                tally = 0;
+        }
+        assert(tally == 20);
+
+        int nested = await MixedReturnAsync();
+        assert(nested == 456);
+    }
+
+    Task<int> MixedReturnAsync()
+    {
+        return Mix3(await ValueAsync(4), 5, 6);
     }
 
     Task<int> ValueAsync(int value)

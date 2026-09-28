@@ -1408,7 +1408,7 @@ void SemanticAnalyzer::Visit(const sptr<AwaitExpression>& node)
     auto func = node->scope->owner->ToFunctionDefinition();
     ENFORCE(func && func->isCoroutine, node->loc, "'await' can only be used in a coroutine");
 
-    Throw(node->loc, "'await' can only be a whole statement, the right side of an assignment, or a returned value");
+    Throw(node->loc, "'await' cannot be in a loop condition or an assignment target");
 }
 
 std::pair<sptr<FunctionDefinition>, bool> SemanticAnalyzer::GetBinaryOperatorOverload(
@@ -3336,8 +3336,14 @@ void SemanticAnalyzer::Visit(const sptr<TypeSpecifier>& node)
 
 void SemanticAnalyzer::Visit(const sptr<AssertStatement>& node)
 {
+    if(auto block = LowerAwaitsBefore(node, { &node->condition, &node->message }))
+    {
+        replacement = block;
+        return;
+    }
+
     ASTVisitor::Visit(node);
-    
+
     Type* conditionType = node->condition->EvaluateType();
     ENFORCE(conditionType->IsBoolean(), node->condition->loc, "expected boolean condition");
 
@@ -3393,6 +3399,19 @@ void SemanticAnalyzer::Visit(const sptr<EmptyStatement>& node)
 
 void SemanticAnalyzer::Visit(const sptr<GotoStatement>& node)
 {
+    ASTVisitor::Visit(node);
+}
+
+// An if statement evaluates its condition once, so an await in it lowers in front of the statement.
+// A loop's condition runs on every pass, which is why one can't hold an await yet.
+void SemanticAnalyzer::Visit(const sptr<IfStatement>& node)
+{
+    if(auto block = LowerAwaitsBefore(node, { &node->condition }))
+    {
+        replacement = block;
+        return;
+    }
+
     ASTVisitor::Visit(node);
 }
 
@@ -3476,6 +3495,12 @@ void SemanticAnalyzer::ResolveGotoLabels(const sptr<BlockStatement>& body)
 
 void SemanticAnalyzer::Visit(const sptr<SwitchStatement>& node)
 {
+    if(auto block = LowerAwaitsBefore(node, { &node->value }))
+    {
+        replacement = block;
+        return;
+    }
+
     ASTVisitor::Visit(node);
 
     Type* valueType = node->value->EvaluateType();
@@ -3496,12 +3521,258 @@ void SemanticAnalyzer::Visit(const sptr<SwitchStatement>& node)
     }
 }
 
-// The 'await' a statement suspends on: one that is the whole expression, or the right side of its
-// assignment. Returns null for a statement that doesn't suspend.
-sptr<AwaitExpression> SemanticAnalyzer::GetSuspendingAwait(const sptr<ExpressionStatement>& node)
+namespace {
+
+// True when 'expr' has an 'await' anywhere inside it.
+bool ContainsAwait(const sptr<Expression>& expr)
 {
-    auto assign = node->expression->ToAssignExpression();
-    return (assign ? assign->right : node->expression)->ToAwaitExpression();
+    class AwaitFinder : public ASTVisitor
+    {
+    public:
+        bool found = false;
+
+        virtual void Visit(const sptr<AwaitExpression>& node) override
+        {
+            found = true;
+        }
+    };
+
+    if(!expr)
+        return false;
+
+    AwaitFinder finder;
+    expr->Accept(finder);
+
+    return finder.found;
+}
+
+// True for an expression that evaluates an operand only sometimes, so that operand needs a branch
+// of its own to lower an await into.
+bool HasConditionalOperands(const sptr<Expression>& expr)
+{
+    if(expr->ToTernaryExpression())
+        return true;
+
+    auto binary = expr->ToBinaryExpression();
+
+    return binary && (binary->operation == TokenType::LogicalAnd || binary->operation == TokenType::LogicalOr);
+}
+
+// True for an expression that leaves a value on the stack, as opposed to a name a call or a member
+// access is resolved through, which the code generator never pushes.
+bool IsValue(const sptr<Expression>& expr)
+{
+    auto ident = expr->ToIdentifierExpression();
+
+    if(!ident || ident->value == "this")
+        return true;
+
+    return ident->targetDef
+        && (ident->targetDef->ToVariableDefinition() || ident->targetDef->ToParameterDefinition());
+}
+
+// True for an expression whose value can be read after a suspension just as well as before it, so
+// it doesn't need a field to survive one.
+bool IsLiteral(const sptr<Expression>& expr)
+{
+    return expr->ToIntegerLiteralExpression()
+        || expr->ToNumberLiteralExpression()
+        || expr->ToBooleanLiteralExpression()
+        || expr->ToStringLiteralExpression()
+        || expr->ToNullLiteralExpression();
+}
+
+} // namespace
+
+// Stores 'operand' in a field of the coroutine's task and returns a read of that field. The field
+// outlives a suspension, where the stack doesn't, and each one is written once so a later await
+// can't overwrite a value an earlier one produced. A literal or a name that isn't a value has
+// nothing to store, so it stays where it is.
+sptr<Expression> SemanticAnalyzer::SpillOperand(sptr<Expression> operand, const sptr<BlockStatement>& block)
+{
+    VisitChild(operand);
+
+    if(IsLiteral(operand) || !IsValue(operand))
+        return operand;
+
+    Type* valueType = EvaluateTypeChecked(operand);
+
+    // only a struct honours 'pushAsRef', and it is reached through its address, which a field
+    // holding a copy of it wouldn't give
+    ENFORCE(!operand->pushAsRef || !valueType->IsStruct(), operand->loc,
+        "'await' cannot be in a statement that uses a struct by reference");
+
+    shared_string name = CreateSpillField(valueType, operand->loc, block);
+
+    LoweringBuilder builder{ operand->loc, block->scope.get() };
+    block->statements.push_back(builder.AssignStatement(builder.Identifier(name), operand));
+
+    return builder.Identifier(name);
+}
+
+// Adds a field of 'type' to the coroutine's task and returns its name. A value in a field outlives a
+// suspension, where one on the stack doesn't.
+shared_string SemanticAnalyzer::CreateSpillField(Type* type, const SourceLocation& loc, const sptr<BlockStatement>& block)
+{
+    Scope* taskScope = block->scope->owner->parent->ToClassDefinition()->scope.get();
+
+    size_t spillCount = std::ranges::count_if(taskScope->definitions,
+        [](const sptr<Definition>& def) { return std::string_view(def->name).starts_with("$spill"); });
+
+    shared_string name(std::format("$spill{}", spillCount));
+
+    // 'new' initializes every field of a class, so the field needs a default like any other
+    auto field = spnew<VariableDefinition>(loc, taskScope, spnew<TypeSpecifier>(loc, type), name);
+    field->initializer = spnew<DefaultValueExpression>(loc, taskScope, spnew<TypeSpecifier>(loc, type));
+    taskScope->AddDefinition(field);
+
+    return name;
+}
+
+// Rewrites '&&', '||' or a ternary into an if statement that assigns one task field on either path,
+// and returns a read of that field. An operand that runs only sometimes gets its own branch to lower
+// into, so an await in it suspends only when that branch is taken.
+sptr<Expression> SemanticAnalyzer::SpillConditionalOperands(const sptr<Expression>& expr, const sptr<BlockStatement>& block)
+{
+    Scope* scope = block->scope.get();
+    LoweringBuilder builder{ expr->loc, scope };
+
+    sptr<Expression> condition;
+    sptr<Expression> trueValue;
+    sptr<Expression> falseValue;
+
+    if(auto ternary = expr->ToTernaryExpression())
+    {
+        condition = ternary->condition;
+        trueValue = ternary->trueValue;
+        falseValue = ternary->falseValue;
+    }
+    else
+    {
+        auto binary = expr->ToBinaryExpression();
+        bool isLogicalAnd = binary->operation == TokenType::LogicalAnd;
+
+        // 'a && b' is false whenever 'a' is, and 'a || b' is true whenever 'a' is, so the side that
+        // skips 'b' yields what 'a' already decided
+        condition = binary->left;
+        trueValue = isLogicalAnd ? binary->right : spnew<BooleanLiteralExpression>(expr->loc, scope, true);
+        falseValue = isLogicalAnd ? spnew<BooleanLiteralExpression>(expr->loc, scope, false) : binary->right;
+    }
+
+    // the condition always runs, so it lowers ahead of the branches
+    auto branch = spnew<IfStatement>(expr->loc, scope);
+    branch->condition = SpillAwaits(condition, block);
+
+    auto BuildBranch = [&](const sptr<Expression>& value, const shared_string& name) {
+        auto branchBlock = spnew<BlockStatement>(expr->loc, branch->scope.get());
+        auto result = SpillAwaits(value, branchBlock);
+
+        LoweringBuilder branchBuilder{ expr->loc, branchBlock->scope.get() };
+        branchBlock->statements.push_back(branchBuilder.AssignStatement(branchBuilder.Identifier(name), result));
+
+        return branchBlock;
+    };
+
+    // the true side spills first, so the field's type comes from a resolved result rather than an
+    // arm that hasn't been visited yet
+    auto trueBlock = spnew<BlockStatement>(expr->loc, branch->scope.get());
+    auto trueResult = SpillAwaits(trueValue, trueBlock);
+    VisitChild(trueResult);
+
+    shared_string name = CreateSpillField(EvaluateTypeChecked(trueResult), expr->loc, block);
+
+    LoweringBuilder trueBuilder{ expr->loc, trueBlock->scope.get() };
+    trueBlock->statements.push_back(trueBuilder.AssignStatement(trueBuilder.Identifier(name), trueResult));
+
+    branch->trueBranch = trueBlock;
+    branch->falseBranch = BuildBranch(falseValue, name);
+    block->statements.push_back(branch);
+
+    return builder.Identifier(name);
+}
+
+// Rewrites 'expr' so every await inside it has suspended by the time it evaluates, and returns what
+// is left to evaluate. The awaits become statements appended to 'block', each operand around them
+// becomes a task field assigned in source order, and literals are left where they are.
+sptr<Expression> SemanticAnalyzer::SpillAwaits(const sptr<Expression>& expr, const sptr<BlockStatement>& block)
+{
+    if(!ContainsAwait(expr))
+        return SpillOperand(expr, block);
+
+    if(HasConditionalOperands(expr))
+        return SpillConditionalOperands(expr, block);
+
+    if(auto awaitExpr = expr->ToAwaitExpression())
+    {
+        // an await in the awaited expression suspends first, so it lowers ahead of this one
+        if(ContainsAwait(awaitExpr->expression))
+            awaitExpr->expression = SpillAwaits(awaitExpr->expression, block);
+
+        auto value = LowerAwait(awaitExpr, block);
+        ENFORCE(!!value, awaitExpr->loc, "a Task<void> has no value");
+
+        return SpillOperand(value, block);
+    }
+
+    // Replaces each operand of 'expr' with whatever it spills to. ASTVisitor writes back what
+    // 'replacement' holds and walks children in source order, so overriding this rewrites one
+    // operand at a time and descends no further on its own.
+    class OperandSpiller : public ASTVisitor
+    {
+    public:
+        SemanticAnalyzer& analyzer;
+        const sptr<BlockStatement>& block;
+
+        OperandSpiller(SemanticAnalyzer& analyzer, const sptr<BlockStatement>& block)
+            : analyzer(analyzer), block(block)
+        {
+        }
+
+        virtual void VisitChildNode(const sptr<ASTNode>& node) override
+        {
+            if(auto operand = node ? node->ToExpression() : nullptr)
+                replacement = analyzer.SpillAwaits(operand, block);
+        }
+
+        // A call's target names the function, which only the call itself can resolve, so the
+        // arguments are its operands. The receiver under that name is spilled only when an await
+        // produced it, since one the caller already had is an l-value a copy wouldn't stand in for.
+        virtual void Visit(const sptr<CallExpression>& node) override
+        {
+            for(auto& arg : node->arguments)
+                VisitChild(arg);
+
+            if(auto target = node->target->ToIdentifierExpression(); target && ContainsAwait(target->context))
+                VisitChild(target->context);
+        }
+    };
+
+    OperandSpiller spiller(*this, block);
+    expr->Accept(spiller);
+
+    return expr;
+}
+
+// Lowers the awaits in 'expressions' into statements that run before 'node', and returns the block
+// holding them and 'node'. Returns null when none of them has an await.
+sptr<BlockStatement> SemanticAnalyzer::LowerAwaitsBefore(
+    const sptr<Statement>& node, std::initializer_list<sptr<Expression>*> expressions)
+{
+    if(std::ranges::none_of(expressions, [](sptr<Expression>* expr) { return ContainsAwait(*expr); }))
+        return {};
+
+    auto block = spnew<BlockStatement>(node->loc, node->enclosingScope);
+
+    for(sptr<Expression>* expr : expressions)
+    {
+        if(*expr)
+            *expr = SpillAwaits(*expr, block);
+    }
+
+    block->statements.push_back(node);
+    VisitChild(block);
+
+    return block;
 }
 
 // Appends to 'block' the statements that go before the statement an 'await' is in: they store the
@@ -3562,31 +3833,38 @@ sptr<Expression> SemanticAnalyzer::LowerAwait(const sptr<AwaitExpression>& node,
     return builder.Call(AwaitedTask(), "GetValue");
 }
 
-// 'await task;' and 'value = await task;' are lowered here, so the statement can continue after
-// the suspension. Visit(AwaitExpression) rejects an 'await' anywhere else.
+// Lowers the awaits in an expression statement into statements in front of it. A bare 'await task;'
+// is the one that keeps no value, so nothing is left to run afterwards.
 void SemanticAnalyzer::Visit(const sptr<ExpressionStatement>& node)
 {
-    auto awaitExpr = GetSuspendingAwait(node);
-
-    if(!awaitExpr)
+    if(auto awaitExpr = node->expression->ToAwaitExpression())
     {
-        ASTVisitor::Visit(node);
+        auto block = spnew<BlockStatement>(node->loc, node->enclosingScope);
+        LowerAwait(awaitExpr, block);
+
+        VisitChild(block);
+        replacement = block;
         return;
     }
 
-    auto block = spnew<BlockStatement>(node->loc, node->enclosingScope);
-    auto value = LowerAwait(awaitExpr, block);
+    auto assign = node->expression->ToAssignExpression();
 
-    // a bare 'await task;' doesn't use the value
-    if(auto assign = node->expression->ToAssignExpression())
+    if(assign && assign->operation != TokenType::Assign)
     {
-        ENFORCE(!!value, awaitExpr->loc, "a Task<void> has no value");
-        assign->right = value;
-        block->statements.push_back(node);
+        ENFORCE(!ContainsAwait(assign->right), assign->right->loc,
+            "'await' cannot be on the right of a compound assignment");
     }
 
-    VisitChild(block);
-    replacement = block;
+    // an assignment evaluates its target after its value, so only the value can hold an await
+    sptr<Expression>* value = assign ? &assign->right : &node->expression;
+
+    if(auto block = LowerAwaitsBefore(node, { value }))
+    {
+        replacement = block;
+        return;
+    }
+
+    ASTVisitor::Visit(node);
 }
 
 // A coroutine's return stores its value, marks the task done and resumes whatever awaits it, then
@@ -3603,13 +3881,9 @@ void SemanticAnalyzer::Visit(const sptr<ReturnStatement>& node)
             auto taskClass = node->enclosingScope->owner->parent->ToClassDefinition();
             ENFORCE(!!taskClass->GetVariable("$value"), node->loc, "a Task<void> coroutine cannot return a value");
 
-            auto value = node->expression;
-
-            if(auto awaitExpr = value->ToAwaitExpression())
-            {
-                value = LowerAwait(awaitExpr, block);
-                ENFORCE(!!value, awaitExpr->loc, "a Task<void> has no value");
-            }
+            auto value = ContainsAwait(node->expression)
+                ? SpillAwaits(node->expression, block)
+                : node->expression;
 
             block->statements.push_back(builder.AssignStatement(builder.Identifier("$value"), value));
         }

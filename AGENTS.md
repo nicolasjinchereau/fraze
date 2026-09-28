@@ -118,7 +118,7 @@ The syntax is C#-like; `compiler/assets/fraze.tests.fz` has examples of every fe
 - `section` is a namespace. `extern` declarations bind to C++ functions registered with `Compiler::AddFunction` or `AddIntrinsic`.
 - `fold { stmts; expr; }` is an expression whose value is its final expression statement.
 - `switch` doesn't fall through and accepts `case 1, 2:`. `goto name;` jumps to a `name:` label. There is no `break` or `continue` yet.
-- Coroutines return `Task<T>`. `await` can only be a whole statement, the right side of an assignment, or a returned value.
+- Coroutines return `Task<T>`. `await` works anywhere in an expression except a loop condition, an assignment target, the right of a compound assignment, and inside a fold.
 - Structs and enums can't be converted to `object`, because boxing isn't implemented.
 
 ## Debugging the compiler

@@ -97,6 +97,7 @@ public:
     virtual void Visit(const sptr<EmptyStatement>& node);
     virtual void Visit(const sptr<ExpressionStatement>& node);
     virtual void Visit(const sptr<GotoStatement>& node);
+    virtual void Visit(const sptr<IfStatement>& node);
     virtual void Visit(const sptr<ReturnStatement>& node);
     virtual void Visit(const sptr<SwitchStatement>& node);
 
@@ -117,8 +118,12 @@ private:
     sptr<IdentifierExpression> CreateTempFoldValueIdentifier(const sptr<Expression>& tempFold, Scope* scope);
     void SetStructPushAsRef(const sptr<Expression>& expr);
     void ResolveGotoLabels(const sptr<BlockStatement>& body);
-    static sptr<AwaitExpression> GetSuspendingAwait(const sptr<ExpressionStatement>& node);
     sptr<Expression> LowerAwait(const sptr<AwaitExpression>& node, const sptr<BlockStatement>& block);
+    sptr<Expression> SpillOperand(sptr<Expression> operand, const sptr<BlockStatement>& block);
+    shared_string CreateSpillField(Type* type, const SourceLocation& loc, const sptr<BlockStatement>& block);
+    sptr<Expression> SpillConditionalOperands(const sptr<Expression>& expr, const sptr<BlockStatement>& block);
+    sptr<Expression> SpillAwaits(const sptr<Expression>& expr, const sptr<BlockStatement>& block);
+    sptr<BlockStatement> LowerAwaitsBefore(const sptr<Statement>& node, std::initializer_list<sptr<Expression>*> expressions);
     sptr<Expression> CreateAllocationCall(const sptr<NewExpression>& node, const shared_string& funcName, const sptr<Expression>& length);
     std::optional<sptr<ASTNode>> CreateAsInstanceCall(const sptr<AsExpression>& node);
     std::optional<sptr<ASTNode>> CreateStringFromTypeCall(const sptr<AsExpression>& node);
