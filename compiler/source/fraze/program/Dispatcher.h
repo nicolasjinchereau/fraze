@@ -29,7 +29,7 @@ struct DispatchAction
     template<class Func>
     DispatchAction(
         Func&& function,
-        steady_clock::time_point when = {}
+        steady_clock::time_point when
     ) : function(std::forward<Func>(function)), when(when) {}
 };
 
@@ -43,7 +43,7 @@ class Dispatcher : public sptr_from_this<Dispatcher>
 public:
     virtual sptr<DispatchAction> InvokeAsync(
         std::function<void()> function,
-        steady_clock::time_point when = steady_clock::time_point{ steady_clock::duration::zero() }
+        steady_clock::time_point when = steady_clock::now()
     );
     virtual bool Cancel(const sptr<DispatchAction>& action);
     static sptr<Dispatcher> GetCurrent();

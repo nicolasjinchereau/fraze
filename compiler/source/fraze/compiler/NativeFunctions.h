@@ -93,7 +93,7 @@ inline void WaitAsync(Program* program, Class& task, const Number& seconds)
     auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(fseconds);
     auto resumeTime = std::chrono::steady_clock::now() + millis;
 
-    Dispatcher::GetCurrent()->InvokeAsync([&, program]{
+    Dispatcher::GetCurrent()->InvokeAsync([&task, program]{
         task.SetField("$position", Integer(-1));
         program->Invoke("OnAwaitableCompleted", &task);
         program->UnpinMemory(&task);
@@ -104,7 +104,7 @@ inline void YieldAsync(Program* program, Class& task)
 {
     program->PinMemory(&task);
 
-    Dispatcher::GetCurrent()->InvokeAsync([&, program]{
+    Dispatcher::GetCurrent()->InvokeAsync([&task, program]{
         task.SetField("$position", Integer(-1));
         program->Invoke("OnAwaitableCompleted", &task);
         program->UnpinMemory(&task);

@@ -17,6 +17,7 @@ struct DispatchActionComparison
     }
 };
 
+// Queues an action in deadline order, ties in arrival order, so a run-now post can't overtake an action already due.
 sptr<DispatchAction> Dispatcher::InvokeAsync(
     std::function<void()> function, steady_clock::time_point when)
 {
@@ -34,8 +35,8 @@ bool Dispatcher::Cancel(const sptr<DispatchAction>& action)
 {
     std::unique_lock<std::mutex> lk(mut);
 
-    auto it = std::lower_bound(actions.begin(), actions.end(), action, DispatchActionComparison());
-    if (it != actions.end() && *it == action) {
+    auto it = std::find(actions.begin(), actions.end(), action);
+    if (it != actions.end()) {
         actions.erase(it);
         return true;
     }
@@ -56,9 +57,9 @@ void Dispatcher::Run(bool quitWhenDone)
 
             if(!(actions.empty() && quitWhenDone))
             {
-                auto wake = steady_clock::time_point::max();
-                if (!actions.empty() && actions.front()->when > steady_clock::time_point(std::chrono::microseconds(0)))
-                    wake = actions.front()->when;
+                auto wake = !actions.empty()
+                    ? actions.front()->when
+                    : steady_clock::time_point::max();
 
                 cv.wait_until(
                     lk, wake,
