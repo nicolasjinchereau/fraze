@@ -30,13 +30,18 @@ WorkerThread::WorkerThread()
     readyFuture.get();
 }
 
-WorkerThread::~WorkerThread()
+void WorkerThread::Shutdown()
 {
     if(dispatcher)
         dispatcher->Quit();
 
     if(worker.joinable())
         worker.join();
+}
+
+WorkerThread::~WorkerThread()
+{
+    Shutdown();
 }
 
 WorkerThread& WorkerThread::GetInstance()

@@ -84,6 +84,7 @@ void Dispatcher::Quit()
 {
     std::unique_lock<std::mutex> lk(mut);
     run = false;
+    actions.clear();
     cv.notify_one();
 }
 

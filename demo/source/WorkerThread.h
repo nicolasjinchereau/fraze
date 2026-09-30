@@ -22,6 +22,8 @@ public:
         dispatcher->InvokeAsync(std::forward<Func>(func));
     }
 
+    void Shutdown();
+
     static WorkerThread& GetInstance();
 };
 

@@ -25,7 +25,6 @@ Get-Content demo\output\stdout.txt, demo\output\stderr.txt
 
 - `-WorkingDirectory demo` is required because assets resolve relative to it. Close with `CloseMainWindow()`; force-killing loses buffered stdout.
 - **Pass:** stdout ends with `Finished loading scene.` **Fail:** a compile error or failed `assert` prints `file(line,col): message` and the process exits early. The exit code is 0 either way, so read the output.
-- Errors raised after the scene starts rendering can be lost because stdout isn't flushed. To see them, temporarily add `std::fflush(stdout)` to the `catch` in `demo/source/main.cpp`.
 - Only Debug runs checks: Release calls `DisableAssert()`, `DisableNullCheck()`, `DisableBoundsCheck()` and `DisableTypeCheck()` in `demo/source/main.cpp`.
 - Add language tests to `fraze.tests.fz` as a `section XxxTests` with a `void Run()` that uses `assert(...)`, and call it from `RunAllTests()`.
 - Performance: measure in Release, on branchy gameplay-style code (e.g. a stress test in `Main.fz` timed with `Time.Now.Seconds` and printed with `Console.WriteLine`), not only demo FPS. The demo's hot path, `MeshRenderer.Deform`, is math-heavy and unrepresentative.

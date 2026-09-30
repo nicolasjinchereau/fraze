@@ -3,9 +3,11 @@
 *---------------------------------------------------------------*/
 
 #include <fraze/common/Exception.h>
+#include <fraze/common/ScopeUtil.h>
 #include <fraze/compiler/Compiler.h>
 #include <fraze/program/Dispatcher.h>
 #include <ExternFunctions.h>
+#include <WorkerThread.h>
 #include <iostream>
 #include <print>
 #include <string>
@@ -25,6 +27,11 @@ int main(int argc, char** argv)
 #endif
 
         auto program = compiler.Compile();
+
+        auto programRelease = fraze::scope_exit([]{
+            fraze::WorkerThread::GetInstance().Shutdown();
+            fraze::Dispatcher::GetCurrent()->Quit();
+        });
 
         auto dispatcher = fraze::Dispatcher::GetCurrent();
         
