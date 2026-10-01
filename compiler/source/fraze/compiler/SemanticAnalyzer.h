@@ -105,6 +105,7 @@ private:
     Type* EvaluateTypeChecked(const sptr<Expression>& expr);
     bool IsFunctionAssignable(const sptr<FunctionDefinition>& leftFunc, const sptr<FunctionDefinition>& rightFunc, bool skipImplicitThisParam = false);
     bool IsAssignable(Type* leftType, Type* rightType, TokenType operation = TokenType::Assign, bool* needsConversion = nullptr);
+    sptr<Expression> WrapWithConversion(const sptr<Expression>& value, Type* type);
     void ProcessAssignment(const SourceLocation& leftLoc, Type* left, sptr<Expression>& right, TokenType operation = TokenType::Assign);
     void ProcessBinaryOperation(const sptr<BinaryExpression>& node);
     void ProcessCondition(sptr<Expression>& expr);

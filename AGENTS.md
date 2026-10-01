@@ -31,7 +31,7 @@ Get-Content demo\output\stdout.txt, demo\output\stderr.txt
 
 ## Working in this repository
 
-- The user works in parallel and usually has uncommitted changes, often in the files you touch. To undo your own temporary edit, write back the exact content you saved before editing. Never use `git checkout`, `restore`, `stash` or `reset` on files. For compile probes, prefer a new scratch `.fz` file in `demo/assets/scripts/` (every `.fz` there is compiled), and delete it afterward.
+- The user works in parallel and usually has uncommitted changes, often in the files you touch. To undo your own temporary edit, write back the exact content you saved before editing. When you `stash`, `checkout`, `restore` or `reset`, scope it so it cannot discard changes that aren't yours. For compile probes, prefer a new scratch `.fz` file in `demo/assets/scripts/` (every `.fz` there is compiled), and delete it afterward.
 - Commit only when explicitly asked in that turn, and never push. Commit messages have one brief line per major change, each starting with `-` and no space (e.g. `-add switch statements`), in plain ASCII. Never add `Co-Authored-By` or any other trailer, even if your tooling adds one by default.
 - Propose language and compiler design changes before implementing them. The user makes design calls, one step at a time.
 - When reporting back, cover what you did and anything that differs from what the user would expect. Don't affirm negatives: if you followed an instruction by not doing something (e.g. you didn't commit because you weren't asked to), leave it out. What already matches the user's expectations goes without saying.

@@ -232,6 +232,25 @@ void SemanticAnalyzer::ParseCodeString(Scope* enclosingScope, const std::string&
     parser.Parse(astRoot, scopes);
 }
 
+sptr<Expression> SemanticAnalyzer::WrapWithConversion(const sptr<Expression>& value, Type* type)
+{
+    sptr<Expression> converted;
+
+    if(type->IsNumber() && value->ToIntegerLiteralExpression())
+    {
+        auto intLiteral = value->ToIntegerLiteralExpression();
+        converted = spnew<NumberLiteralExpression>(intLiteral->loc, intLiteral->scope, (double)intLiteral->value);
+    }
+    else
+    {
+        auto resultTypeSpec = spnew<TypeSpecifier>(value->loc, type);
+        converted = spnew<ConvertExpression>(value->loc, value->scope, resultTypeSpec, value);
+    }
+
+    VisitChild(converted);
+    return converted;
+}
+
 void SemanticAnalyzer::ProcessAssignment(const SourceLocation& leftLoc, Type* leftType, sptr<Expression>& right, TokenType operation)
 {
     // ensure types can be evaluated
@@ -434,10 +453,7 @@ void SemanticAnalyzer::ProcessAssignment(const SourceLocation& leftLoc, Type* le
             }
             else
             {
-                auto resultTypeSpec = spnew<TypeSpecifier>(right->loc, leftType);
-                auto convertExpr = spnew<ConvertExpression>(right->loc, right->scope, resultTypeSpec, right);
-                right = convertExpr;
-                VisitChild(right);
+                right = WrapWithConversion(right, leftType);
                 rightType = right->EvaluateType();
             }
         }
@@ -465,32 +481,24 @@ void SemanticAnalyzer::ProcessBinaryOperation(const sptr<BinaryExpression>& expr
         // promote left to number
         else if(leftType->IsInteger() && rightType->IsNumber())
         {
-            auto resultTypeSpec = spnew<TypeSpecifier>(expr->left->loc, Type::Get("num"));
-            expr->left = spnew<ConvertExpression>(expr->left->loc, expr->left->scope, resultTypeSpec, expr->left);
-            VisitChild(expr->left);
+            expr->left = WrapWithConversion(expr->left, Type::Get("num"));
             valid = true;
         }
         // promote right to number
         else if(leftType->IsNumber() && rightType->IsInteger())
         {
-            auto resultTypeSpec = spnew<TypeSpecifier>(expr->right->loc, Type::Get("num"));
-            expr->right = spnew<ConvertExpression>(expr->right->loc, expr->right->scope, resultTypeSpec, expr->right);
-            VisitChild(expr->right);
+            expr->right = WrapWithConversion(expr->right, Type::Get("num"));
             valid = true;
         }
         // promote left to string
         else if(rightType->IsString() && (leftType->IsBoolean() || leftType->IsInteger() || leftType->IsNumber() || leftType->IsEnum()))
         {
-            auto resultTypeSpec = spnew<TypeSpecifier>(expr->left->loc, Type::Get("string"));
-            expr->left = spnew<ConvertExpression>(expr->left->loc, expr->left->scope, resultTypeSpec, expr->left);
-            VisitChild(expr->left);
+            expr->left = WrapWithConversion(expr->left, Type::Get("string"));
             valid = true;
         }
         // promote right to string
         else if(leftType->IsString() && (rightType->IsBoolean() || rightType->IsInteger() || rightType->IsNumber() || rightType->IsEnum()))        {
-            auto resultTypeSpec = spnew<TypeSpecifier>(expr->right->loc, Type::Get("string"));
-            expr->right = spnew<ConvertExpression>(expr->right->loc, expr->right->scope, resultTypeSpec, expr->right);
-            VisitChild(expr->right);
+            expr->right = WrapWithConversion(expr->right, Type::Get("string"));
             valid = true;
         }
     }
@@ -510,17 +518,13 @@ void SemanticAnalyzer::ProcessBinaryOperation(const sptr<BinaryExpression>& expr
         // promote left to number
         else if(leftType->IsInteger() && rightType->IsNumber())
         {
-            auto resultTypeSpec = spnew<TypeSpecifier>(expr->left->loc, Type::Get("num"));
-            expr->left = spnew<ConvertExpression>(expr->left->loc, expr->left->scope, resultTypeSpec, expr->left);
-            VisitChild(expr->left);
+            expr->left = WrapWithConversion(expr->left, Type::Get("num"));
             valid = true;
         }
         // promote right to number
         else if(leftType->IsNumber() && rightType->IsInteger())
         {
-            auto resultTypeSpec = spnew<TypeSpecifier>(expr->right->loc, Type::Get("num"));
-            expr->right = spnew<ConvertExpression>(expr->right->loc, expr->right->scope, resultTypeSpec, expr->right);
-            VisitChild(expr->right);
+            expr->right = WrapWithConversion(expr->right, Type::Get("num"));
             valid = true;
         }
     }
@@ -559,17 +563,13 @@ void SemanticAnalyzer::ProcessBinaryOperation(const sptr<BinaryExpression>& expr
         // promote left to number
         else if(leftType->IsInteger() && rightType->IsNumber())
         {
-            auto resultTypeSpec = spnew<TypeSpecifier>(expr->left->loc, Type::Get("num"));
-            expr->left = spnew<ConvertExpression>(expr->left->loc, expr->left->scope, resultTypeSpec, expr->left);
-            VisitChild(expr->left);
+            expr->left = WrapWithConversion(expr->left, Type::Get("num"));
             valid = true;
         }
         // promote right to number
         else if(leftType->IsNumber() && rightType->IsInteger())
         {
-            auto resultTypeSpec = spnew<TypeSpecifier>(expr->right->loc, Type::Get("num"));
-            expr->right = spnew<ConvertExpression>(expr->right->loc, expr->right->scope, resultTypeSpec, expr->right);
-            VisitChild(expr->right);
+            expr->right = WrapWithConversion(expr->right, Type::Get("num"));
             valid = true;
         }
         // demote right to object

@@ -114,6 +114,24 @@ section OperatorTests
     }
 }
 
+section LiteralTests
+{
+    void Run()
+    {
+        // an exponent makes a number literal, with or without a fraction or a sign
+        assert(1e-12 < 1.0);
+        assert(2e3 == 2000.0);
+        assert(1E5 == 100000.0);
+        assert(1.5e3 == 1500.0);
+        assert(5.0e-1 == 0.5);
+
+        // without one, a literal with no fraction is an integer, in any base
+        assert(42 == 42);
+        assert(0xFF == 255);
+        assert(0b1011 == 11);
+    }
+}
+
 section ConversionTests
 {
     class Test
@@ -2074,6 +2092,7 @@ section SwitchTests
 void RunAllTests()
 {
     OperatorTests.Run();
+    LiteralTests.Run();
     ConversionTests.Run();
     ArrayTests.Run();
     StringTests.Run();

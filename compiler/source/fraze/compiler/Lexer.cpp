@@ -597,28 +597,22 @@ Token Lexer::GetNumberToken()
     if(base == 10)
     {
         double numberValue;
-        std::from_chars_result ret = std::from_chars(charsPos, charsEnd, numberValue);
-        ENFORCE(ret.ec == std::errc(), location, "invalid number");
+        std::from_chars_result numberRet = std::from_chars(charsPos, charsEnd, numberValue);
+        ENFORCE(numberRet.ec == std::errc(), location, "invalid number");
 
-        auto len = ret.ptr - reinterpret_cast<char*>(&pos[0]);
-        std::string_view number(charsPos, charsPos + len);
+        int64_t integerValue;
+        std::from_chars_result integerRet = std::from_chars(charsPos, charsEnd, integerValue);
 
-        auto start = pos;
+        bool isNumber = integerRet.ec != std::errc() || integerRet.ptr < numberRet.ptr;
+
         auto loc = location;
 
-        SkipChars(len);
+        SkipChars(numberRet.ptr - charsPos);
 
-        if(number.contains("."))
-        {
+        if(isNumber)
             return Token(loc, numberValue);
-        }
-        else
-        {
-            int64_t integerValue;
-            std::from_chars_result ret = std::from_chars(charsPos, charsEnd, integerValue);
-            assert(ret.ec == std::errc());
-            return Token(loc, integerValue);
-        }
+
+        return Token(loc, integerValue);
     }
     else
     {
