@@ -37,8 +37,9 @@ int main(int argc, char** argv)
         
         dispatcher->InvokeAsync([&]{
             fraze::ScopedAllocator alloc(program.get());
-            fraze::Array<fraze::String>* argArray = NEW_FRAZE_ARRAY_T(alloc, fraze::String, "string[]", 1);
-            argArray->At(0) = NEW_FRAZE_STRING(alloc, "test");
+            fraze::Array<fraze::String>* argArray = NEW_FRAZE_ARRAY_T(alloc, fraze::String, "string[]", argc - 1);
+            for(int i = 1; i < argc; ++i)
+                argArray->At(i - 1) = NEW_FRAZE_STRING(alloc, argv[i]);
             program->Invoke("main", argArray).GetInteger();
         });
 
@@ -51,6 +52,7 @@ int main(int argc, char** argv)
     catch(const std::exception& ex)
     {
         std::print("{}\n\n", ex.what());
+        return 1;
     }
 
     return 0;

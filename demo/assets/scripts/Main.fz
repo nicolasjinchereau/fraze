@@ -198,6 +198,10 @@ int main(string[] args)
 {
     RunAllTests();
     MathTests.Run();
+
+    if(args.Count != 0 && args[0] == "--test")
+        return 0;
+
     App app = new App{};
     app.Run();
     return 0;
