@@ -65,6 +65,7 @@ template<typename T>
 inline constexpr bool IsArray = _IsArrayImpl<T>::value;
 
 class Program;
+class VMProgram;
 class Class;
 class String;
 class ScopedAllocator;
@@ -142,7 +143,7 @@ class Word
         Reference reference;
     };
 
-    friend Program;
+    friend VMProgram;
 public:
     Word() { object = nullptr; }
     Word(std::nullptr_t) : Word() { }

@@ -12,13 +12,13 @@
 #include <vector>
 #include <fraze/ast/AST.h>
 #include <fraze/ast/ASTVisitor.h>
-#include <fraze/program/Program.h>
+#include <fraze/program/VMProgram.h>
 
 namespace fraze {
 
 class Compiler;
 
-class CodeGenerator : public ASTVisitor
+class VMCodeGenerator : public ASTVisitor
 {
     std::unordered_map<const Type*, sptr<TypeInfo>> typeInfo;
 
@@ -43,7 +43,7 @@ class CodeGenerator : public ASTVisitor
 
     void PatchJumps(const std::ranges::input_range auto& jumpIndices, size_t destinationCodeIndex);
 public:
-    sptr<Program> program;
+    sptr<VMProgram> program;
 
     size_t Emit(nullptr_t data);
     size_t Emit(Boolean data);

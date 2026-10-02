@@ -395,10 +395,9 @@ void Heap::CollectInternal()
     if(!globals.empty())
         ScanRange(std::as_writable_bytes(std::span(globals.data(), globals.size())));
 
-    std::byte* stackBegin = reinterpret_cast<std::byte*>(pProgram->stack.data());
-    std::byte* stackEnd = reinterpret_cast<std::byte*>(pProgram->rsp + 1);
-    if(stackEnd != stackBegin)
-        ScanRange({ stackBegin, stackEnd });
+    std::span<Word> usedStackRange = pProgram->GetUsedStackRange();
+    if(!usedStackRange.empty())
+        ScanRange(std::as_writable_bytes(usedStackRange));
 
     for(auto& range : ranges)
     {

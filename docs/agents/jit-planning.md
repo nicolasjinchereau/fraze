@@ -39,14 +39,14 @@ The whole program is compiled up front. Lazy generation isn't used, and on Win64
   - memory (`ALLOCA`) for any local whose address is taken (`PushLocalAddr`, `ref` parameters, struct receivers passed by reference).
 - **Call targets.** `Call` and `CallExternal` carry a `typeInfo` index that the VM resolves at run time; a JIT resolves direct calls when compiling. `CallVirtual` goes through `Class::GetFunctionID`, a linear scan of the class's interfaces that returns a function id, then through `typeInfo` to `codeStart`. Compiled code needs dispatch data that yields a code pointer in a couple of loads.
 - **Externs.** `IExternalFunction::Invoke(Program*, Word* argsEnd)` reads its arguments and writes its result at fixed offsets below `argsEnd`, in the VM stack's layout: the first argument nearest `argsEnd`, and the return storage below the last argument.
-- **Host entry.** `Program::InvokeImpl` builds a VM frame from a `Word` array.
+- **Host entry.** `VMProgram::InvokeImpl` builds a VM frame from a `Word` array.
 - **GC roots.** `Heap::CollectInternal` conservatively scans the globals and the VM stack, but compiled code keeps references in registers and on the native stack. A collection can also start on the worker thread (asset loading allocates through `ScopedAllocator` on it) while the main thread is running.
 - **Failures.** `Debug.Fail` and `ENFORCE` throw C++ exceptions that `demo/source/main.cpp` catches, and externs can throw too. Neither an exception nor a plain `longjmp` can cross compiled frames; see **Failures** under the recommended approach.
 - **VM-only diagnostics.** Per-operation source locations drive the heap debug locations, `FRAZE_PRINT_EXECUTED_CODE` and `ExportBytecode`; compiled code has none.
 
 ## Recommended approach
 
-- **Generate MIR from the lowered AST,** with a second `ASTVisitor` beside `CodeGenerator`, rather than translating bytecode. The AST is typed and fully lowered, so the generator is mechanical. Whether the bytecode VM stays, as a reference or debug backend, is undecided.
+- **Generate MIR from the lowered AST,** with a second `ASTVisitor` beside `VMCodeGenerator`, rather than translating bytecode. The AST is typed and fully lowered, so the generator is mechanical. Whether the bytecode VM stays, as a reference or debug backend, is undecided.
 - **Externs:** call a C-ABI bridge that takes a block holding the return storage and arguments in that layout, and calls `Invoke` with its end. Later, call the C++ function directly: `ExternalFunction<Func>` already holds both its address and its signature.
 - **Host entry:** one uniform native entry signature, or a thunk per entry point.
 - **GC:** spill registers with `setjmp` (which doesn't unwind), then scan the native stack from the current stack pointer up to the thread's stack base. Worker-thread allocations don't start collections; the main thread does.

@@ -17,8 +17,8 @@ int main(int argc, char** argv)
 {
     try
     {
-        auto compiler = fraze::Compiler("../compiler/assets");
-
+        fraze::Compiler compiler;
+        compiler.AddFrazeRuntime("../compiler/assets");
         compiler.AddDirectory("assets/scripts");
         AddExternFunctions(compiler);
         

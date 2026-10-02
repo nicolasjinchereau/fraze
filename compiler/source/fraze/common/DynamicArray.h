@@ -2,6 +2,7 @@
 *  Copyright (c) 2026 Nicolas Jinchereau. All rights reserved.  *
 *---------------------------------------------------------------*/
 
+#pragma once
 #include <cassert>
 #include <cstddef>
 #include <cstring>

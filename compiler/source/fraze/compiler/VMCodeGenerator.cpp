@@ -5,48 +5,48 @@
 #include <algorithm>
 #include <ranges>
 #include <print>
-#include <fraze/compiler/CodeGenerator.h>
+#include <fraze/compiler/VMCodeGenerator.h>
 #include <fraze/compiler/Compiler.h>
 #include <fraze/compiler/RuntimeTypeInfo.h>
 
 namespace fraze {
 
-size_t CodeGenerator::Emit(nullptr_t data) {
+size_t VMCodeGenerator::Emit(nullptr_t data) {
     size_t ret = program->data.size();
     program->data.push_back(data);
     program->dataTypes.push_back(WordType::Object);
     return ret;
 }
 
-size_t CodeGenerator::Emit(Boolean data) {
+size_t VMCodeGenerator::Emit(Boolean data) {
     size_t ret = program->data.size();
     program->data.push_back(data);
     program->dataTypes.push_back(WordType::Boolean);
     return ret;
 }
 
-size_t CodeGenerator::Emit(Integer data) {
+size_t VMCodeGenerator::Emit(Integer data) {
     size_t ret = program->data.size();
     program->data.push_back(data);
     program->dataTypes.push_back(WordType::Integer);
     return ret;
 }
 
-size_t CodeGenerator::Emit(Number data) {
+size_t VMCodeGenerator::Emit(Number data) {
     size_t ret = program->data.size();
     program->data.push_back(data);
     program->dataTypes.push_back(WordType::Number);
     return ret;
 }
 
-size_t CodeGenerator::Emit(String* data) {
+size_t VMCodeGenerator::Emit(String* data) {
     size_t ret = program->data.size();
     program->data.push_back(data);
     program->dataTypes.push_back(WordType::String);
     return ret;
 }
 
-void CodeGenerator::PopExpression(const sptr<Expression>& node, const sptr<Expression>& source) // pop into 'node'
+void VMCodeGenerator::PopExpression(const sptr<Expression>& node, const sptr<Expression>& source) // pop into 'node'
 {
     // how many words to pop
     size_t varSize = 1;
@@ -136,7 +136,7 @@ void CodeGenerator::PopExpression(const sptr<Expression>& node, const sptr<Expre
     }
 }
 
-void CodeGenerator::EmitFieldInitializer(sptr<Expression>& value, size_t fieldOffset, size_t fieldSize)
+void VMCodeGenerator::EmitFieldInitializer(sptr<Expression>& value, size_t fieldOffset, size_t fieldSize)
 {
     uint64_t offset = ClassDataOffset + fieldOffset;
 
@@ -153,7 +153,7 @@ void CodeGenerator::EmitFieldInitializer(sptr<Expression>& value, size_t fieldOf
         Emit(value->loc, OpCode::PopWord, offset);
 }
 
-void CodeGenerator::EmitConversion(sptr<Expression>& value, const sptr<TypeSpecifier>& resultTypeSpec)
+void VMCodeGenerator::EmitConversion(sptr<Expression>& value, const sptr<TypeSpecifier>& resultTypeSpec)
 {
     Type* sourceType = value->EvaluateType();
     Type* resultType = resultTypeSpec->type;
@@ -257,7 +257,7 @@ void CodeGenerator::EmitConversion(sptr<Expression>& value, const sptr<TypeSpeci
 // operand, so the first operand that decides the outcome performs a jump. The code a jump lands on
 // hasn't been generated yet, so each jump's index is collected in the caller's list, and the caller
 // fills in the destination once it knows where that code starts.
-void CodeGenerator::EmitConditionalJumps(const sptr<Expression>& condition, std::vector<size_t>* trueJumpIndices, std::vector<size_t>* falseJumpIndices)
+void VMCodeGenerator::EmitConditionalJumps(const sptr<Expression>& condition, std::vector<size_t>* trueJumpIndices, std::vector<size_t>* falseJumpIndices)
 {
     // one result jumps, the other falls through
     assert(!trueJumpIndices != !falseJumpIndices);
@@ -306,7 +306,7 @@ void CodeGenerator::EmitConditionalJumps(const sptr<Expression>& condition, std:
 }
 
 // Points jumps already generated at 'destinationCodeIndex'.
-void CodeGenerator::PatchJumps(const std::ranges::input_range auto& jumpIndices, size_t destinationCodeIndex)
+void VMCodeGenerator::PatchJumps(const std::ranges::input_range auto& jumpIndices, size_t destinationCodeIndex)
 {
     for(size_t jumpIndex : jumpIndices)
         program->code[jumpIndex].arg1_u64 = destinationCodeIndex;
@@ -316,9 +316,9 @@ void CodeGenerator::PatchJumps(const std::ranges::input_range auto& jumpIndices,
 *            ROOT            *
 *****************************/
 
-void CodeGenerator::Visit(const sptr<ASTRoot>& node)
+void VMCodeGenerator::Visit(const sptr<ASTRoot>& node)
 {
-    program = spnew<Program>();
+    program = spnew<VMProgram>();
     
     auto compiler = Compiler::GetActiveCompiler();
     if(!compiler)
@@ -337,11 +337,11 @@ void CodeGenerator::Visit(const sptr<ASTRoot>& node)
 *         DEFINITIONS        *
 *****************************/
 
-void CodeGenerator::Visit(const sptr<BasicTypeDefinition>& node) {
+void VMCodeGenerator::Visit(const sptr<BasicTypeDefinition>& node) {
     ASTVisitor::Visit(node);
 }
 
-void CodeGenerator::Visit(const sptr<ClassDefinition>& node)
+void VMCodeGenerator::Visit(const sptr<ClassDefinition>& node)
 {
     if(node->IsTemplateDeclaration())
         return;
@@ -349,15 +349,15 @@ void CodeGenerator::Visit(const sptr<ClassDefinition>& node)
     ASTVisitor::Visit(node);
 }
 
-void CodeGenerator::Visit(const sptr<EnumDefinition>& node)
+void VMCodeGenerator::Visit(const sptr<EnumDefinition>& node)
 {
 }
 
-void CodeGenerator::Visit(const sptr<EnumMemberDefinition>& node)
+void VMCodeGenerator::Visit(const sptr<EnumMemberDefinition>& node)
 {
 }
 
-void CodeGenerator::Visit(const sptr<FunctionDefinition>& node)
+void VMCodeGenerator::Visit(const sptr<FunctionDefinition>& node)
 {
     if(node->IsTemplateDeclaration())
         return;
@@ -368,7 +368,7 @@ void CodeGenerator::Visit(const sptr<FunctionDefinition>& node)
     type->codeEnd = (uint32_t)program->code.size();
 }
 
-void CodeGenerator::Visit(const sptr<InterfaceDefinition>& node)
+void VMCodeGenerator::Visit(const sptr<InterfaceDefinition>& node)
 {
     if(node->IsTemplateDeclaration())
         return;
@@ -376,11 +376,11 @@ void CodeGenerator::Visit(const sptr<InterfaceDefinition>& node)
     ASTVisitor::Visit(node);
 }
 
-void CodeGenerator::Visit(const sptr<ParameterDefinition>& node) {
+void VMCodeGenerator::Visit(const sptr<ParameterDefinition>& node) {
     ASTVisitor::Visit(node);
 }
 
-void CodeGenerator::Visit(const sptr<StructDefinition>& node)
+void VMCodeGenerator::Visit(const sptr<StructDefinition>& node)
 {
     if(node->IsTemplateDeclaration())
         return;
@@ -388,15 +388,15 @@ void CodeGenerator::Visit(const sptr<StructDefinition>& node)
     ASTVisitor::Visit(node);
 }
 
-void CodeGenerator::Visit(const sptr<TemplateDefinition>& node) {
+void VMCodeGenerator::Visit(const sptr<TemplateDefinition>& node) {
     ASTVisitor::Visit(node);
 }
 
-void CodeGenerator::Visit(const sptr<TemplateParameterDefinition>& node) {
+void VMCodeGenerator::Visit(const sptr<TemplateParameterDefinition>& node) {
     ASTVisitor::Visit(node);
 }
 
-void CodeGenerator::Visit(const sptr<VariableDefinition>& node)
+void VMCodeGenerator::Visit(const sptr<VariableDefinition>& node)
 {
     VisitChild(node->typeSpec);
 
@@ -424,7 +424,7 @@ void CodeGenerator::Visit(const sptr<VariableDefinition>& node)
 *****************************/
 
 
-void CodeGenerator::Visit(const sptr<AsExpression>& node)
+void VMCodeGenerator::Visit(const sptr<AsExpression>& node)
 {
     Type* valueType = node->value->EvaluateType();
     Type* targetType = node->typeSpec->GetType();
@@ -439,7 +439,7 @@ void CodeGenerator::Visit(const sptr<AsExpression>& node)
     }
 }
 
-void CodeGenerator::Visit(const sptr<AssignExpression>& node)
+void VMCodeGenerator::Visit(const sptr<AssignExpression>& node)
 {
     Type* type = node->left->EvaluateType();
     Type* otherType = node->right->EvaluateType();
@@ -572,7 +572,7 @@ void CodeGenerator::Visit(const sptr<AssignExpression>& node)
     PopExpression(node->left, node->right);
 }
 
-void CodeGenerator::Visit(const sptr<BinaryExpression>& node)
+void VMCodeGenerator::Visit(const sptr<BinaryExpression>& node)
 {
     if(node->operation == TokenType::LogicalAnd || node->operation == TokenType::LogicalOr)
     {
@@ -741,11 +741,11 @@ void CodeGenerator::Visit(const sptr<BinaryExpression>& node)
     }
 }
 
-void CodeGenerator::Visit(const sptr<BooleanLiteralExpression>& node) {
+void VMCodeGenerator::Visit(const sptr<BooleanLiteralExpression>& node) {
     Emit(node->loc, OpCode::PushBoolean, node->value ? 1 : 0);
 }
 
-void CodeGenerator::Visit(const sptr<CallExpression>& node)
+void VMCodeGenerator::Visit(const sptr<CallExpression>& node)
 {
     auto targetType = node->target->EvaluateType();
     
@@ -837,17 +837,17 @@ void CodeGenerator::Visit(const sptr<CallExpression>& node)
     }
 }
 
-void CodeGenerator::Visit(const sptr<CastExpression>& node)
+void VMCodeGenerator::Visit(const sptr<CastExpression>& node)
 {
     VisitChild(node->value);
 }
 
-void CodeGenerator::Visit(const sptr<ConvertExpression>& node)
+void VMCodeGenerator::Visit(const sptr<ConvertExpression>& node)
 {
     EmitConversion(node->value, node->resultTypeSpec);
 }
 
-void CodeGenerator::Visit(const sptr<DefaultValueExpression>& node)
+void VMCodeGenerator::Visit(const sptr<DefaultValueExpression>& node)
 {
     Type* type = node->typeSpec->type;
 
@@ -873,7 +873,7 @@ void CodeGenerator::Visit(const sptr<DefaultValueExpression>& node)
         assert(0);
 }
 
-void CodeGenerator::Visit(const sptr<FoldExpression>& node)
+void VMCodeGenerator::Visit(const sptr<FoldExpression>& node)
 {
     auto& statements = node->body->statements;
 
@@ -886,7 +886,7 @@ void CodeGenerator::Visit(const sptr<FoldExpression>& node)
     // expression result left on stack
 }
 
-void CodeGenerator::Visit(const sptr<IdentifierExpression>& node)
+void VMCodeGenerator::Visit(const sptr<IdentifierExpression>& node)
 {
     // how many words to push
     size_t pushSize = 1;
@@ -996,7 +996,7 @@ void CodeGenerator::Visit(const sptr<IdentifierExpression>& node)
     }
 }
 
-void CodeGenerator::Visit(const sptr<IndexExpression>& node)
+void VMCodeGenerator::Visit(const sptr<IndexExpression>& node)
 {
     auto arrayType = node->target->EvaluateType();
     auto elementType = arrayType->GetElementType();
@@ -1024,7 +1024,7 @@ void CodeGenerator::Visit(const sptr<IndexExpression>& node)
         Emit(node->loc, OpCode::PushWordN, 0ull, pushSize);
 }
 
-void CodeGenerator::Visit(const sptr<ArrayCountExpression>& node)
+void VMCodeGenerator::Visit(const sptr<ArrayCountExpression>& node)
 {
     auto elementType = node->array->EvaluateType()->GetElementType();
 
@@ -1045,18 +1045,18 @@ void CodeGenerator::Visit(const sptr<ArrayCountExpression>& node)
     }
 }
 
-void CodeGenerator::Visit(const sptr<CheckSiteExpression>& node)
+void VMCodeGenerator::Visit(const sptr<CheckSiteExpression>& node)
 {
     auto siteId = static_cast<Integer>(program->checkSites.size());
     program->checkSites.push_back(CheckSite{ node->message, node->loc });
     Emit(node->loc, OpCode::PushInteger, siteId);
 }
 
-void CodeGenerator::Visit(const sptr<IntegerLiteralExpression>& node) {
+void VMCodeGenerator::Visit(const sptr<IntegerLiteralExpression>& node) {
     Emit(node->loc, OpCode::PushInteger, node->value);
 }
 
-void CodeGenerator::Visit(const sptr<IsExpression>& node)
+void VMCodeGenerator::Visit(const sptr<IsExpression>& node)
 {
     Type* valueType = node->value->EvaluateType();
     Type* targetType = node->typeSpec->GetType();
@@ -1073,7 +1073,7 @@ void CodeGenerator::Visit(const sptr<IsExpression>& node)
     }
 }
 
-void CodeGenerator::Visit(const sptr<NewExpression>& node)
+void VMCodeGenerator::Visit(const sptr<NewExpression>& node)
 {
     Type* type = node->EvaluateType();
 
@@ -1172,15 +1172,15 @@ void CodeGenerator::Visit(const sptr<NewExpression>& node)
     }
 }
 
-void CodeGenerator::Visit(const sptr<NullLiteralExpression>& node) {
+void VMCodeGenerator::Visit(const sptr<NullLiteralExpression>& node) {
     Emit(node->loc, OpCode::PushNull);
 }
 
-void CodeGenerator::Visit(const sptr<NumberLiteralExpression>& node) {
+void VMCodeGenerator::Visit(const sptr<NumberLiteralExpression>& node) {
     Emit(node->loc, OpCode::PushNumber, node->value);
 }
 
-void CodeGenerator::Visit(const sptr<PostfixExpression>& node)
+void VMCodeGenerator::Visit(const sptr<PostfixExpression>& node)
 {
     Type* type = node->arg->EvaluateType();
     assert(type);
@@ -1235,7 +1235,7 @@ void CodeGenerator::Visit(const sptr<PostfixExpression>& node)
     // old value left on stack, unless discarded
 }
 
-void CodeGenerator::Visit(const sptr<PrefixExpression>& node)
+void VMCodeGenerator::Visit(const sptr<PrefixExpression>& node)
 {
     Type* type = node->arg->EvaluateType();
     assert(type);
@@ -1324,19 +1324,19 @@ void CodeGenerator::Visit(const sptr<PrefixExpression>& node)
     }
 }
 
-void CodeGenerator::Visit(const sptr<SizeOfExpression>& node)
+void VMCodeGenerator::Visit(const sptr<SizeOfExpression>& node)
 {
     size_t size = typeInfo[node->typeSpec->type]->GetSize();
     Emit(node->loc, OpCode::PushInteger, static_cast<Integer>(size));
 }
 
-void CodeGenerator::Visit(const sptr<StringLiteralExpression>& node) {
+void VMCodeGenerator::Visit(const sptr<StringLiteralExpression>& node) {
     program->staticObjects.push_back(String::New(program.get(), node->value));
     auto index = Emit((String*)program->staticObjects.back().get());
     Emit(node->loc, OpCode::PushLiteral, index);
 }
 
-void CodeGenerator::Visit(const sptr<TernaryExpression>& node)
+void VMCodeGenerator::Visit(const sptr<TernaryExpression>& node)
 {
     std::vector<size_t> falseJumpIndices;
     EmitConditionalJumps(node->condition, nullptr, &falseJumpIndices);
@@ -1352,13 +1352,13 @@ void CodeGenerator::Visit(const sptr<TernaryExpression>& node)
     program->code[jumpOverFalseValueCodeIndex].arg1_u64 = program->code.size();
 }
 
-void CodeGenerator::Visit(const sptr<TypeLiteralExpression>& node)
+void VMCodeGenerator::Visit(const sptr<TypeLiteralExpression>& node)
 {
     TypeInfo* type = program->GetTypeInfo(node->value);
     Emit(node->loc, OpCode::PushInteger, static_cast<Integer>(type->id));
 }
 
-void CodeGenerator::Visit(const sptr<TypeOfExpression>& node)
+void VMCodeGenerator::Visit(const sptr<TypeOfExpression>& node)
 {
     assert(false); // this should have been replaced by a TypeLiteralExpression during semantic analysis
 }
@@ -1367,7 +1367,7 @@ void CodeGenerator::Visit(const sptr<TypeOfExpression>& node)
 *         SPECIFIERS        *
 ****************************/
 
-void CodeGenerator::Visit(const sptr<TypeSpecifier>& node) {
+void VMCodeGenerator::Visit(const sptr<TypeSpecifier>& node) {
     ASTVisitor::Visit(node);
 }
 
@@ -1375,25 +1375,25 @@ void CodeGenerator::Visit(const sptr<TypeSpecifier>& node) {
 *         STATEMENTS        *
 ****************************/
 
-void CodeGenerator::Visit(const sptr<AssertStatement>& node) {
+void VMCodeGenerator::Visit(const sptr<AssertStatement>& node) {
     // should have been lowered to Debug.Assert() during semantic analysis
     assert(0);
 }
 
-void CodeGenerator::Visit(const sptr<BlockStatement>& node) {
+void VMCodeGenerator::Visit(const sptr<BlockStatement>& node) {
     ASTVisitor::Visit(node);
 }
 
-void CodeGenerator::Visit(const sptr<EmptyStatement>& node)
+void VMCodeGenerator::Visit(const sptr<EmptyStatement>& node)
 {
     ASTVisitor::Visit(node);
 }
 
-void CodeGenerator::Visit(const sptr<ExposeStatement>& node) {
+void VMCodeGenerator::Visit(const sptr<ExposeStatement>& node) {
     ASTVisitor::Visit(node);
 }
 
-void CodeGenerator::Visit(const sptr<ExpressionStatement>& node)
+void VMCodeGenerator::Visit(const sptr<ExpressionStatement>& node)
 {
     // let the expression cancel this pop, then restore any pending pop from an enclosing
     // statement (a FoldExpression can put statements inside an expression)
@@ -1417,7 +1417,7 @@ void CodeGenerator::Visit(const sptr<ExpressionStatement>& node)
     }
 }
 
-void CodeGenerator::Visit(const sptr<ForStatement>& node)
+void VMCodeGenerator::Visit(const sptr<ForStatement>& node)
 {
     if(node->init)
         VisitChild(node->init);
@@ -1439,7 +1439,7 @@ void CodeGenerator::Visit(const sptr<ForStatement>& node)
     PatchJumps(loopExitJumpIndices, program->code.size());
 }
 
-void CodeGenerator::Visit(const sptr<GotoStatement>& node)
+void VMCodeGenerator::Visit(const sptr<GotoStatement>& node)
 {
     assert(node->label);
 
@@ -1456,7 +1456,7 @@ void CodeGenerator::Visit(const sptr<GotoStatement>& node)
     }
 }
 
-void CodeGenerator::Visit(const sptr<LabelStatement>& node)
+void VMCodeGenerator::Visit(const sptr<LabelStatement>& node)
 {
     size_t codeIndex = program->code.size();
     labelCodeIndices[node.get()] = codeIndex;
@@ -1466,7 +1466,7 @@ void CodeGenerator::Visit(const sptr<LabelStatement>& node)
     pendingGotoJumpIndices.erase(first, last);
 }
 
-void CodeGenerator::Visit(const sptr<IfStatement>& node)
+void VMCodeGenerator::Visit(const sptr<IfStatement>& node)
 {
     // jump over the true branch when the condition is false
     std::vector<size_t> jumpIndicesOverTrueBranch;
@@ -1497,7 +1497,7 @@ void CodeGenerator::Visit(const sptr<IfStatement>& node)
     PatchJumps(jumpIndicesOverTrueBranch, trueBranchCodeEnd);
 }
 
-void CodeGenerator::Visit(const sptr<ReturnStatement>& node)
+void VMCodeGenerator::Visit(const sptr<ReturnStatement>& node)
 {
     size_t paramSize = 0;
     size_t returnSize = 1;
@@ -1519,7 +1519,7 @@ void CodeGenerator::Visit(const sptr<ReturnStatement>& node)
 }
 
 // Emits a jump table when the case values are dense enough, and emits an if-chain when they're not.
-void CodeGenerator::Visit(const sptr<SwitchStatement>& node)
+void VMCodeGenerator::Visit(const sptr<SwitchStatement>& node)
 {
     auto& sections = node->sections;
 
@@ -1618,7 +1618,7 @@ void CodeGenerator::Visit(const sptr<SwitchStatement>& node)
     PatchJumps(sectionJumpIndices.back(), program->code.size());
 }
 
-void CodeGenerator::Visit(const sptr<VariableDefinitionStatement>& node)
+void VMCodeGenerator::Visit(const sptr<VariableDefinitionStatement>& node)
 {
     // Push[*] <value>
     VisitChild(node->variableDefinition->initializer);
@@ -1637,7 +1637,7 @@ void CodeGenerator::Visit(const sptr<VariableDefinitionStatement>& node)
     }
 }
 
-void CodeGenerator::Visit(const sptr<WhileStatement>& node)
+void VMCodeGenerator::Visit(const sptr<WhileStatement>& node)
 {
     size_t conditionCodeStart = program->code.size();
 

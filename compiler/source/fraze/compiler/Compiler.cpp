@@ -6,7 +6,7 @@
 #include <fraze/ast/ASTPrinter.h>
 #include <fraze/ast/CodePrinter.h>
 #include <fraze/compiler/Compiler.h>
-#include <fraze/compiler/CodeGenerator.h>
+#include <fraze/compiler/VMCodeGenerator.h>
 #include <fraze/compiler/SemanticAnalyzer.h>
 #include <fraze/compiler/Lexer.h>
 #include <fraze/compiler/Parser.h>
@@ -20,7 +20,8 @@ namespace fraze {
 
 thread_local Compiler* Compiler::activeCompiler = nullptr;
 
-Compiler::Compiler(std::string_view assetsPath)
+// Adds the standard library under assetsPath and registers the built-in externs it declares.
+Compiler& Compiler::AddFrazeRuntime(std::string_view assetsPath)
 {
     AddDirectory(assetsPath);
     AddFunction<&WaitAsync>("WaitAsync");
@@ -60,6 +61,7 @@ Compiler::Compiler(std::string_view assetsPath)
     AddFunction<&Math_Acos>("Math.Acos");
     AddFunction<&Math_Atan>("Math.Atan");
     AddFunction<&Math_Atan2>("Math.Atan2");
+    return *this;
 }
 
 Compiler& Compiler::AddFile(std::string_view fileName)
@@ -153,7 +155,7 @@ Compiler& Compiler::ExportBytecode(std::string_view outputPath)
 
 sptr<Program> Compiler::Compile()
 {
-    sptr<Program> program;
+    sptr<VMProgram> program;
 
     try
     {
@@ -226,7 +228,7 @@ sptr<Program> Compiler::Compile()
             exportFile("", "__global.fz");
         }
 
-        CodeGenerator generator;
+        VMCodeGenerator generator;
         generator.VisitChild(root);
 
         program = std::move(generator.program);

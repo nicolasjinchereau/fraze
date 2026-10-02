@@ -32,7 +32,7 @@
     <ClCompile Include="source\fraze\common\Object.cpp" />
     <ClCompile Include="source\fraze\common\Scope.cpp" />
     <ClCompile Include="source\fraze\compiler\Compiler.cpp" />
-    <ClCompile Include="source\fraze\compiler\CodeGenerator.cpp" />
+    <ClCompile Include="source\fraze\compiler\VMCodeGenerator.cpp" />
     <ClCompile Include="source\fraze\compiler\Lexer.cpp" />
     <ClCompile Include="source\fraze\compiler\RuntimeTypeInfo.cpp" />
     <ClCompile Include="source\fraze\compiler\SemanticAnalyzer.cpp" />
@@ -41,6 +41,7 @@
     <ClCompile Include="source\fraze\memory\ScopedAllocator.cpp" />
     <ClCompile Include="source\fraze\program\Dispatcher.cpp" />
     <ClCompile Include="source\fraze\program\Program.cpp" />
+    <ClCompile Include="source\fraze\program\VMProgram.cpp" />
     <ClCompile Include="source\fraze\program\ProgramDiagnostics.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -122,7 +123,7 @@
     <ClInclude Include="source\fraze\common\Stack.h" />
     <ClInclude Include="source\fraze\common\Utility.h" />
     <ClInclude Include="source\fraze\compiler\Compiler.h" />
-    <ClInclude Include="source\fraze\compiler\CodeGenerator.h" />
+    <ClInclude Include="source\fraze\compiler\VMCodeGenerator.h" />
     <ClInclude Include="source\fraze\compiler\RuntimeTypeInfo.h" />
     <ClInclude Include="source\fraze\compiler\LoweringBuilder.h" />
     <ClInclude Include="source\fraze\compiler\SemanticAnalyzer.h" />
@@ -138,6 +139,7 @@
     <ClInclude Include="source\fraze\program\CheckSite.h" />
     <ClInclude Include="source\fraze\program\Operation.h" />
     <ClInclude Include="source\fraze\program\Program.h" />
+    <ClInclude Include="source\fraze\program\VMProgram.h" />
     <ClInclude Include="source\fraze\program\ProgramDiagnostics.h" />
     <ClInclude Include="source\fraze\program\TypeInfo.h" />
   </ItemGroup>

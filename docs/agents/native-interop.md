@@ -1,6 +1,6 @@
 # Native interop
 
-How C++ and Fraze call into each other. The compiler's own externs are registered in the `Compiler` constructor and implemented in `compiler/source/fraze/compiler/NativeFunctions.h`; the demo's are registered and implemented in `demo/source/ExternFunctions.cpp`.
+How C++ and Fraze call into each other. The compiler's own externs are registered in `Compiler::AddFrazeRuntime` and implemented in `compiler/source/fraze/compiler/NativeFunctions.h`; the demo's are registered and implemented in `demo/source/ExternFunctions.cpp`.
 
 - **Extern functions:** a Fraze `extern` declaration binds by qualified name to a C++ function registered with `Compiler::AddFunction<&fn>("Section.Name")`. The function is a template argument, so the VM's call into it is direct and can be inlined. An overloaded name also takes a signature, the return type followed by the parameter types (e.g. `"NativeBuffer(object,BufferType,BufferUsage,BufferCPUAccess,int)"`). The C++ function may optionally take `Program*` as its first parameter, which the VM supplies and which isn't a Fraze parameter. An instance method receives its receiver as `Object& self`. A C++ struct passed or returned must occupy as many words as the Fraze struct it stands for, or the compile fails with a size mismatch.
 - **Extern classes:** `extern class NativeX { extern this(...); }` is backed by a C++ class deriving from `Object`. Its constructor, registered as `NativeX.this`, returns the `Object*` it allocates with `NEW_FRAZE_EXTERN_CLASS(allocator, CppType, "NativeX", args...)`.

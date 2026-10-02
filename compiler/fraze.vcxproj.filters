@@ -51,7 +51,7 @@
     <ClCompile Include="source\fraze\common\Object.cpp">
       <Filter>source\fraze\common</Filter>
     </ClCompile>
-    <ClCompile Include="source\fraze\compiler\CodeGenerator.cpp">
+    <ClCompile Include="source\fraze\compiler\VMCodeGenerator.cpp">
       <Filter>source\fraze\compiler</Filter>
     </ClCompile>
     <ClCompile Include="source\fraze\compiler\Compiler.cpp">
@@ -70,6 +70,9 @@
       <Filter>source\fraze\common</Filter>
     </ClCompile>
     <ClCompile Include="source\fraze\program\Program.cpp">
+      <Filter>source\fraze\program</Filter>
+    </ClCompile>
+    <ClCompile Include="source\fraze\program\VMProgram.cpp">
       <Filter>source\fraze\program</Filter>
     </ClCompile>
     <ClCompile Include="source\fraze\program\ProgramDiagnostics.cpp">
@@ -230,10 +233,13 @@
     <ClInclude Include="source\fraze\common\Scope.h">
       <Filter>source\fraze\common</Filter>
     </ClInclude>
-    <ClInclude Include="source\fraze\compiler\CodeGenerator.h">
+    <ClInclude Include="source\fraze\compiler\VMCodeGenerator.h">
       <Filter>source\fraze\compiler</Filter>
     </ClInclude>
     <ClInclude Include="source\fraze\program\Program.h">
+      <Filter>source\fraze\program</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\program\VMProgram.h">
       <Filter>source\fraze\program</Filter>
     </ClInclude>
     <ClInclude Include="source\fraze\program\ProgramDiagnostics.h">

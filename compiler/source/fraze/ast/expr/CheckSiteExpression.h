@@ -8,7 +8,7 @@
 namespace fraze {
 
 // evaluates to the id of a runtime check site (message + this node's location);
-// CodeGenerator assigns the id and records the site in Program::checkSites
+// VMCodeGenerator assigns the id and records the site in Program::checkSites
 class CheckSiteExpression : public Expression
 {
 public:

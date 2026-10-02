@@ -53,7 +53,7 @@ Push-Location demo; .\bin\x64\Debug\Demo.exe --test; "exit code: $LASTEXITCODE";
 
 ## Layout
 
-- `compiler/`: static library with the whole language. C++ is under `compiler/source/fraze/`, where `Compiler` runs `Lexer -> Parser -> SemanticAnalyzer -> CodeGenerator` and returns a `Program`, the VM. The standard library (`fraze.*.fz`) and test suite are in `compiler/assets/`.
+- `compiler/`: static library with the whole language. C++ is under `compiler/source/fraze/`, where `Compiler` runs `Lexer -> Parser -> SemanticAnalyzer -> VMCodeGenerator` and returns a `Program`, here a `VMProgram`, the bytecode VM. The standard library (`fraze.*.fz`) and test suite are in `compiler/assets/`.
 - `demo/`: 3D app that embeds Fraze. The C++ host is in `demo/source/` (extern functions are registered in `ExternFunctions.cpp`), and scripts are in `demo/assets/scripts/`.
 - `syntax-extensions/`: syntax highlighting for Visual Studio and VS Code. The grammar is `fraze-syntax.json`.
 - `third_party/`: the demo's external dependencies, which are most of the repository's files. Leave it out of searches.
@@ -62,12 +62,12 @@ Push-Location demo; .\bin\x64\Debug\Demo.exe --test; "exit code: $LASTEXITCODE";
 
 These serve two goals: being able to move or delete AST nodes freely, and keeping the compiler simple enough to understand and refactor. They are strong defaults, not hard rules. When following one would make the code significantly more complicated, simplicity wins; say so explicitly.
 
-- **SemanticAnalyzer outputs a resolved AST and nothing else.** Ids, indices, offsets and side-table entries are assigned in CodeGenerator. If a lowering needs a runtime table entry, add a self-contained node that carries its own data (for example, a node holding a runtime check's message), and let CodeGenerator assign the id.
+- **SemanticAnalyzer outputs a resolved AST and nothing else.** Ids, indices, offsets and side-table entries are assigned in the code generator. If a lowering needs a runtime table entry, add a self-contained node that carries its own data (for example, a node holding a runtime check's message), and let the code generator assign the id.
 - **The AST flows downward.** No parent pointers, and no new references from nodes into generated collections. The existing `Scope*`, `targetDef` and `Type*` links are exceptions, not precedent.
 - **Analyzer visits are idempotent**, because the AST is mutated, cloned and re-visited during analysis.
 - **Infer node state instead of storing it.** Don't add a node field for anything derivable from the AST. If something really has to be tracked, prefer restructuring (e.g. lowering earlier). `Clone` must copy every field that analysis doesn't recompute.
 - **Keep opcodes primitive and assembly-like**, because the long-term plan is a JIT. Never add a composite opcode (e.g. `CheckNull`) as a speed fix; express it with existing primitives.
-- **Keep CodeGenerator changes small and in place:** a bit of member state checked at the exact site that changes (for example, a member recording which expression's result the current statement will discard). Avoid flag parameters, `Emit*(node, bool)` wrappers, and special-case lists of node kinds.
+- **Keep code generator changes small and in place:** a bit of member state checked at the exact site that changes (for example, a member recording which expression's result the current statement will discard). Avoid flag parameters, `Emit*(node, bool)` wrappers, and special-case lists of node kinds.
 
 ## Code conventions
 

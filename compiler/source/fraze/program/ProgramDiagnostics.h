@@ -13,7 +13,7 @@
 
 namespace fraze {
 
-class Program;
+class VMProgram;
 
 class ProgramDiagnostics
 {
@@ -22,10 +22,10 @@ class ProgramDiagnostics
     static inline std::array<uint64_t, static_cast<size_t>(OpCode::COUNT)> opcodeTotalCount{};
 
 public:
-    static void Print(const Program& program, bool printData = true, bool printCode = true);
-    static void PrintOperation(const Program& program, size_t index, std::ostream& stream);
-    static void PrintExecutedOperation(const Program& program, size_t index);
-    static std::string GetLiteralValue(const Program& program, uint64_t index);
+    static void Print(const VMProgram& program, bool printData = true, bool printCode = true);
+    static void PrintOperation(const VMProgram& program, size_t index, std::ostream& stream);
+    static void PrintExecutedOperation(const VMProgram& program, size_t index);
+    static std::string GetLiteralValue(const VMProgram& program, uint64_t index);
 
     static void BeginOperationMeasurement();
     static void EndOperationMeasurement(OpCode code);

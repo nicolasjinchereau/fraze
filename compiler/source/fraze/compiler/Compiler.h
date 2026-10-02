@@ -30,7 +30,7 @@ struct SourceFile
 
 class Parser;
 class SemanticAnalyzer;
-class CodeGenerator;
+class VMCodeGenerator;
 class Scope;
 class Type;
 
@@ -55,13 +55,12 @@ class Compiler
 
     friend Parser;
     friend SemanticAnalyzer;
-    friend CodeGenerator;
+    friend VMCodeGenerator;
     friend Type;
 
 public:
 
-    Compiler(std::string_view assetsPath);
-
+    Compiler& AddFrazeRuntime(std::string_view assetsPath);
     Compiler& AddFile(std::string_view file);
     Compiler& AddDirectory(std::string_view path);
     Compiler& DisableAssert();

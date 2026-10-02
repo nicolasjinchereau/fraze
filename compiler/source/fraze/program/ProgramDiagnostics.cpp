@@ -3,7 +3,7 @@
 *---------------------------------------------------------------*/
 
 #include <fraze/program/ProgramDiagnostics.h>
-#include <fraze/program/Program.h>
+#include <fraze/program/VMProgram.h>
 #include <algorithm>
 #include <iomanip>
 #include <iostream>
@@ -12,7 +12,7 @@
 namespace fraze {
 
 // Prints the program's literals and each function's operations to std::cout.
-void ProgramDiagnostics::Print(const Program& program, bool printData, bool printCode)
+void ProgramDiagnostics::Print(const VMProgram& program, bool printData, bool printCode)
 {
     if(printData)
     {
@@ -59,7 +59,7 @@ void ProgramDiagnostics::Print(const Program& program, bool printData, bool prin
 }
 
 // Returns the literal at 'index' in the program's data, formatted as source.
-std::string ProgramDiagnostics::GetLiteralValue(const Program& program, uint64_t index)
+std::string ProgramDiagnostics::GetLiteralValue(const VMProgram& program, uint64_t index)
 {
     Word value = program.data[index];
     WordType type = program.dataTypes[index];
@@ -82,7 +82,7 @@ std::string ProgramDiagnostics::GetLiteralValue(const Program& program, uint64_t
 }
 
 // Prints the operation at 'index' in the program's code: its index, its opcode name and its arguments.
-void ProgramDiagnostics::PrintOperation(const Program& program, size_t index, std::ostream& stream)
+void ProgramDiagnostics::PrintOperation(const VMProgram& program, size_t index, std::ostream& stream)
 {
     const Operation& op = program.code[index];
     assert(OpCodeNames.contains(op.code));
@@ -216,7 +216,7 @@ void ProgramDiagnostics::PrintOperation(const Program& program, size_t index, st
 }
 
 // Prints the source line and column of the operation at 'index', then the operation, to std::cout.
-void ProgramDiagnostics::PrintExecutedOperation(const Program& program, size_t index)
+void ProgramDiagnostics::PrintExecutedOperation(const VMProgram& program, size_t index)
 {
     const SourceLocation& loc = program.locations[index];
     std::cout << std::setw(4) << std::setfill(' ') << loc.line << ", ";
