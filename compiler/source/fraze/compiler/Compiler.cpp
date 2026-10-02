@@ -11,6 +11,7 @@
 #include <fraze/compiler/Lexer.h>
 #include <fraze/compiler/Parser.h>
 #include <fraze/compiler/NativeFunctions.h>
+#include <fraze/program/ProgramDiagnostics.h>
 #include <fraze/program/TypeInfo.h>
 #include <filesystem>
 #include <system_error>
@@ -237,11 +238,18 @@ sptr<Program> Compiler::Compile()
             std::unordered_map<std::string_view, std::vector<FunctionInfo*>> functions;
             std::vector<std::string_view> files;
 
+            // a section's static constructor has statements from every file that adds to the section,
+            // so static constructors are printed in a file of their own
+            std::vector<FunctionInfo*> staticConstructors;
+
             for(sptr<TypeInfo>& ty : program->typeInfo)
             {
                 if(FunctionInfo* funcInfo = ty->ToFunctionInfo())
                 {
-                    functions[funcInfo->loc.file].push_back(funcInfo);
+                    if(funcInfo->qualifiedName.ends_with(FunctionDefinition::StaticConstructorName))
+                        staticConstructors.push_back(funcInfo);
+                    else
+                        functions[funcInfo->loc.file].push_back(funcInfo);
                 }
             }
 
@@ -309,7 +317,7 @@ sptr<Program> Compiler::Compile()
                                 fout << "\n";
 
                             temp.str("");
-                            program->PrintOperation(opCodeIndex, temp);
+                            ProgramDiagnostics::PrintOperation(*program, opCodeIndex, temp);
                             fout << utility::ReplaceAll(temp.str(), "\"", "\"\"");
                         }
 
@@ -322,7 +330,7 @@ sptr<Program> Compiler::Compile()
                                     fout << "\n";
 
                                 temp.str("");
-                                program->PrintOperation(opCodeIndex, temp);
+                                ProgramDiagnostics::PrintOperation(*program, opCodeIndex, temp);
                                 fout <<  utility::ReplaceAll(temp.str(), "\"", "\"\"");
                             }
                         }
@@ -336,45 +344,34 @@ sptr<Program> Compiler::Compile()
 
             }
             
-            // print all section code
+            // print all static constructor code
             {
                 std::filesystem::path outputFile = outputPath;
-                outputFile /= "all-sections.csv";
+                outputFile /= "static-constructors.csv";
                 outputFile.make_preferred();
 
                 std::ofstream fout(outputFile);
                 std::stringstream temp;
 
-                for(auto& ti : program->typeInfo)
+                for(FunctionInfo* staticConstructor : staticConstructors)
                 {
-                    if(auto sect = ti->ToSectionInfo())
+                    fout << "\"" << staticConstructor->qualifiedName << "\"" << ",";
+
+                    fout << "\"";
+
+                    size_t opCount = 0;
+
+                    for(size_t i = staticConstructor->codeStart; i != staticConstructor->codeEnd; ++i)
                     {
-                        auto sectName = !sect->qualifiedName.empty() ? sect->qualifiedName : "global";
-                        fout << "\"" << "section " << sectName << "\"" << ",";
+                        if(opCount++ > 0)
+                            fout << "\n";
 
-                        fout << "\"";
-
-                        size_t opCount = 0;
-
-                        auto it = program->code.begin() + sect->codeStart;
-                        auto end = program->code.begin() + sect->codeEnd;
-                        while(it != end)
-                        {
-                            if(opCount++ > 0)
-                                fout << "\n";
-
-                            temp.str("");
-                            size_t i = ( it - program->code.begin() );
-                            program->PrintOperation(i, temp);
-
-                            std::string opStr = utility::ReplaceAll(temp.str(), "\"", "\"\"");
-                            fout << opStr;
-
-                            ++it;
-                        }
-
-                        fout << "\"" << "\n";
+                        temp.str("");
+                        ProgramDiagnostics::PrintOperation(*program, i, temp);
+                        fout << utility::ReplaceAll(temp.str(), "\"", "\"\"");
                     }
+
+                    fout << "\"" << "\n";
                 }
             }
         }

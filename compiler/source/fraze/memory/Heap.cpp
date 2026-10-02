@@ -391,10 +391,14 @@ void Heap::CollectInternal()
     if(currentColor == Heap::InitialBlockColor)
         ++currentColor;
 
-    // globals are at the bottom of the stack
+    auto& globals = pProgram->globals;
+    if(!globals.empty())
+        ScanRange(std::as_writable_bytes(std::span(globals.data(), globals.size())));
+
     std::byte* stackBegin = reinterpret_cast<std::byte*>(pProgram->stack.data());
     std::byte* stackEnd = reinterpret_cast<std::byte*>(pProgram->rsp + 1);
-    ScanRange({ stackBegin, stackEnd });
+    if(stackEnd != stackBegin)
+        ScanRange({ stackBegin, stackEnd });
 
     for(auto& range : ranges)
     {

@@ -49,17 +49,17 @@ class CodePrinter : public ASTVisitor
     int tabWidth{};
     int indent{};
 
-    // Only a section's definitions and statements located in this file are printed; the sections
+    // Only a section's definitions located in this file are printed; the sections
     // containing them are reopened in each file, like in source. Everything is printed if unset.
     std::optional<std::string_view> printedFile;
 
     void PrintIndent();
-    void PrintDefinitions(Scope* scope, bool skipVariables, bool hasPrecedingContent);
+    void PrintDefinitions(Scope* scope);
     bool IsInPrintedFile(const SourceLocation& loc) const;
     bool HasContentInPrintedFile(const sptr<Definition>& def) const;
     void PrintTemplateParameters(const sptr<TemplateDefinition>& node);
     void PrintAttributes(const std::vector<std::string>& attributes, bool ownLine);
-    void PrintVariable(const sptr<VariableDefinition>& node, bool qualifyName, bool printInitializer);
+    void PrintVariable(const sptr<VariableDefinition>& node, bool printInitializer);
     void PrintBlock(const sptr<BlockStatement>& node, bool endLine);
     void PrintBody(const sptr<Statement>& node);
     void PrintIfStatement(const sptr<IfStatement>& node);
@@ -88,8 +88,6 @@ public:
         printer.VisitChildNode(node);
         std::println("{}", stream.str());
     }
-
-    virtual void Visit(const sptr<ASTRoot>& node) override;
 
     virtual void Visit(const sptr<BasicTypeDefinition>& node) override;
     virtual void Visit(const sptr<ClassDefinition>& node) override;

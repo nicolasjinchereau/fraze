@@ -72,6 +72,9 @@
     <ClCompile Include="source\fraze\program\Program.cpp">
       <Filter>source\fraze\program</Filter>
     </ClCompile>
+    <ClCompile Include="source\fraze\program\ProgramDiagnostics.cpp">
+      <Filter>source\fraze\program</Filter>
+    </ClCompile>
     <ClCompile Include="source\fraze\ast\def\Def.cpp">
       <Filter>source\fraze\ast\def</Filter>
     </ClCompile>
@@ -231,6 +234,9 @@
       <Filter>source\fraze\compiler</Filter>
     </ClInclude>
     <ClInclude Include="source\fraze\program\Program.h">
+      <Filter>source\fraze\program</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\program\ProgramDiagnostics.h">
       <Filter>source\fraze\program</Filter>
     </ClInclude>
     <ClInclude Include="source\fraze\ast\stmt\WhileStatement.h">

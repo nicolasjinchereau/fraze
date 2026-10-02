@@ -109,7 +109,6 @@ public:
     virtual void Visit(const sptr<FunctionDefinition>& node) override;
     virtual void Visit(const sptr<InterfaceDefinition>& node) override;
     virtual void Visit(const sptr<ParameterDefinition>& node) override;
-    virtual void Visit(const sptr<SectionDefinition>& node) override;
     virtual void Visit(const sptr<StructDefinition>& node) override;
     virtual void Visit(const sptr<TemplateDefinition>& node) override;
     virtual void Visit(const sptr<TemplateParameterDefinition>& node) override;

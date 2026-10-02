@@ -6,9 +6,7 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
-#include <chrono>
 #include <cstddef>
-#include <ostream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -41,15 +39,9 @@ class Program
     Word* rbp = nullptr; // base pointer
     Word* rsp = nullptr;
     size_t rip = 0;
-    bool initialized = false;
+    bool shouldInitialize = true;
 
     std::size_t GetStackSize() const;
-    void Initialize();
-
-#if FRAZE_CODE_PROFILING
-    std::array<uint64_t, static_cast<size_t>(OpCode::COUNT)> opcodeTotalNanos{};
-    std::array<uint64_t, static_cast<size_t>(OpCode::COUNT)> opcodeTotalCount{};
-#endif // FRAZE_CODE_PROFILING
 
     friend DefaultAllocator;
     friend ScopedAllocator;
@@ -63,8 +55,8 @@ public:
     std::vector<CheckSite> checkSites;
     std::vector<sptr<TypeInfo>> typeInfo;
     std::vector<IntrinsicFunction> intrinsics;
-    size_t globalCount{};
-    
+    dynamic_array<Word> globals;
+
     Program();
 
     Word Invoke(const std::string& qualifiedFuncName, WordValue auto&&... args)
@@ -82,9 +74,6 @@ public:
     void UnpinMemory(const std::span<std::byte*> ps);
     void Collect();
     void Report();
-    void Print(bool printData, bool printCode);
-    void PrintOperation(size_t index, std::ostream& stream);
-    std::string GetLiteralValue(uint64_t index);
 
     template<ObjectSubclass T, typename... Args>
         requires std::is_base_of_v<Object, T>
@@ -96,10 +85,6 @@ public:
         assert(obj->info);
         return obj;
     }
-
-#if FRAZE_CODE_PROFILING
-    void DumpCodeProfile(std::ostream& stream);
-#endif // FRAZE_CODE_PROFILING
 
 private:
     Word InvokeImpl(const std::string& qualifiedFuncName, const std::span<Word>& args);
@@ -176,9 +161,6 @@ private:
     void Execute_JumpIf(const Operation& op);
     void Execute_JumpIfNot(const Operation& op);
     void Execute_Switch(const Operation& op);
-    
-    // static asserts to check handler index against OpCode values
-    void VerifyHandlers();
 
     static constexpr Handler handlers[static_cast<size_t>(OpCode::COUNT)] = {
         &Program::Execute_NoOp,
@@ -254,6 +236,7 @@ private:
         &Program::Execute_Switch,
     };
 
+    static_assert(handlers[std::size(handlers) - 1] != nullptr, "every OpCode needs a handler");
 };
 
 } // fraze

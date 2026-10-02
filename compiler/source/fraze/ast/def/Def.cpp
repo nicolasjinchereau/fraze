@@ -12,6 +12,11 @@
 #include <fraze/ast/def/SectionDefinition.h>
 #include <fraze/ast/def/StructDefinition.h>
 #include <fraze/ast/def/VariableDefinition.h>
+#include <fraze/ast/expr/CallExpression.h>
+#include <fraze/ast/expr/IdentifierExpression.h>
+#include <fraze/ast/stmt/BlockStatement.h>
+#include <fraze/ast/stmt/ExpressionStatement.h>
+#include <fraze/ast/stmt/ReturnStatement.h>
 #include <fraze/ast/stmt/VariableDefinitionStatement.h>
 #include <print>
 
@@ -20,6 +25,45 @@ namespace fraze {
 //*****************************
 //  Definition
 //*****************************
+
+// Returns the function that runs the initializers of this section's, class's or struct's static variables
+sptr<FunctionDefinition> Definition::GetStaticConstructor()
+{
+    return GetFunction(FunctionDefinition::StaticConstructorName);
+}
+
+// Adds a static constructor function to this section, class or struct, with a body that only returns.
+sptr<FunctionDefinition> Definition::AddStaticConstructor()
+{
+    Scope* ownerScope = scope.get();
+
+    auto staticConstructor = spnew<FunctionDefinition>(loc, ownerScope, shared_string(FunctionDefinition::StaticConstructorName));
+    staticConstructor->isMember = !ToSectionDefinition();
+    staticConstructor->isStatic = staticConstructor->isMember;
+    staticConstructor->returnType = spnew<TypeSpecifier>(loc, ownerScope, shared_string("void"));
+    ownerScope->AddDefinition(staticConstructor);
+
+    Scope* functionScope = staticConstructor->scope.get();
+    staticConstructor->body = spnew<BlockStatement>(loc, functionScope);
+    staticConstructor->body->statements.push_back(spnew<ReturnStatement>(loc, functionScope));
+
+    return staticConstructor;
+}
+
+// Returns 'Owner.$staticConstructor();' for the body of the enclosing section's static constructor, with 'Owner'
+// resolved to this definition up front, so a template instance doesn't have to be found by its name.
+sptr<Statement> Definition::CreateStaticConstructorCall()
+{
+    Scope* callScope = parent->GetStaticConstructor()->body->scope.get();
+
+    auto context = spnew<IdentifierExpression>(loc, callScope, name);
+    context->targetDef = this;
+
+    auto target = spnew<IdentifierExpression>(loc, callScope, context, shared_string(FunctionDefinition::StaticConstructorName));
+    auto call = spnew<CallExpression>(loc, callScope, target);
+
+    return spnew<ExpressionStatement>(call, callScope);
+}
 
 bool Definition::IsPartOfTemplateDeclaration()
 {
@@ -123,20 +167,7 @@ sptr<ASTNode> ClassDefinition::Clone(ScopeStack& scopes, const sptr<TypeSpecifie
     scopes.Push(copy->scope.get());
 
     for(auto& def : scope->definitions)
-    {
-        auto defCopy = def->Clone(scopes, nullptr);
-
-        if(auto varDef = defCopy->ToVariableDefinition())
-        {
-            if(varDef->isStatic && !copy->IsTemplateDeclaration())
-            {
-                auto global = copy->GetRoot()->global;
-                auto varDefStmt = spnew<VariableDefinitionStatement>(varDef->loc, global->scope.get());
-                varDefStmt->variableDefinition = varDef;
-                global->statements.push_back( varDefStmt );
-            }
-        }
-    }
+        def->Clone(scopes, nullptr);
 
     scopes.Pop();
 
@@ -162,20 +193,7 @@ sptr<ASTNode> StructDefinition::Clone(ScopeStack& scopes, const sptr<TypeSpecifi
     scopes.Push(copy->scope.get());
 
     for(auto& def : scope->definitions)
-    {
-        auto defCopy = def->Clone(scopes, nullptr);
-
-        if(auto varDef = defCopy->ToVariableDefinition())
-        {
-            if(varDef->isStatic && !copy->IsTemplateDeclaration())
-            {
-                auto global = copy->GetRoot()->global;
-                auto varDefStmt = spnew<VariableDefinitionStatement>(varDef->loc, global->scope.get());
-                varDefStmt->variableDefinition = varDef;
-                global->statements.push_back( varDefStmt );
-            }
-        }
-    }
+        def->Clone(scopes, nullptr);
 
     scopes.Pop();
 
@@ -213,13 +231,51 @@ sptr<ASTNode> VariableDefinition::Clone(ScopeStack& scopes, const sptr<TypeSpeci
 
     scopes.GetCurrent()->AddDefinition(copy);
 
-    copy->initializer = initializer ? initializer->Clone(scopes, nullptr)->ToExpression() : decltype(initializer){};
     copy->offset = offset;
     copy->size = size;
     copy->isStatic = isStatic;
     copy->isPrivate = isPrivate;
 
+    // A template instance's static variable is initialized by the instance's static constructor, so its initializer
+    // is cloned into the constructor's body. SemanticAnalyzer adds the call to the constructor.
+    sptr<FunctionDefinition> staticConstructor;
+    if(copy->IsInitializedByStaticConstructor())
+    {
+        staticConstructor = copy->parent->GetStaticConstructor();
+        if(!staticConstructor)
+            staticConstructor = copy->parent->AddStaticConstructor();
+
+        scopes.Push(staticConstructor->body->scope.get());
+    }
+
+    copy->initializer = initializer ? initializer->Clone(scopes, nullptr)->ToExpression() : decltype(initializer){};
+
+    if(staticConstructor)
+    {
+        scopes.Pop();
+        copy->AddInitializerToStaticConstructor();
+    }
+
     return copy;
+}
+
+// True for a static variable of a section, class or struct, except one in a template declaration, which is never instantiated as-is.
+bool VariableDefinition::IsInitializedByStaticConstructor()
+{
+    return isStatic && !parent->ToFunctionDefinition() && !parent->IsPartOfTemplateDeclaration();
+}
+
+// Adds a statement that initializes this variable before the return that ends its owner's static constructor.
+void VariableDefinition::AddInitializerToStaticConstructor()
+{
+    auto staticConstructor = parent->GetStaticConstructor();
+    assert(staticConstructor);
+
+    auto varDefStmt = spnew<VariableDefinitionStatement>(loc, staticConstructor->body->scope.get());
+    varDefStmt->variableDefinition = self();
+
+    auto& statements = staticConstructor->body->statements;
+    statements.insert(statements.end() - 1, varDefStmt);
 }
 
 //*****************************

@@ -2089,6 +2089,104 @@ section SwitchTests
     }
 }
 
+// each section's, class's and struct's static constructor runs the initializers of its static variables in order.
+// a section's also calls the static constructor of each nested section where that section first appears, and of
+// each class and struct where its first static variable appears
+section StaticInitTests
+{
+    struct Vec
+    {
+        num x;
+        num y;
+    }
+
+    Vec MakeVec() {
+        Vec v;
+        v.x = 8;
+        v.y = 9;
+        return v;
+    }
+
+    // reading a field of a returned struct stores the struct in a temporary, a local of the static constructor
+    num sectionFromTemp = MakeVec().y;
+
+    class Holder
+    {
+        // the temporary is a local of the class's static constructor
+        static num fromTemp = MakeVec().y;
+
+        static num fromSection = sectionFromTemp + 1;
+        static num sibling = fromSection + 1;
+    }
+
+    // a call to a template instance's static constructor is added to the start of the section's when the
+    // instance is created, so it runs before any static initializer that uses the instance
+    class Box<T>
+    {
+        static int count = 5;
+        static num fromTemp = MakeVec().y;
+
+        int ReadCount() {
+            return count;
+        }
+
+        num ReadFromTemp() {
+            return fromTemp;
+        }
+    }
+
+    int ReadBoxCount() {
+        Box<num> box = new Box<num>{};
+        return box.ReadCount();
+    }
+
+    // a static variable takes no space in an instance, and the arguments of 'new' skip it
+    struct Pair
+    {
+        static int created = 0;
+        int a;
+        int b;
+    }
+
+    class Named
+    {
+        static int count = 0;
+        string name;
+    }
+
+    section Inner
+    {
+        int value = 3;
+        int boxCount = ReadBoxCount();
+    }
+
+    // Inner's static constructor already ran, where Inner first appeared
+    int afterInner = Inner.value * 2;
+
+    void Run()
+    {
+        assert(sectionFromTemp == 9);
+        assert(Holder.fromTemp == 9);
+        assert(Holder.fromSection == 10);
+        assert(Holder.sibling == 11);
+
+        Box<int> box = new Box<int>{};
+        assert(box.ReadCount() == 5);
+        assert(box.ReadFromTemp() == 9);
+        assert(Inner.boxCount == 5);
+
+        assert(afterInner == 6);
+
+        assert(sizeof(Pair) == 2);
+        Pair pair = new Pair{ 1, 2 };
+        assert(pair.a == 1);
+        assert(pair.b == 2);
+
+        Named named = new Named{ "named" };
+        assert(named.name == "named");
+    }
+}
+
 void RunAllTests()
 {
     OperatorTests.Run();
@@ -2110,4 +2208,5 @@ void RunAllTests()
     FoldTests.Run();
     GotoTests.Run();
     SwitchTests.Run();
+    StaticInitTests.Run();
 }

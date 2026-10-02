@@ -18,7 +18,6 @@ namespace fraze
 class SectionDefinition : public Definition
 {
 public:
-    std::vector<sptr<Statement>> statements;
     Type* type{};
 
     SectionDefinition(const SourceLocation& loc, Scope* enclosingScope, const shared_string& name)
@@ -33,17 +32,8 @@ public:
     virtual sptr<ASTNode> Clone(ScopeStack& scopes, const sptr<TypeSpecifier>& templateType) override
     {
         auto copy = spnew<SectionDefinition>(loc, scopes.GetCurrent(), name);
-        
+
         scopes.GetCurrent()->AddDefinition(copy);
-        scopes.Push(copy->scope.get());
-
-        for(auto& stmt : statements)
-        {
-            auto stmtCopy = stmt->Clone(scopes, nullptr)->ToStatement();
-            copy->statements.push_back(stmtCopy);
-        }
-
-        scopes.Pop();
 
         return copy;
     }

@@ -88,9 +88,6 @@ void ASTVisitor::Visit(const sptr<PropertyDefinition>& node)
 
 void ASTVisitor::Visit(const sptr<SectionDefinition>& node)
 {
-    for(auto stmt : node->statements)
-        VisitChild(stmt);
-
     for(size_t i = 0; i != node->scope->definitions.size(); ++i)
     {
         auto def = node->scope->definitions[i];

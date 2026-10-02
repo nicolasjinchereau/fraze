@@ -41,6 +41,7 @@
     <ClCompile Include="source\fraze\memory\ScopedAllocator.cpp" />
     <ClCompile Include="source\fraze\program\Dispatcher.cpp" />
     <ClCompile Include="source\fraze\program\Program.cpp" />
+    <ClCompile Include="source\fraze\program\ProgramDiagnostics.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="source\fraze\ast\AST.h" />
@@ -137,6 +138,7 @@
     <ClInclude Include="source\fraze\program\CheckSite.h" />
     <ClInclude Include="source\fraze\program\Operation.h" />
     <ClInclude Include="source\fraze\program\Program.h" />
+    <ClInclude Include="source\fraze\program\ProgramDiagnostics.h" />
     <ClInclude Include="source\fraze\program\TypeInfo.h" />
   </ItemGroup>
   <ItemGroup>

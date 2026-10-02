@@ -4,6 +4,7 @@
 
 #pragma once
 #include <fraze/program/Program.h>
+#include <fraze/program/ProgramDiagnostics.h>
 #include <fraze/common/ExternalFunction.h>
 #include <fraze/common/Platform.h>
 #include <ranges>
@@ -63,70 +64,12 @@ std::size_t Program::GetStackSize() const {
     return std::size_t(rsp + 1 - stack.data());
 }
 
-void Program::Initialize()
-{
-    rsp += globalCount;
-    rbp = rsp + 1;
-
-    // RUN GLOBAL INIT
-    for(auto& ti : typeInfo)
-    {
-        if(auto sect = ti->ToSectionInfo())
-        {
-            Operation* ops = code.data();
-
-            // return storage
-            *(++rsp) = Word(nullptr);
-
-            // no args to push
-
-// Call + Prologue
-            // Push a sentinel value instead of the instruction pointer
-            // since we have no real return address here in C++.
-            std::size_t previousInstructionPointer = rip;
-            *(++rsp) = Word::Raw(DONE_INSTR);
-            rip = sect->codeStart;
-
-            // save/bump base pointer
-            *(++rsp) = Word(rbp);
-            rbp = rsp + 1;
-            // no locals
-
-            while(rip != DONE_INSTR)
-            {
-                Operation& op = ops[rip];
-#if FRAZE_HEAP_DEBUG
-                SourceLocation& loc = locations[rip];
-                heap.SetLocation(&loc);
-#endif
-                Execute( op );
-
-#if FRAZE_HEAP_DEBUG
-                heap.SetLocation(nullptr);
-#endif
-            }
-
-            // OpCode::Return will pop rbp and args
-            
-            // OpCode::Return restored the sentinel from the stack,
-            // so restore the real instruction pointer here.
-            rip = previousInstructionPointer;
-
-            --rsp; // return storage
-            assert(GetStackSize() == globalCount);
-        }
-    }
-
-    assert(GetStackSize() == globalCount);
-    
-    initialized = true;
-}
-
 Word Program::InvokeImpl(const std::string& qualifiedFuncName, const std::span<Word>& args)
 {
-    if(!initialized)
+    if(shouldInitialize)
     {
-        Initialize();
+        shouldInitialize = false;
+        InvokeImpl("$staticConstructor", {});
     }
 
     auto typeInfo = GetTypeInfo(qualifiedFuncName);
@@ -167,32 +110,22 @@ Word Program::InvokeImpl(const std::string& qualifiedFuncName, const std::span<W
     {
         Operation& op = ops[rip];
 
-#if FRAZE_PRINT_EXECUTED_CODE || FRAZE_HEAP_DEBUG
-        SourceLocation& loc = locations[rip];
-#endif
-
 #if FRAZE_PRINT_EXECUTED_CODE
-        std::cout << std::setw(4) << std::setfill(' ') << loc.line << ", ";
-        std::cout << std::setw(3) << std::setfill(' ') << loc.column << ", ";
-        PrintOperation(rip, std::cout);
-        std::cout << std::endl;
+        ProgramDiagnostics::PrintExecutedOperation(*this, rip);
 #endif
 
 #if FRAZE_HEAP_DEBUG
-        heap.SetLocation(&loc);
+        heap.SetLocation(&locations[rip]);
 #endif
-            
+
 #if FRAZE_CODE_PROFILING
-        auto start = std::chrono::high_resolution_clock::now();
+        ProgramDiagnostics::BeginOperationMeasurement();
 #endif // FRAZE_CODE_PROFILING
 
         Execute( op );
 
 #if FRAZE_CODE_PROFILING
-        auto end = std::chrono::high_resolution_clock::now();
-        auto codeIndex = static_cast<int>(op.code);
-        opcodeTotalNanos[codeIndex] += duration_cast<std::chrono::nanoseconds>(end - start).count();
-        opcodeTotalCount[codeIndex] += 1;
+        ProgramDiagnostics::EndOperationMeasurement(op.code);
 #endif // FRAZE_CODE_PROFILING
 
 #if FRAZE_HEAP_DEBUG
@@ -214,143 +147,6 @@ Word Program::InvokeImpl(const std::string& qualifiedFuncName, const std::span<W
     assert(GetStackSize() == previousStackSize);
 
     return result;
-}
-
-#if FRAZE_CODE_PROFILING
-void Program::DumpCodeProfile(std::ostream& stream)
-{
-    struct InstructionStats
-    {
-        OpCode code;
-        uint64_t totalNanos;
-        uint64_t totalCount;
-        double nanosPerCall;
-        double percentOfTotalTime;
-    };
-
-    std::vector<InstructionStats> counts;
-    counts.reserve(static_cast<size_t>(OpCode::COUNT));
-    uint64_t totalExecutionNanos = 0;
-
-    for(size_t i = 0; i != static_cast<size_t>(OpCode::COUNT); ++i)
-    {
-        uint64_t totalCount = opcodeTotalCount[i];
-        if(totalCount == 0)
-            continue;
-
-        OpCode code = static_cast<OpCode>(i);
-        uint64_t totalNanos = opcodeTotalNanos[i];
-        double nanosPerCall = static_cast<double>(totalNanos) / totalCount;
-
-        totalExecutionNanos += totalNanos;
-
-        counts.push_back(InstructionStats{ code, totalNanos, totalCount, nanosPerCall, 0.0 });
-    }
-
-    for(auto& item : counts) {
-        item.percentOfTotalTime = static_cast<double>(item.totalNanos * 100) / totalExecutionNanos;
-    }
-
-    std::ranges::sort(counts, [](const InstructionStats& a, const InstructionStats& b){
-        return a.totalNanos > b.totalNanos;
-    });
-
-    stream
-        << std::left << std::setw(20) << "Code"
-        << std::left << std::setw(16) << "Total Count"
-        << std::left << std::setw(20) << "Fraction of Time"
-        << std::left << "Nanos Per Call"
-        << std::endl;
-
-    for(auto& item : counts)
-    {
-        stream
-            << std::left << std::setw(20) << OpCodeNames[item.code]
-            << std::left << std::setw(16) << item.totalCount
-            << std::left << std::setw(20) << std::fixed << std::setprecision(8) << item.percentOfTotalTime
-            << std::left << std::fixed << std::setprecision(3) << item.nanosPerCall
-            << std::endl;
-    }
-
-    stream << std::endl;
-}
-#endif // FRAZE_CODE_PROFILING
-
-void Program::VerifyHandlers()
-{
-#define VERIFY_HANDLER_INDEX(name) \
-    static_assert(Program::handlers[static_cast<size_t>(OpCode::name)] == &Program::Execute_##name);
-
-    VERIFY_HANDLER_INDEX(NoOp);
-    VERIFY_HANDLER_INDEX(PushLiteral);
-    VERIFY_HANDLER_INDEX(PushLocal);
-    VERIFY_HANDLER_INDEX(PushLocalN);
-    VERIFY_HANDLER_INDEX(PushLocalAddr);
-    VERIFY_HANDLER_INDEX(PopLocal);
-    VERIFY_HANDLER_INDEX(PushGlobal);
-    VERIFY_HANDLER_INDEX(PushGlobalAddr);
-    VERIFY_HANDLER_INDEX(PopGlobal);
-    VERIFY_HANDLER_INDEX(PushArgument);
-    VERIFY_HANDLER_INDEX(PushArgumentN);
-    VERIFY_HANDLER_INDEX(PushArgumentAddr);
-    VERIFY_HANDLER_INDEX(PopArgument);
-    VERIFY_HANDLER_INDEX(PushWord);
-    VERIFY_HANDLER_INDEX(PushWordN);
-    VERIFY_HANDLER_INDEX(PushWordAddr);
-    VERIFY_HANDLER_INDEX(PopWord);
-    VERIFY_HANDLER_INDEX(PopWordN);
-    VERIFY_HANDLER_INDEX(PushIndexAddr);
-    VERIFY_HANDLER_INDEX(PushOffset);
-    VERIFY_HANDLER_INDEX(PopOffset);
-    VERIFY_HANDLER_INDEX(PushBoolean);
-    VERIFY_HANDLER_INDEX(PushInteger);
-    VERIFY_HANDLER_INDEX(PushNumber);
-    VERIFY_HANDLER_INDEX(PushNull);
-    VERIFY_HANDLER_INDEX(Pop);
-    VERIFY_HANDLER_INDEX(Reserve);
-    VERIFY_HANDLER_INDEX(LogicalOr);
-    VERIFY_HANDLER_INDEX(LogicalAnd);
-    VERIFY_HANDLER_INDEX(BitOr);
-    VERIFY_HANDLER_INDEX(BitXor);
-    VERIFY_HANDLER_INDEX(BitAnd);
-    VERIFY_HANDLER_INDEX(BitNot);
-    VERIFY_HANDLER_INDEX(LeftShift);
-    VERIFY_HANDLER_INDEX(RightShift);
-    VERIFY_HANDLER_INDEX(Equal);
-    VERIFY_HANDLER_INDEX(EqualN);
-    VERIFY_HANDLER_INDEX(NotEqual);
-    VERIFY_HANDLER_INDEX(NotEqualN);
-    VERIFY_HANDLER_INDEX(LessInt);
-    VERIFY_HANDLER_INDEX(LessNum);
-    VERIFY_HANDLER_INDEX(LessEqualInt);
-    VERIFY_HANDLER_INDEX(LessEqualNum);
-    VERIFY_HANDLER_INDEX(GreaterInt);
-    VERIFY_HANDLER_INDEX(GreaterNum);
-    VERIFY_HANDLER_INDEX(GreaterEqualInt);
-    VERIFY_HANDLER_INDEX(GreaterEqualNum);
-    VERIFY_HANDLER_INDEX(AddInt);
-    VERIFY_HANDLER_INDEX(AddNum);
-    VERIFY_HANDLER_INDEX(SubInt);
-    VERIFY_HANDLER_INDEX(SubNum);
-    VERIFY_HANDLER_INDEX(MulInt);
-    VERIFY_HANDLER_INDEX(MulNum);
-    VERIFY_HANDLER_INDEX(DivInt);
-    VERIFY_HANDLER_INDEX(DivNum);
-    VERIFY_HANDLER_INDEX(ModInt);
-    VERIFY_HANDLER_INDEX(ModNum);
-    VERIFY_HANDLER_INDEX(ConvIntToNum);
-    VERIFY_HANDLER_INDEX(ConvNumToInt);
-    VERIFY_HANDLER_INDEX(Dup);
-    VERIFY_HANDLER_INDEX(DupN);
-    VERIFY_HANDLER_INDEX(Call);
-    VERIFY_HANDLER_INDEX(CallVirtual);
-    VERIFY_HANDLER_INDEX(Return);
-    VERIFY_HANDLER_INDEX(CallExternal);
-    VERIFY_HANDLER_INDEX(CallIntrinsic);
-    VERIFY_HANDLER_INDEX(Jump);
-    VERIFY_HANDLER_INDEX(JumpIf);
-    VERIFY_HANDLER_INDEX(JumpIfNot);
-    VERIFY_HANDLER_INDEX(Switch);
 }
 
 void Program::Execute_NoOp(const Operation& op)
@@ -416,7 +212,7 @@ void Program::Execute_PushGlobal(const Operation& op)
 
     Word* dest = rsp + 1;
     for(size_t i = 0; i != op.arg2_u64; ++i)
-        dest[i] = this->stack[ op.arg1_u64 + i ];
+        dest[i] = this->globals[ op.arg1_u64 + i ];
 
     rsp = dest + (op.arg2_u64 - 1);
     ++rip;
@@ -424,7 +220,7 @@ void Program::Execute_PushGlobal(const Operation& op)
 
 void Program::Execute_PushGlobalAddr(const Operation& op)
 {
-    *(++rsp) = &this->stack[ op.arg1_u64 ];
+    *(++rsp) = &this->globals[ op.arg1_u64 ];
     ++rip;
 }
 
@@ -433,7 +229,7 @@ void Program::Execute_PopGlobal(const Operation& op)
     assert(op.arg2_u64 != 0);
 
     Word* top = rsp;
-    Word* global = &this->stack[ op.arg1_u64 ];
+    Word* global = &this->globals[ op.arg1_u64 ];
     Word* value = top + 1 - op.arg2_u64;
 
     for(size_t i = 0; i != op.arg2_u64; ++i)
@@ -1153,211 +949,6 @@ void Program::Execute_Switch(const Operation& op)
 void Program::Execute(const Operation& op)
 {
     (this->*handlers[static_cast<size_t>(op.code)])(op);
-}
-
-void Program::Print(bool printData = true, bool printCode = true)
-{
-    if(printData)
-    {
-        std::cout << "DATA:" << std::endl;
-
-        // print data
-    
-        for(int i = 0; i != data.size(); ++i)
-        {
-            WordType type = dataTypes[i];
-            std::cout << std::setw(4) << std::setfill('0') << i << ": "
-                << WordTypeNames.at(type) << ", " << GetLiteralValue(i) << std::endl;
-        }
-
-        std::cout << std::endl;
-    }
-
-    if(printCode)
-    {
-        // print code
-        for(auto& ti : typeInfo)
-        {
-            auto func = ti->ToFunctionInfo();
-            if(!func)
-                continue;
-
-            std::cout << "FUNCTION: " << func->qualifiedName << std::endl;
-
-            if(!func->externalFunction)
-            {
-                for(auto i = func->codeStart; i != func->codeEnd; ++i) {
-                    PrintOperation(i, std::cout);
-                    std::cout << std::endl;
-                }
-            }
-            else
-            {
-                std::cout << "<external>" << std::endl;
-            }
-
-            std::cout << std::endl;
-        }
-    }
-}
-
-std::string Program::GetLiteralValue(uint64_t index)
-{
-    Word value = data[index];
-    WordType type = dataTypes[index];
-
-    switch(type)
-    {
-    case WordType::Object:
-        return "null";
-    case WordType::Boolean:
-        return value.GetBoolean() ? "true" : "false";
-    case WordType::Integer:
-        return std::to_string(value.integer);
-    case WordType::Number:
-        return std::to_string(value.number);
-    case WordType::String:
-        return "\"" + std::string(value.GetString()->GetView()) + "\"";
-    default:
-        return "?";
-    }
-}
-
-void Program::PrintOperation(size_t index, std::ostream& stream)
-{
-    const Operation& op = code[index];
-    assert(OpCodeNames.contains(op.code));
-
-    stream << std::hex << std::uppercase << std::setw(4) << std::setfill('0') << index << ": " << std::dec;
-
-    switch(op.code)
-    {
-    case OpCode::Jump:
-    case OpCode::JumpIf:
-    case OpCode::JumpIfNot:
-        stream << OpCodeNames[op.code] << ", "
-            << std::hex << std::uppercase << std::setw(4) << std::setfill('0') << op.arg1_u64 << std::dec;
-        break;
-
-    case OpCode::PushLiteral:
-        stream << OpCodeNames[op.code] << ", "
-            << std::hex << std::uppercase << std::setw(4) << std::setfill('0') << op.arg1_u64
-            << " [" << GetLiteralValue(op.arg1_u64) << "]" << std::dec;
-        break;
-
-    case OpCode::PushBoolean:
-        stream << OpCodeNames[op.code] << ", " << std::boolalpha << (op.arg1_u64 != 0);
-        break;
-
-    case OpCode::PushNumber:
-        stream << OpCodeNames[op.code] << ", " << static_cast<Number>(op.arg1_f64);
-        break;
-
-    //case OpCode::PushWord:
-    //{
-    //    stream << OpCodeNames[op.code] << ", " << op.arg1_u64
-    //        << " [" << GetLiteralValue(op.arg1_u64) << "]" << std::dec;
-    //    break;
-    //}
-    case OpCode::Call:
-    case OpCode::CallExternal:
-        stream << OpCodeNames[op.code] << ", " << typeInfo[op.arg1_u64]->qualifiedName;
-        break;
-
-    case OpCode::CallIntrinsic:
-        stream << OpCodeNames[op.code] << ", " << typeInfo[op.arg1_u32a]->qualifiedName;
-        break;
-
-    case OpCode::CallVirtual:
-        stream << OpCodeNames[op.code] << ", " << typeInfo[op.arg1_u64]->qualifiedName;
-        break;
-
-    case OpCode::PushNull:
-    case OpCode::Dup:
-    case OpCode::Return:
-    case OpCode::LogicalOr:
-    case OpCode::LogicalAnd:
-    case OpCode::BitOr:
-    case OpCode::BitXor:
-    case OpCode::BitAnd:
-    case OpCode::LeftShift:
-    case OpCode::RightShift:
-    case OpCode::Equal:
-    case OpCode::NotEqual:
-    case OpCode::LessInt:
-    case OpCode::LessNum:
-    case OpCode::LessEqualInt:
-    case OpCode::LessEqualNum:
-    case OpCode::GreaterInt:
-    case OpCode::GreaterNum:
-    case OpCode::GreaterEqualInt:
-    case OpCode::GreaterEqualNum:
-    case OpCode::AddInt:
-    case OpCode::AddNum:
-    case OpCode::SubInt:
-    case OpCode::SubNum:
-    case OpCode::MulInt:
-    case OpCode::MulNum:
-    case OpCode::DivInt:
-    case OpCode::DivNum:
-    case OpCode::ModInt:
-    case OpCode::ModNum:
-    case OpCode::ConvIntToNum:
-    case OpCode::ConvNumToInt:
-        stream << OpCodeNames[op.code];
-        break;
-
-    case OpCode::PushLocalN:
-    case OpCode::PopLocalN:
-    case OpCode::PushGlobal:
-    case OpCode::PopGlobal:
-    case OpCode::PushArgumentN:
-    case OpCode::PopArgument:
-    case OpCode::PushWordN:
-    case OpCode::PopWordN:
-    case OpCode::PushIndexAddr:
-        stream << OpCodeNames[op.code] << ", " << op.arg1_u64 << ", " << op.arg2_u64;
-        break;
-
-    case OpCode::PushInteger:
-        stream << OpCodeNames[op.code] << ", " << op.arg1_i64;
-        break;
-
-    case OpCode::BitNot:
-        stream << OpCodeNames[op.code] << ", " << op.arg1_i64;
-        break;
-
-    case OpCode::NoOp:
-        stream << OpCodeNames[op.code];
-
-        if(op.arg1_cstr)
-            stream << ", " << op.arg1_cstr;
-
-        if(op.arg2_cstr)
-        {
-            if(op.arg1_cstr)
-                stream << ", ";
-
-            stream << op.arg2_cstr;
-        }
-        break;
-
-    case OpCode::EqualN:
-    case OpCode::NotEqualN:
-    case OpCode::PushLocal:
-    case OpCode::PushLocalAddr:
-    case OpCode::PopLocal:
-    case OpCode::PushGlobalAddr:
-    case OpCode::PushArgument:
-    case OpCode::PushArgumentAddr:
-    case OpCode::PushWord:
-    case OpCode::PushWordAddr:
-    case OpCode::PopWord:
-    case OpCode::Pop:
-    default:
-        stream << OpCodeNames[op.code] << ", " << op.arg1_u64;
-        break;
-    }
 }
 
 } // fraze

@@ -86,6 +86,10 @@ public:
         return def ? def->ToVariableDefinition() : sptr<VariableDefinition>{};
     }
 
+    sptr<FunctionDefinition> GetStaticConstructor();
+    sptr<FunctionDefinition> AddStaticConstructor();
+    sptr<Statement> CreateStaticConstructorCall();
+
     template<class T>
     auto GetChildren() const;
 

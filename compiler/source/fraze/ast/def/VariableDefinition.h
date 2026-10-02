@@ -37,6 +37,9 @@ public:
 
     virtual sptr<ASTNode> Clone(ScopeStack& scopes, const sptr<TypeSpecifier>& templateType) override;
 
+    bool IsInitializedByStaticConstructor();
+    void AddInitializerToStaticConstructor();
+
     virtual void Accept(ASTVisitor& visitor) override
     {
         visitor.Visit(self());

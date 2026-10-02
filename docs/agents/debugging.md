@@ -7,7 +7,7 @@ Call these on the `Compiler` in `demo/source/main.cpp`, before `Compile()`. Path
   - It shows the true lowered form: the receiver as first argument, fully qualified call targets, runtime checks as calls, and pseudo-forms like `cast<T>(x)` and `default(T)` for nodes without syntax.
   - It writes one `.fz` per source file, plus `__global.fz`.
   - The output isn't meant to compile.
-- `ExportBytecode(path)`: one CSV per source file, plus `all-sections.csv`.
+- `ExportBytecode(path)`: one CSV per source file, plus `static-constructors.csv`.
 
 Macros in `compiler/source/fraze/common/Platform.h`:
 

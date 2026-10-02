@@ -20,10 +20,10 @@ void CodePrinter::PrintIndent()
 }
 
 // Prints a scope's definitions in declaration order, with a blank line around multi-line definitions.
-void CodePrinter::PrintDefinitions(Scope* scope, bool skipVariables, bool hasPrecedingContent)
+void CodePrinter::PrintDefinitions(Scope* scope)
 {
-    bool hasPrevious = hasPrecedingContent;
-    bool previousIsMultiLine = hasPrecedingContent;
+    bool hasPrevious = false;
+    bool previousIsMultiLine = false;
     PropertyDefinition* property = nullptr; // the most recent property, whose accessors follow it
 
     // a section's definitions are split between the files they're located in
@@ -33,9 +33,6 @@ void CodePrinter::PrintDefinitions(Scope* scope, bool skipVariables, bool hasPre
     {
         // template parameters are printed in the header of their template
         if(def->ToTemplateParameterDefinition())
-            continue;
-
-        if(skipVariables && def->ToVariableDefinition())
             continue;
 
         if(isSectionScope && !HasContentInPrintedFile(def))
@@ -75,16 +72,9 @@ bool CodePrinter::HasContentInPrintedFile(const sptr<Definition>& def) const
     if(!section)
         return IsInPrintedFile(def->loc);
 
-    for(auto& stmt : section->statements)
-    {
-        if(IsInPrintedFile(stmt->loc))
-            return true;
-    }
-
-    // a section's variables are printed with its statements
     for(auto& child : section->scope->definitions)
     {
-        if(!child->ToVariableDefinition() && HasContentInPrintedFile(child))
+        if(HasContentInPrintedFile(child))
             return true;
     }
 
@@ -131,7 +121,7 @@ void CodePrinter::PrintAttributes(const std::vector<std::string>& attributes, bo
     stream << "]" << (ownLine ? "\n" : " ");
 }
 
-void CodePrinter::PrintVariable(const sptr<VariableDefinition>& node, bool qualifyName, bool printInitializer)
+void CodePrinter::PrintVariable(const sptr<VariableDefinition>& node, bool printInitializer)
 {
     if(node->isPrivate)
         stream << "private ";
@@ -140,7 +130,7 @@ void CodePrinter::PrintVariable(const sptr<VariableDefinition>& node, bool quali
         stream << "static ";
 
     VisitChildNode(node->typeSpec);
-    stream << " " << (qualifyName ? node->qualifiedName : node->name);
+    stream << " " << node->name;
 
     if(printInitializer && node->initializer)
     {
@@ -215,7 +205,7 @@ void CodePrinter::PrintInlineStatement(const sptr<Statement>& node)
 
     if(auto varDefStmt = node->ToVariableDefinitionStatement())
     {
-        PrintVariable(varDefStmt->variableDefinition, false, true);
+        PrintVariable(varDefStmt->variableDefinition, true);
     }
     else if(auto exprStmt = node->ToExpressionStatement())
     {
@@ -405,16 +395,6 @@ bool CodePrinter::StartsWithSign(const sptr<Expression>& expr)
 }
 
 /*****************************
-*            ROOT            *
-*****************************/
-
-void CodePrinter::Visit(const sptr<ASTRoot>& node)
-{
-    ASTVisitor::Visit(node);
-    VisitChildNode(node->global);
-}
-
-/*****************************
 *         DEFINITIONS        *
 *****************************/
 
@@ -463,7 +443,7 @@ void CodePrinter::Visit(const sptr<ClassDefinition>& node)
     stream << "{\n";
     ++indent;
 
-    PrintDefinitions(node->scope.get(), false, false);
+    PrintDefinitions(node->scope.get());
 
     --indent;
     PrintIndent();
@@ -572,7 +552,7 @@ void CodePrinter::Visit(const sptr<InterfaceDefinition>& node)
     stream << "{\n";
     ++indent;
 
-    PrintDefinitions(node->scope.get(), false, false);
+    PrintDefinitions(node->scope.get());
 
     --indent;
     PrintIndent();
@@ -633,20 +613,7 @@ void CodePrinter::Visit(const sptr<SectionDefinition>& node)
         ++indent;
     }
 
-    // The section's code runs before anything else in it, and its variables are defined by
-    // statements in that code, so they're printed there instead of with the other definitions.
-    bool hasStatements = false;
-
-    for(auto& stmt : node->statements)
-    {
-        if(!IsInPrintedFile(stmt->loc))
-            continue;
-
-        VisitChildNode(stmt);
-        hasStatements = true;
-    }
-
-    PrintDefinitions(node->scope.get(), true, hasStatements);
+    PrintDefinitions(node->scope.get());
 
     if(!isGlobal)
     {
@@ -666,7 +633,7 @@ void CodePrinter::Visit(const sptr<StructDefinition>& node)
     stream << "{\n";
     ++indent;
 
-    PrintDefinitions(node->scope.get(), false, false);
+    PrintDefinitions(node->scope.get());
 
     --indent;
     PrintIndent();
@@ -684,12 +651,12 @@ void CodePrinter::Visit(const sptr<TemplateParameterDefinition>& node)
 
 void CodePrinter::Visit(const sptr<VariableDefinition>& node)
 {
-    // a static field's initializer runs in a statement in the global section,
+    // a static variable's initializer runs in a statement in its owner's static constructor,
     // except in a template declaration, which is never instantiated as-is
     bool printInitializer = !node->isStatic || node->IsPartOfTemplateDeclaration();
 
     PrintIndent();
-    PrintVariable(node, false, printInitializer);
+    PrintVariable(node, printInitializer);
     stream << ";\n";
 }
 
@@ -1067,14 +1034,25 @@ void CodePrinter::Visit(const sptr<SwitchStatement>& node)
     stream << "}\n";
 }
 
+// Prints the variable's definition, or an assignment to its qualified name when the variable is defined elsewhere, as
+// in a static constructor, which initializes static variables defined in its owner's scope.
 void CodePrinter::Visit(const sptr<VariableDefinitionStatement>& node)
 {
-    // a static field is initialized by a statement in the global section, so it's named in full there
     auto& varDef = node->variableDefinition;
     bool isOwnedElsewhere = varDef->parent != node->enclosingScope->owner;
 
     PrintIndent();
-    PrintVariable(varDef, isOwnedElsewhere, true);
+
+    if(isOwnedElsewhere)
+    {
+        stream << varDef->qualifiedName << " = ";
+        PrintExpression(varDef->initializer, Precedence::Assignment);
+    }
+    else
+    {
+        PrintVariable(varDef, true);
+    }
+
     stream << ";\n";
 }
 

@@ -13,6 +13,7 @@ These aren't loaded automatically. Before starting a task, read the ones that ma
 - Investigating a miscompile, a lowering or a crash: `docs/agents/debugging.md`, covering the AST, lowered-code and bytecode dumps and the trace macros.
 - Hitting behavior that looks like a compiler bug, or fixing one: `docs/agents/known-bugs.md`.
 - Measuring or optimizing speed: `docs/agents/performance.md`.
+- Hooking Fraze up to the MIR JIT library: `docs/agents/jit-planning.md`, covering what already fits, how MIR behaves on Windows and what still blocks it.
 - Editing this file or anything in `docs/agents/`: `docs/agents/README.md`.
 
 ## Working in this repository
@@ -21,7 +22,7 @@ These aren't loaded automatically. Before starting a task, read the ones that ma
   - To undo your own temporary edit, write back the exact content you saved before editing.
   - When you `stash`, `checkout`, `restore` or `reset`, scope it so it cannot discard changes that aren't yours.
   - For compile probes, prefer a new scratch `.fz` file in `demo/assets/scripts/` (every `.fz` there is compiled), and delete it afterward.
-- Commit only when explicitly asked in that turn, and never push. Commit messages have one brief line per major change, each starting with `-` and no space (e.g. `-add switch statements`), in plain ASCII. Never add `Co-Authored-By` or any other trailer, even if your tooling adds one by default.
+- Commit only when explicitly asked in that turn, and never push. Commit messages have one brief line per major change, each starting with `-` and no space (e.g. `-add switch statements`), in plain ASCII. Each line describes the shape of a change, not its details. Never add `Co-Authored-By` or any other trailer, even if your tooling adds one by default.
 - Propose language and compiler design changes before implementing them. The user makes design calls, one step at a time.
 - When reporting back, cover what you did and anything that differs from what the user would expect. Don't affirm negatives: if you followed an instruction by not doing something (e.g. you didn't commit because you weren't asked to), leave it out.
 

@@ -921,7 +921,7 @@ size_t SemanticAnalyzer::GetVarSize(Type* type)
         auto structDef = type->GetDefinition()->ToStructDefinition();
         assert(structDef);
 
-        for(const auto& field : structDef->GetChildren<VariableDefinition>())
+        for(const auto& field : structDef->GetChildren<VariableDefinition>([](auto& f) { return !f->isStatic; }))
         {
             VisitChild(field->typeSpec);
             size += GetVarSize(field->typeSpec->type);
@@ -946,18 +946,6 @@ void SemanticAnalyzer::Visit(const sptr<ParameterDefinition>& node)
 void SemanticAnalyzer::Visit(const sptr<PropertyDefinition>& node)
 {
     ASTVisitor::Visit(node);
-}
-
-void SemanticAnalyzer::Visit(const sptr<SectionDefinition>& node) {
-    ASTVisitor::Visit(node);
-
-    if(node->statements.empty() || !node->statements.back()->ToReturnStatement())
-    {
-        auto loc = !node->statements.empty() ? node->statements.back()->loc : node->loc;
-        auto ret = spnew<ReturnStatement>(loc, node->scope.get());
-        node->statements.push_back(ret);
-        VisitChild(ret);
-    }
 }
 
 void SemanticAnalyzer::Visit(const sptr<StructDefinition>& node)
@@ -1480,7 +1468,7 @@ sptr<FunctionDefinition> SemanticAnalyzer::CreateEqualityOperator(Type* structTy
     std::string mixinCode;
     mixinCode += std::format("static bool {}({} left, {} right){{\n", operatorName, typeName, typeName);
 
-    for(const auto& field : structDef->GetChildren<VariableDefinition>())
+    for(const auto& field : structDef->GetChildren<VariableDefinition>([](auto& f) { return !f->isStatic; }))
         mixinCode += std::format("  if(left.{} != right.{}) return {};\n", field->name, field->name, earlyResult);
 
     mixinCode += std::format("  return {};\n}}", finalResult);
@@ -3020,7 +3008,7 @@ void SemanticAnalyzer::Visit(const sptr<NewExpression>& node)
         // If there's no constructor, process the args as field initializers.
         if(!node->hasConstructor.value())
         {
-            auto fields = def->GetChildren<VariableDefinition>();
+            auto fields = def->GetChildren<VariableDefinition>([](auto& f) { return !f->isStatic; });
 
             ENFORCE(node->arguments.size() <= fields.count(), node->loc, "too many initializers for class");
 
@@ -3294,6 +3282,17 @@ void SemanticAnalyzer::Visit(const sptr<TypeSpecifier>& node)
 
                 auto instance = templateDef->Clone(scopes, node)->ToTemplateDefinition();
                 VisitChild(instance);
+
+                // The section's static initializers that use the instance were added before it was instantiated,
+                // so the call that initializes its static variables goes before them.
+                if(instance->GetStaticConstructor())
+                {
+                    auto call = instance->CreateStaticConstructorCall();
+                    VisitChild(call);
+
+                    auto& statements = instance->parent->GetStaticConstructor()->body->statements;
+                    statements.insert(statements.begin(), call);
+                }
 
                 definition = instance;
             }

@@ -2,6 +2,7 @@
 *  Copyright (c) 2026 Nicolas Jinchereau. All rights reserved.  *
 *---------------------------------------------------------------*/
 
+#include <algorithm>
 #include <ranges>
 #include <print>
 #include <fraze/compiler/CodeGenerator.h>
@@ -327,7 +328,8 @@ void CodeGenerator::Visit(const sptr<ASTRoot>& node)
     typeInfo = std::move(rtti.typeInfoByType);
     program->typeInfo = std::move(rtti.allTypeInfo);
     program->intrinsics = std::move(rtti.intrinsics);
-    program->globalCount = rtti.globalSize;
+    program->globals = dynamic_array<Word>(rtti.globalSize);
+    std::ranges::fill(program->globals, Word(nullptr));
 
     ASTVisitor::Visit(node);
 }
@@ -377,24 +379,6 @@ void CodeGenerator::Visit(const sptr<InterfaceDefinition>& node)
 
 void CodeGenerator::Visit(const sptr<ParameterDefinition>& node) {
     ASTVisitor::Visit(node);
-}
-
-void CodeGenerator::Visit(const sptr<SectionDefinition>& node)
-{
-    SectionInfo* type = typeInfo[node->type]->ToSectionInfo();
-
-    type->codeStart = (uint32_t)program->code.size();
-
-    for (auto& stmt : node->statements)
-        VisitChild(stmt);
-
-    type->codeEnd = (uint32_t)program->code.size();
-
-    for (auto& def : node->scope->definitions)
-    {
-        if(!def->ToVariableDefinition())
-            VisitChild(def);
-    }
 }
 
 void CodeGenerator::Visit(const sptr<StructDefinition>& node)
@@ -1186,7 +1170,7 @@ void CodeGenerator::Visit(const sptr<NewExpression>& node)
         auto structDef = type->GetDefinition()->ToStructDefinition();
         ENFORCE(structDef != nullptr, node->loc, "expected struct type");
 
-        auto fields = structDef->GetChildren<VariableDefinition>();
+        auto fields = structDef->GetChildren<VariableDefinition>([](auto& f) { return !f->isStatic; });
         
         // use arguments passed to initializer
         ENFORCE(node->arguments.size() <= fields.count(), node->loc, "too many arguments");

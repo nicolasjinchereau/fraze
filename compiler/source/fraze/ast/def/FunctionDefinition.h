@@ -4,6 +4,7 @@
 
 #pragma once
 #include <string>
+#include <string_view>
 #include <vector>
 #include <fraze/ast/def/Definition.h>
 #include <fraze/ast/def/ParameterDefinition.h>
@@ -22,6 +23,9 @@ class ClassDefinition;
 class FunctionDefinition : public TemplateDefinition
 {
 public:
+    // name of the auto-generated function that initializes static variables
+    static constexpr std::string_view StaticConstructorName = "$staticConstructor";
+
     sptr<TypeSpecifier> returnType;
 
     bool isExternal = false;

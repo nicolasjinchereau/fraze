@@ -158,6 +158,8 @@ public:
         astRoot = root;
         scopes.Push(astRoot->global->scope.get());
 
+        FindOrAddStaticConstructor(astRoot->global.get());
+
         ParseSectionMembers(astRoot->global);
         ENFORCE(token.IsType(TokenType::EndOfFile), SourceLocation(), "Expected a definition or end of file");
 
@@ -221,12 +223,29 @@ private:
             else if (token.IsKeyword(Keyword::Functor))
                 ParseFunctorDefinition();
             else if (IsVariableDefinition())
-                section->statements.push_back( ParseVarDefinitionStmt() );
+                ParseVariableDefinition();
             else if (IsFunctionDefinition())
                 ParseFunctionDefinition();
             else
                 break;
         }
+    }
+
+    // Returns the static constructor of 'owner', which can be a section, class or struct.
+    sptr<FunctionDefinition> FindOrAddStaticConstructor(Definition* owner)
+    {
+        if(auto existing = owner->GetStaticConstructor())
+            return existing;
+
+        auto staticConstructor = owner->AddStaticConstructor();
+
+        if(auto enclosingSection = owner->parent ? owner->parent->ToSectionDefinition() : nullptr)
+        {
+            auto& statements = FindOrAddStaticConstructor(enclosingSection.get())->body->statements;
+            statements.insert(statements.end() - 1, owner->CreateStaticConstructorCall());
+        }
+
+        return staticConstructor;
     }
 
     sptr<SectionDefinition> ParseSectionDefinition()
@@ -246,6 +265,7 @@ private:
         {
             sect = spnew<SectionDefinition>(sectionTok.loc, scopes.GetCurrent(), nameTok.GetIdentifier());
             scopes.GetCurrent()->AddDefinition(sect);
+            FindOrAddStaticConstructor(sect.get());
         }
         
         Consume(TokenType::LeftBrace);
@@ -266,13 +286,7 @@ private:
         {
             if (IsVariableDefinition())
             {
-                auto varDef = ParseVariableDefinition();
-                if(varDef->isStatic && !classDef->IsTemplateDeclaration())
-                {
-                    auto varDefStmt = spnew<VariableDefinitionStatement>(varDef->loc, astRoot->global->scope.get());
-                    varDefStmt->variableDefinition = varDef;
-                    astRoot->global->statements.push_back( varDefStmt );
-                }
+                ParseVariableDefinition();
             }
             else if (IsPropertyDefinition())
             {
@@ -444,13 +458,7 @@ private:
         {
             if (IsVariableDefinition())
             {
-                auto varDef = ParseVariableDefinition();
-                if(varDef->isStatic && !structDef->IsTemplateDeclaration())
-                {
-                    auto varDefStmt = spnew<VariableDefinitionStatement>(varDef->loc, astRoot->global->scope.get());
-                    varDefStmt->variableDefinition = varDef;
-                    astRoot->global->statements.push_back( varDefStmt );
-                }
+                ParseVariableDefinition();
             }
             else if (IsPropertyDefinition())
             {
@@ -1590,6 +1598,9 @@ class ${}_Task
         return def;
     }
 
+    // Parses a variable and adds it to the current scope. A static variable is initialized by its owner's
+    // static constructor, so its initializer is parsed in the constructor's body, where the temporaries
+    // it needs are locals of the constructor.
     sptr<VariableDefinition> ParseVariableDefinition()
     {
         auto owner = scopes.GetCurrent()->owner;
@@ -1623,6 +1634,10 @@ class ${}_Task
         def->isStatic = owner->ToSectionDefinition() ? true : isStatic;
         def->isPrivate = isPrivate;
 
+        auto staticConstructor = def->IsInitializedByStaticConstructor() ? FindOrAddStaticConstructor(owner) : nullptr;
+        if(staticConstructor)
+            scopes.Push(staticConstructor->body->scope.get());
+
         if (TryConsume(TokenType::Assign))
         {
             def->initializer = ParseExpression();
@@ -1634,6 +1649,12 @@ class ${}_Task
         }
 
         Consume(TokenType::Semicolon);
+
+        if(staticConstructor)
+        {
+            scopes.Pop();
+            def->AddInitializerToStaticConstructor();
+        }
 
         return def;
     }

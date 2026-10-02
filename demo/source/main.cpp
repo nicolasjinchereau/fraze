@@ -6,6 +6,7 @@
 #include <fraze/common/ScopeUtil.h>
 #include <fraze/compiler/Compiler.h>
 #include <fraze/program/Dispatcher.h>
+#include <fraze/program/ProgramDiagnostics.h>
 #include <ExternFunctions.h>
 #include <WorkerThread.h>
 #include <iostream>
@@ -46,7 +47,7 @@ int main(int argc, char** argv)
         dispatcher->Run(true);
 
 #if FRAZE_CODE_PROFILING
-        program->DumpCodeProfile(std::cout);
+        fraze::ProgramDiagnostics::DumpCodeProfile(std::cout);
 #endif // FRAZE_CODE_PROFILING
     }
     catch(const std::exception& ex)

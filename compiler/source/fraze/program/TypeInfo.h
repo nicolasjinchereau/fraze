@@ -60,9 +60,6 @@ struct TypeInfo : public Object
 
 struct SectionInfo : TypeInfo
 {
-    uint32_t codeStart;
-    uint32_t codeEnd;
-
     SectionInfo(const TypeInfo* typeInfo) : TypeInfo(typeInfo) {}
 
     virtual SectionInfo* ToSectionInfo() override { return this; }

@@ -117,7 +117,7 @@ size_t RuntimeTypeInfo::GetStructSize(const sptr<StructDefinition>& structDef)
 {
     size_t size = 0;
 
-    for(const auto& field : structDef->GetChildren<VariableDefinition>())
+    for(const auto& field : structDef->GetChildren<VariableDefinition>([](auto& f) { return !f->isStatic; }))
         size += GetVariableSize(field);
 
     return size;
@@ -127,7 +127,7 @@ size_t RuntimeTypeInfo::GetClassSize(const sptr<ClassDefinition>& classDef)
 {
     size_t size = 0;
 
-    for(const auto& field : classDef->GetChildren<VariableDefinition>())
+    for(const auto& field : classDef->GetChildren<VariableDefinition>([](auto& f) { return !f->isStatic; }))
         size += GetVariableSize(field);
 
     return size;
@@ -211,7 +211,7 @@ size_t RuntimeTypeInfo::GetVariableOffset(const sptr<VariableDefinition>& node)
     }
     else
     {
-        for(const auto& varDef : node->parent->GetChildren<VariableDefinition>())
+        for(const auto& varDef : node->parent->GetChildren<VariableDefinition>([](auto& f) { return !f->isStatic; }))
         {
             if(varDef == node)
                 break;
@@ -257,7 +257,7 @@ size_t RuntimeTypeInfo::GetLocalStorageSize(const sptr<FunctionDefinition>& func
 {
     size_t localSize = 0;
 
-    for(const auto& local : func->GetChildren<VariableDefinition>())
+    for(const auto& local : func->GetChildren<VariableDefinition>([](auto& f) { return !f->isStatic; }))
         localSize += GetVariableSize(local);
 
     return localSize;
@@ -334,7 +334,7 @@ sptr<TypeInfo> RuntimeTypeInfo::GetTypeInfo(Type* type)
                 }
             }
 
-            for (const auto& field : classDef->GetChildren<VariableDefinition>())
+            for (const auto& field : classDef->GetChildren<VariableDefinition>([](auto& f) { return !f->isStatic; }))
             {
                 assert(field->fieldType);
                 auto fieldTypeInfo = GetTypeInfo(field->fieldType);
@@ -362,7 +362,7 @@ sptr<TypeInfo> RuntimeTypeInfo::GetTypeInfo(Type* type)
             typeInfoByType[type] = info;
             ret = info;
 
-            for(const auto& field : structDef->GetChildren<VariableDefinition>())
+            for(const auto& field : structDef->GetChildren<VariableDefinition>([](auto& f) { return !f->isStatic; }))
             {
                 assert(field->fieldType);
                 auto fieldTypeInfo = GetTypeInfo(field->fieldType);
@@ -469,8 +469,6 @@ sptr<TypeInfo> RuntimeTypeInfo::GetTypeInfo(Type* type)
             info->id = allTypeInfo.size();
             info->qualifiedName = type->GetName();
             info->loc = sect->loc;
-            info->codeStart = 0;
-            info->codeEnd = 0;
             allTypeInfo.push_back(info);
             typeInfoByType[type] = info;
             ret = info;
