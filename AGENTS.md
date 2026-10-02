@@ -82,6 +82,7 @@ These serve two goals: being able to move or delete AST nodes freely, and keepin
   - Surface what the reader can't see where the name is used, through what the thing is rather than through internals they'd have to go and read. A field named `finalizer` is a good model: it says what the field is and hints at its purpose without naming anything hidden.
   - Name a function's side effects. Don't name one like a query (`TryTakeCachedResult`, not `HasCachedResult`), and name an effect beyond what the caller can already read (`TryCancelScheduledSave`, not `TryTakePendingSave`).
   - Don't rename existing code unless asked.
+- **Audience:** write comments and docs, `docs/agents/` included, for an expert engineer who already knows this project. Give the shape of a problem or mechanism, not a walkthrough of its details.
 - **Comments:** one per function, on its definition, and on a field whose name can't carry its meaning.
   - The first sentence says concretely what the thing does, returns or holds, not what it isn't; the why comes after, briefly.
   - Name the calls made and the state changed rather than a verb that stands in for them: "stores the value, marks it done and calls Finish", not "completes the operation".

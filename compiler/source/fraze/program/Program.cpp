@@ -78,8 +78,6 @@ Word Program::InvokeImpl(const std::string& qualifiedFuncName, const std::span<W
     auto funcInfo = typeInfo->ToFunctionInfo();
     ENFORCE(funcInfo->paramSize == args.size(), SourceLocation(), "wrong number of args: {}", args.size());
 
-    Operation* ops = code.data();
-
 #ifndef NDEBUG
     size_t previousStackSize = GetStackSize();
     Word* previousBasePointer = rbp;
@@ -106,32 +104,7 @@ Word Program::InvokeImpl(const std::string& qualifiedFuncName, const std::span<W
     // allocate locals
     rsp += funcInfo->localSize;
 
-    while(rip != DONE_INSTR)
-    {
-        Operation& op = ops[rip];
-
-#if FRAZE_PRINT_EXECUTED_CODE
-        ProgramDiagnostics::PrintExecutedOperation(*this, rip);
-#endif
-
-#if FRAZE_HEAP_DEBUG
-        heap.SetLocation(&locations[rip]);
-#endif
-
-#if FRAZE_CODE_PROFILING
-        ProgramDiagnostics::BeginOperationMeasurement();
-#endif // FRAZE_CODE_PROFILING
-
-        Execute( op );
-
-#if FRAZE_CODE_PROFILING
-        ProgramDiagnostics::EndOperationMeasurement(op.code);
-#endif // FRAZE_CODE_PROFILING
-
-#if FRAZE_HEAP_DEBUG
-        heap.SetLocation(nullptr);
-#endif
-    }
+    Run();
 
     // OpCode::Return restored the sentinel from the stack,
     // so restore the real instruction pointer here.
@@ -149,25 +122,152 @@ Word Program::InvokeImpl(const std::string& qualifiedFuncName, const std::span<W
     return result;
 }
 
-void Program::Execute_NoOp(const Operation& op)
+#define FRAZE_EXECUTE_CASE(name) case OpCode::name: Execute_##name(op, rsp, rbp, rip); break;
+
+// Executes operations from the instruction pointer, rip, until a Return jumps to the DONE_INSTR sentinel. It copies
+// the stack pointer, base pointer and instruction pointer into locals of the same names and passes them by reference
+// to the handlers, which are force-inlined, so the C++ compiler can keep all three in machine registers. It stores rsp
+// back after every operation, for the GC, and all three when it finishes; Execute_CallExternal stores all three before
+// calling native code.
+void Program::Run()
+{
+    Word* rsp = this->rsp;
+    Word* rbp = this->rbp;
+    size_t rip = this->rip;
+
+    const Operation* ops = code.data();
+
+    while(rip != DONE_INSTR)
+    {
+        const Operation& op = ops[rip];
+
+#if FRAZE_PRINT_EXECUTED_CODE
+        ProgramDiagnostics::PrintExecutedOperation(*this, rip);
+#endif
+
+#if FRAZE_HEAP_DEBUG
+        heap.SetLocation(&locations[rip]);
+#endif
+
+#if FRAZE_CODE_PROFILING
+        ProgramDiagnostics::BeginOperationMeasurement();
+#endif // FRAZE_CODE_PROFILING
+
+        switch(op.code)
+        {
+        FRAZE_EXECUTE_CASE(NoOp)
+        FRAZE_EXECUTE_CASE(PushLiteral)
+        FRAZE_EXECUTE_CASE(PushLocal)
+        FRAZE_EXECUTE_CASE(PushLocalN)
+        FRAZE_EXECUTE_CASE(PushLocalAddr)
+        FRAZE_EXECUTE_CASE(PopLocal)
+        FRAZE_EXECUTE_CASE(PopLocalN)
+        FRAZE_EXECUTE_CASE(PushGlobal)
+        FRAZE_EXECUTE_CASE(PushGlobalAddr)
+        FRAZE_EXECUTE_CASE(PopGlobal)
+        FRAZE_EXECUTE_CASE(PushArgument)
+        FRAZE_EXECUTE_CASE(PushArgumentN)
+        FRAZE_EXECUTE_CASE(PushArgumentAddr)
+        FRAZE_EXECUTE_CASE(PopArgument)
+        FRAZE_EXECUTE_CASE(PushWord)
+        FRAZE_EXECUTE_CASE(PushWordN)
+        FRAZE_EXECUTE_CASE(PushWordAddr)
+        FRAZE_EXECUTE_CASE(PopWord)
+        FRAZE_EXECUTE_CASE(PopWordN)
+        FRAZE_EXECUTE_CASE(PushIndexAddr)
+        FRAZE_EXECUTE_CASE(PushOffset)
+        FRAZE_EXECUTE_CASE(PopOffset)
+        FRAZE_EXECUTE_CASE(PushBoolean)
+        FRAZE_EXECUTE_CASE(PushInteger)
+        FRAZE_EXECUTE_CASE(PushNumber)
+        FRAZE_EXECUTE_CASE(PushNull)
+        FRAZE_EXECUTE_CASE(Pop)
+        FRAZE_EXECUTE_CASE(Reserve)
+        FRAZE_EXECUTE_CASE(LogicalOr)
+        FRAZE_EXECUTE_CASE(LogicalAnd)
+        FRAZE_EXECUTE_CASE(BitOr)
+        FRAZE_EXECUTE_CASE(BitXor)
+        FRAZE_EXECUTE_CASE(BitAnd)
+        FRAZE_EXECUTE_CASE(BitNot)
+        FRAZE_EXECUTE_CASE(LeftShift)
+        FRAZE_EXECUTE_CASE(RightShift)
+        FRAZE_EXECUTE_CASE(Equal)
+        FRAZE_EXECUTE_CASE(EqualN)
+        FRAZE_EXECUTE_CASE(NotEqual)
+        FRAZE_EXECUTE_CASE(NotEqualN)
+        FRAZE_EXECUTE_CASE(LessInt)
+        FRAZE_EXECUTE_CASE(LessNum)
+        FRAZE_EXECUTE_CASE(LessEqualInt)
+        FRAZE_EXECUTE_CASE(LessEqualNum)
+        FRAZE_EXECUTE_CASE(GreaterInt)
+        FRAZE_EXECUTE_CASE(GreaterNum)
+        FRAZE_EXECUTE_CASE(GreaterEqualInt)
+        FRAZE_EXECUTE_CASE(GreaterEqualNum)
+        FRAZE_EXECUTE_CASE(AddInt)
+        FRAZE_EXECUTE_CASE(AddNum)
+        FRAZE_EXECUTE_CASE(SubInt)
+        FRAZE_EXECUTE_CASE(SubNum)
+        FRAZE_EXECUTE_CASE(MulInt)
+        FRAZE_EXECUTE_CASE(MulNum)
+        FRAZE_EXECUTE_CASE(DivInt)
+        FRAZE_EXECUTE_CASE(DivNum)
+        FRAZE_EXECUTE_CASE(ModInt)
+        FRAZE_EXECUTE_CASE(ModNum)
+        FRAZE_EXECUTE_CASE(ConvIntToNum)
+        FRAZE_EXECUTE_CASE(ConvNumToInt)
+        FRAZE_EXECUTE_CASE(Dup)
+        FRAZE_EXECUTE_CASE(DupN)
+        FRAZE_EXECUTE_CASE(Call)
+        FRAZE_EXECUTE_CASE(CallVirtual)
+        FRAZE_EXECUTE_CASE(Return)
+        FRAZE_EXECUTE_CASE(CallExternal)
+        FRAZE_EXECUTE_CASE(Jump)
+        FRAZE_EXECUTE_CASE(JumpIf)
+        FRAZE_EXECUTE_CASE(JumpIfNot)
+        FRAZE_EXECUTE_CASE(Switch)
+        default:
+            assert(!"every OpCode needs a case");
+            __assume(0);
+        }
+
+#if FRAZE_CODE_PROFILING
+        ProgramDiagnostics::EndOperationMeasurement(op.code);
+#endif // FRAZE_CODE_PROFILING
+
+#if FRAZE_HEAP_DEBUG
+        heap.SetLocation(nullptr);
+#endif
+        // Ensure the GC can see a mostly up-to-date stack pointer to
+        // mitigate the risk of miscollection until we can stop the world.
+        this->rsp = rsp;
+    }
+
+    this->rsp = rsp;
+    this->rbp = rbp;
+    this->rip = rip;
+}
+
+#undef FRAZE_EXECUTE_CASE
+
+void Program::Execute_NoOp(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     ++rip;
 }
 
-void Program::Execute_PushLiteral(const Operation& op)
+void Program::Execute_PushLiteral(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     *(++rsp) = *(data.data() + op.arg1_u64);
     ++rip;
 }
 
-void Program::Execute_PushLocal(const Operation& op)
+void Program::Execute_PushLocal(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     assert(op.arg2_u64 == 0);
     *(++rsp) = *(rbp + op.arg1_u64);
     ++rip;
 }
 
-void Program::Execute_PushLocalN(const Operation& op)
+void Program::Execute_PushLocalN(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     Word* src = rbp + op.arg1_u64;
     Word* dest = rsp + 1;
@@ -179,20 +279,20 @@ void Program::Execute_PushLocalN(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_PushLocalAddr(const Operation& op)
+void Program::Execute_PushLocalAddr(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     *(++rsp) = Word(rbp + op.arg1_u64);
     ++rip;
 }
 
-void Program::Execute_PopLocal(const Operation& op)
+void Program::Execute_PopLocal(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     assert(op.arg2_u64 == 0);
     *(rbp + op.arg1_u64) = *(rsp--);
     ++rip;
 }
 
-void Program::Execute_PopLocalN(const Operation& op)
+void Program::Execute_PopLocalN(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     assert(op.arg2_u64 != 0);
     
@@ -206,7 +306,7 @@ void Program::Execute_PopLocalN(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_PushGlobal(const Operation& op)
+void Program::Execute_PushGlobal(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     assert(op.arg2_u64 != 0);
 
@@ -218,13 +318,13 @@ void Program::Execute_PushGlobal(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_PushGlobalAddr(const Operation& op)
+void Program::Execute_PushGlobalAddr(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     *(++rsp) = &this->globals[ op.arg1_u64 ];
     ++rip;
 }
 
-void Program::Execute_PopGlobal(const Operation& op)
+void Program::Execute_PopGlobal(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     assert(op.arg2_u64 != 0);
 
@@ -239,7 +339,7 @@ void Program::Execute_PopGlobal(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_PushArgument(const Operation& op)
+void Program::Execute_PushArgument(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     const uint64_t argIndex = op.arg1_u64;
     const uint64_t argSize = op.arg2_u64;
@@ -250,7 +350,7 @@ void Program::Execute_PushArgument(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_PushArgumentN(const Operation& op)
+void Program::Execute_PushArgumentN(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     const uint64_t argIndex = op.arg1_u64;
     const uint64_t argSize = op.arg2_u64;
@@ -267,7 +367,7 @@ void Program::Execute_PushArgumentN(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_PushArgumentAddr(const Operation& op)
+void Program::Execute_PushArgumentAddr(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     const uint64_t argIndex = op.arg1_u64;
     const uint64_t argSize = op.arg2_u64;
@@ -276,7 +376,7 @@ void Program::Execute_PushArgumentAddr(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_PopArgument(const Operation& op)
+void Program::Execute_PopArgument(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     const uint64_t argIndex = op.arg1_u64;
     const uint64_t argSize = op.arg2_u64;
@@ -294,14 +394,14 @@ void Program::Execute_PopArgument(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_PushWord(const Operation& op)
+void Program::Execute_PushWord(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     Reference address = rsp->reference;
     *rsp = address[op.arg1_u64];
     ++rip;
 }
 
-void Program::Execute_PushWordN(const Operation& op)
+void Program::Execute_PushWordN(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     assert(op.arg2_u64 != 0);
 
@@ -318,14 +418,14 @@ void Program::Execute_PushWordN(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_PushWordAddr(const Operation& op)
+void Program::Execute_PushWordAddr(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     Reference address = rsp->reference;
     rsp->reference = address + op.arg1_u64;
     ++rip;
 }
 
-void Program::Execute_PopWord(const Operation& op)
+void Program::Execute_PopWord(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     Word* top = rsp;
     Reference address = (top--)->reference;
@@ -334,7 +434,7 @@ void Program::Execute_PopWord(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_PopWordN(const Operation& op)
+void Program::Execute_PopWordN(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     assert(op.arg2_u64 != 0);
 
@@ -351,7 +451,7 @@ void Program::Execute_PopWordN(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_PushIndexAddr(const Operation& op)
+void Program::Execute_PushIndexAddr(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     Word* top = rsp;
     Integer index = (top--)->integer;
@@ -361,7 +461,7 @@ void Program::Execute_PushIndexAddr(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_PushOffset(const Operation& op)
+void Program::Execute_PushOffset(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     Word* top = rsp;
     auto valueRef = top - op.arg1_u64;
@@ -380,49 +480,49 @@ void Program::Execute_PushOffset(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_PopOffset(const Operation& op)
+void Program::Execute_PopOffset(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     *(rsp - op.arg1_u64) = *(rsp--);
     ++rip;
 }
 
-void Program::Execute_PushBoolean(const Operation& op)
+void Program::Execute_PushBoolean(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     (++rsp)->storage = static_cast<uint64_t>(op.arg1_i64 != 0);
     ++rip;
 }
 
-void Program::Execute_PushInteger(const Operation& op)
+void Program::Execute_PushInteger(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     (++rsp)->integer = op.arg1_i64;
     ++rip;
 }
 
-void Program::Execute_PushNumber(const Operation& op)
+void Program::Execute_PushNumber(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     (++rsp)->number = op.arg1_f64;
     ++rip;
 }
 
-void Program::Execute_PushNull(const Operation& op)
+void Program::Execute_PushNull(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     (++rsp)->object = nullptr;
     ++rip;
 }
 
-void Program::Execute_Pop(const Operation& op)
+void Program::Execute_Pop(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     rsp -= op.arg1_u64;
     ++rip;
 }
 
-void Program::Execute_Reserve(const Operation& op)
+void Program::Execute_Reserve(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     rsp += op.arg1_u64;
     ++rip;
 }
 
-void Program::Execute_LogicalOr(const Operation& op)
+void Program::Execute_LogicalOr(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     Word* top = rsp;
     Boolean rhs = static_cast<Boolean>((top--)->storage);
@@ -432,7 +532,7 @@ void Program::Execute_LogicalOr(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_LogicalAnd(const Operation& op)
+void Program::Execute_LogicalAnd(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     Word* top = rsp;
     Boolean rhs = static_cast<Boolean>((top--)->storage);
@@ -442,7 +542,7 @@ void Program::Execute_LogicalAnd(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_BitOr(const Operation& op)
+void Program::Execute_BitOr(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     Word* top = rsp;
     Integer rhs = (top--)->integer;
@@ -452,7 +552,7 @@ void Program::Execute_BitOr(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_BitXor(const Operation& op)
+void Program::Execute_BitXor(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     Word* top = rsp;
     Integer rhs = (top--)->integer;
@@ -462,7 +562,7 @@ void Program::Execute_BitXor(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_BitAnd(const Operation& op)
+void Program::Execute_BitAnd(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     Word* top = rsp;
     Integer rhs = (top--)->integer;
@@ -472,14 +572,14 @@ void Program::Execute_BitAnd(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_BitNot(const Operation& op)
+void Program::Execute_BitNot(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     Word* top = rsp;
     top->integer = ~top->integer;
     ++rip;
 }
 
-void Program::Execute_LeftShift(const Operation& op)
+void Program::Execute_LeftShift(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     Word* top = rsp;
     Integer rhs = (top--)->integer;
@@ -489,7 +589,7 @@ void Program::Execute_LeftShift(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_RightShift(const Operation& op)
+void Program::Execute_RightShift(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     Word* top = rsp;
     Integer rhs = (top--)->integer;
@@ -499,7 +599,7 @@ void Program::Execute_RightShift(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_Equal(const Operation& op)
+void Program::Execute_Equal(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     assert(op.arg1_u64 == 0);
     Word* top = rsp;
@@ -510,7 +610,7 @@ void Program::Execute_Equal(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_EqualN(const Operation& op)
+void Program::Execute_EqualN(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     assert(op.arg1_u64 > 1);
 
@@ -530,7 +630,7 @@ void Program::Execute_EqualN(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_NotEqual(const Operation& op)
+void Program::Execute_NotEqual(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     assert(op.arg1_u64 == 0);
     Word* top = rsp;
@@ -541,7 +641,7 @@ void Program::Execute_NotEqual(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_NotEqualN(const Operation& op)
+void Program::Execute_NotEqualN(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     assert(op.arg1_u64 > 1);
 
@@ -561,7 +661,7 @@ void Program::Execute_NotEqualN(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_LessInt(const Operation& op)
+void Program::Execute_LessInt(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     Word* top = rsp;
     Integer rhs = (top--)->integer;
@@ -571,7 +671,7 @@ void Program::Execute_LessInt(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_LessNum(const Operation& op)
+void Program::Execute_LessNum(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     Word* top = rsp;
     Number rhs = (top--)->number;
@@ -581,7 +681,7 @@ void Program::Execute_LessNum(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_LessEqualInt(const Operation& op)
+void Program::Execute_LessEqualInt(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     Word* top = rsp;
     Integer rhs = (top--)->integer;
@@ -591,7 +691,7 @@ void Program::Execute_LessEqualInt(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_LessEqualNum(const Operation& op)
+void Program::Execute_LessEqualNum(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     Word* top = rsp;
     Number rhs = (top--)->number;
@@ -601,7 +701,7 @@ void Program::Execute_LessEqualNum(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_GreaterInt(const Operation& op)
+void Program::Execute_GreaterInt(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     Word* top = rsp;
     Integer rhs = (top--)->integer;
@@ -611,7 +711,7 @@ void Program::Execute_GreaterInt(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_GreaterNum(const Operation& op)
+void Program::Execute_GreaterNum(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     Word* top = rsp;
     Number rhs = (top--)->number;
@@ -621,7 +721,7 @@ void Program::Execute_GreaterNum(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_GreaterEqualInt(const Operation& op)
+void Program::Execute_GreaterEqualInt(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     Word* top = rsp;
     Integer rhs = (top--)->integer;
@@ -631,7 +731,7 @@ void Program::Execute_GreaterEqualInt(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_GreaterEqualNum(const Operation& op)
+void Program::Execute_GreaterEqualNum(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     Word* top = rsp;
     Number rhs = (top--)->number;
@@ -641,7 +741,7 @@ void Program::Execute_GreaterEqualNum(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_AddInt(const Operation& op)
+void Program::Execute_AddInt(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     Word* top = rsp;
     Integer rhs = (top--)->integer;
@@ -651,7 +751,7 @@ void Program::Execute_AddInt(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_AddNum(const Operation& op)
+void Program::Execute_AddNum(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     Word* top = rsp;
     Number rhs = (top--)->number;
@@ -661,7 +761,7 @@ void Program::Execute_AddNum(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_SubInt(const Operation& op)
+void Program::Execute_SubInt(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     Word* top = rsp;
     Integer rhs = (top--)->integer;
@@ -671,7 +771,7 @@ void Program::Execute_SubInt(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_SubNum(const Operation& op)
+void Program::Execute_SubNum(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     Word* top = rsp;
     Number rhs = (top--)->number;
@@ -681,7 +781,7 @@ void Program::Execute_SubNum(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_MulInt(const Operation& op)
+void Program::Execute_MulInt(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     Word* top = rsp;
     Integer rhs = (top--)->integer;
@@ -691,7 +791,7 @@ void Program::Execute_MulInt(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_MulNum(const Operation& op)
+void Program::Execute_MulNum(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     Word* top = rsp;
     Number rhs = (top--)->number;
@@ -701,7 +801,7 @@ void Program::Execute_MulNum(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_DivInt(const Operation& op)
+void Program::Execute_DivInt(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     Word* top = rsp;
     Integer rhs = (top--)->integer;
@@ -711,7 +811,7 @@ void Program::Execute_DivInt(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_DivNum(const Operation& op)
+void Program::Execute_DivNum(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     Word* top = rsp;
     Number rhs = (top--)->number;
@@ -721,7 +821,7 @@ void Program::Execute_DivNum(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_ModInt(const Operation& op)
+void Program::Execute_ModInt(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     Word* top = rsp;
     Integer rhs = (top--)->integer;
@@ -731,7 +831,7 @@ void Program::Execute_ModInt(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_ModNum(const Operation& op)
+void Program::Execute_ModNum(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     Word* top = rsp;
     Number rhs = (top--)->number;
@@ -741,19 +841,19 @@ void Program::Execute_ModNum(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_ConvIntToNum(const Operation& op)
+void Program::Execute_ConvIntToNum(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     rsp->number = static_cast<Number>(rsp->integer);
     ++rip;
 }
 
-void Program::Execute_ConvNumToInt(const Operation& op)
+void Program::Execute_ConvNumToInt(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     rsp->integer = static_cast<Integer>(rsp->number);
     ++rip;
 }
 
-void Program::Execute_Dup(const Operation& op)
+void Program::Execute_Dup(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     Word* top = rsp;
     *(++top) = *top;
@@ -761,7 +861,7 @@ void Program::Execute_Dup(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_DupN(const Operation& op)
+void Program::Execute_DupN(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     Word* top = rsp;
     Word* src = top + 1 - op.arg1_u64;
@@ -774,7 +874,7 @@ void Program::Execute_DupN(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_Call(const Operation& op)
+void Program::Execute_Call(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     auto info = typeInfo[op.arg1_u64]->ToFunctionInfo();
     assert(info);
@@ -789,7 +889,7 @@ void Program::Execute_Call(const Operation& op)
     rsp = top + info->localSize;
 }
 
-void Program::Execute_CallVirtual(const Operation& op)
+void Program::Execute_CallVirtual(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     Word* top = rsp; // starts at context pointer
 
@@ -813,7 +913,7 @@ void Program::Execute_CallVirtual(const Operation& op)
     rsp = top + info->localSize;
 }
 
-void Program::Execute_Return(const Operation& op)
+void Program::Execute_Return(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     const uint64_t argsSize = op.arg1_u64;
     const uint64_t returnSize = op.arg2_u64;
@@ -840,13 +940,17 @@ void Program::Execute_Return(const Operation& op)
         ++rip;
 }
 
-// Calls the native function on the arguments at the top of the stack, then pops them. It pushes no frame: the stack
-// pointer, rsp, stays on the first argument, so a callback into the VM builds its frame above the arguments, and
-// InvokeImpl saves the instruction pointer, rip.
-void Program::Execute_CallExternal(const Operation& op)
+// Calls the native function on the arguments at the top of the stack, then pops them. It first stores the stack
+// pointer, base pointer and instruction pointer into rsp, rbp and rip on Program, where a callback into the VM and the
+// GC read them. It pushes no frame, so a callback builds its frame above the arguments, and InvokeImpl saves rip.
+void Program::Execute_CallExternal(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     assert(typeInfo[op.arg1_u64]->ToFunctionInfo());
     auto info = static_cast<const FunctionInfo*>(typeInfo[op.arg1_u64].get());
+
+    this->rsp = rsp;
+    this->rbp = rbp;
+    this->rip = rip;
 
     info->externalFunction->Invoke(this, rsp + 1);
 
@@ -854,12 +958,12 @@ void Program::Execute_CallExternal(const Operation& op)
     ++rip;
 }
 
-void Program::Execute_Jump(const Operation& op)
+void Program::Execute_Jump(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     rip = op.arg1_u64;
 }
 
-void Program::Execute_JumpIf(const Operation& op)
+void Program::Execute_JumpIf(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     Boolean value = static_cast<Boolean>((rsp--)->storage);
     if(value)
@@ -868,7 +972,7 @@ void Program::Execute_JumpIf(const Operation& op)
         ++rip;
 }
 
-void Program::Execute_JumpIfNot(const Operation& op)
+void Program::Execute_JumpIfNot(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     Boolean value = static_cast<Boolean>((rsp--)->storage);
     if(!value)
@@ -877,16 +981,11 @@ void Program::Execute_JumpIfNot(const Operation& op)
         ++rip;
 }
 
-void Program::Execute_Switch(const Operation& op)
+void Program::Execute_Switch(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     // unsigned, so a value below the table wraps around to past its end
     uint64_t entry = static_cast<uint64_t>((rsp--)->integer) - op.arg1_u64;
     rip += 1 + std::min(entry, op.arg2_u64);
-}
-
-void Program::Execute(const Operation& op)
-{
-    (this->*handlers[static_cast<size_t>(op.code)])(op);
 }
 
 } // fraze

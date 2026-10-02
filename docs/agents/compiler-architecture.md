@@ -16,7 +16,7 @@ Every `.fz` under the assets path given to the `Compiler` constructor (the stand
 
   A member access gets its receiver as `node->context` (`this`, or `$this` inside a coroutine), and `VisitCallTarget` passes it as the first argument. By code generation, `this` is an ordinary argument.
 - **CodeGenerator** (`compiler/CodeGenerator.*`): emits stack-based bytecode, similar to C# IL. It assigns everything numeric: frame and field offsets, check-site ids and jump targets.
-- **Program** (`program/Program.*`): the VM. It owns the stack, globals, `Heap`, `TypeInfo` and `checkSites`. `OpCode` (`program/OpCode.h`) is a `uint8_t` enum, and each opcode has an `Execute_*` handler. `Dispatcher` runs async work, and `program->Invoke("main", args)` runs inside a `ScopedAllocator`.
+- **Program** (`program/Program.*`): the VM. It owns the stack, globals, `Heap`, `TypeInfo` and `checkSites`. `OpCode` (`program/OpCode.h`) is a `uint8_t` enum, and each opcode has an `Execute_*` handler, force-inlined into the `switch` in `Program::Run`. While `Run` executes, the stack pointer, base pointer and instruction pointer live in its locals. It stores the `rsp` member after every operation, for the GC, but `rbp` and `rip` are only current outside `Run` and during an external call, so code that reads them must run from there. `Dispatcher` runs async work, and `program->Invoke("main", args)` runs inside a `ScopedAllocator`.
 - **GC** (`memory/Heap.*`): mark-and-sweep. It scans the VM stack conservatively, and `PinMemory` keeps objects in place for native code.
 - **Built-in externs** (`Debug.Fail`, `Type.NewClass`, ...) are in `compiler/NativeFunctions.h` and registered in `Compiler.cpp`. Allocation is an extern call, not an opcode.
 
