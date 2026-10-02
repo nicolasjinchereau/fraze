@@ -7,7 +7,7 @@ The syntax is C#-like, and `compiler/assets/fraze.tests.fz` has examples of ever
   - `class`, `struct` (value type), `interface`, `enum`, and `functor` (callable type);
   - generics (`List<T>`, `Table<K, V>`), arrays (`T[]`), properties and operator overloads.
 - `section` is a namespace. An unqualified call also finds overloads in the scope that defines each argument's type, so an overload can live beside the type it's for.
-- `extern` declarations bind to C++ functions registered with `Compiler::AddFunction` or `AddIntrinsic`; the demo registers its own in `demo/source/ExternFunctions.cpp`.
+- `extern` declarations bind to C++ functions registered with `Compiler::AddFunction`; the demo registers its own in `demo/source/ExternFunctions.cpp`.
 - `fold { stmts; expr; }` is an expression whose value is its final expression statement. A `return` inside it returns from the enclosing function.
 - `switch` doesn't fall through and accepts `case 1, 2:`. `goto name;` jumps to a `name:` label. There is no `break` or `continue` yet.
 - Coroutines return `Task<T>`. `await` works anywhere in an expression except a loop condition, an assignment target, the right of a compound assignment, and inside a fold.

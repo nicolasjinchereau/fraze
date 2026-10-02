@@ -214,6 +214,9 @@ public:
 
     template<class T>
     static constexpr WordType GetWordType();
+
+    template<class T>
+    static constexpr uint32_t GetWordSize();
 };
 
 template<class T>
@@ -482,6 +485,24 @@ constexpr WordType Word::GetWordType()
     }
     else {
         static_assert(!std::is_same_v<U, U>, "Unsupported type for Word::GetWordType<T>().");
+    }
+}
+
+// Returns how many stack words a value of type T occupies: a struct's size in words, 0 for void and 1 for anything else.
+template<class T>
+constexpr uint32_t Word::GetWordSize()
+{
+    using U = std::remove_cvref_t<T>;
+
+    if constexpr (std::is_void_v<U>) {
+        return 0;
+    }
+    else if constexpr (GetWordType<U>() == WordType::Reference && !std::is_same_v<U, Reference>) {
+        static_assert(sizeof(U) % sizeof(Word) == 0, "A struct passed to or from Fraze must be a whole number of words.");
+        return static_cast<uint32_t>(sizeof(U) / sizeof(Word));
+    }
+    else {
+        return 1;
     }
 }
 

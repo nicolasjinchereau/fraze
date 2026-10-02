@@ -37,8 +37,8 @@ The whole program is compiled up front. Lazy generation isn't used, and on Win64
   - typed parameters;
   - structs passed and returned by address (MIR returns only a few values in registers, and `Mat4` is 16 words);
   - memory (`ALLOCA`) for any local whose address is taken (`PushLocalAddr`, `ref` parameters, struct receivers passed by reference).
-- **Call targets.** `Call`, `CallExternal` and `CallIntrinsic` carry a `typeInfo` index that the VM resolves at run time; a JIT resolves direct calls when compiling. `CallVirtual` goes through `Class::GetFunctionID`, a linear scan of the class's interfaces that returns a function id, then through `typeInfo` to `codeStart`. Compiled code needs dispatch data that yields a code pointer in a couple of loads.
-- **Externs and intrinsics.** `IExternalFunction::Invoke(Program*, span<Word> result, span<Word*> args)` receives pointers into the VM stack. Intrinsics (`void (*)(Word* basePointer)`) read their arguments at VM-frame offsets from `rbp`.
+- **Call targets.** `Call` and `CallExternal` carry a `typeInfo` index that the VM resolves at run time; a JIT resolves direct calls when compiling. `CallVirtual` goes through `Class::GetFunctionID`, a linear scan of the class's interfaces that returns a function id, then through `typeInfo` to `codeStart`. Compiled code needs dispatch data that yields a code pointer in a couple of loads.
+- **Externs.** `IExternalFunction::Invoke(Program*, Word* argsEnd)` reads its arguments and writes its result at fixed offsets below `argsEnd`, in the VM stack's layout: the first argument nearest `argsEnd`, and the return storage below the last argument.
 - **Host entry.** `Program::InvokeImpl` builds a VM frame from a `Word` array.
 - **GC roots.** `Heap::CollectInternal` conservatively scans the globals and the VM stack, but compiled code keeps references in registers and on the native stack. A collection can also start on the worker thread (asset loading allocates through `ScopedAllocator` on it) while the main thread is running.
 - **Failures.** `Debug.Fail` and `ENFORCE` throw C++ exceptions that `demo/source/main.cpp` catches, and externs can throw too. Neither an exception nor a plain `longjmp` can cross compiled frames; see **Failures** under the recommended approach.
@@ -47,12 +47,12 @@ The whole program is compiled up front. Lazy generation isn't used, and on Win64
 ## Recommended approach
 
 - **Generate MIR from the lowered AST,** with a second `ASTVisitor` beside `CodeGenerator`, rather than translating bytecode. The AST is typed and fully lowered, so the generator is mechanical. Whether the bytecode VM stays, as a reference or debug backend, is undecided.
-- **Externs:** call a C-ABI bridge that takes an argument block and a result pointer and calls `Invoke`. Later, call the C++ function directly using the signature `ExternalFunction<Ret, Args...>` already knows. Intrinsics get explicit argument and result pointers, or go through the bridge.
+- **Externs:** call a C-ABI bridge that takes a block holding the return storage and arguments in that layout, and calls `Invoke` with its end. Later, call the C++ function directly: `ExternalFunction<Func>` already holds both its address and its signature.
 - **Host entry:** one uniform native entry signature, or a thunk per entry point.
 - **GC:** spill registers with `setjmp` (which doesn't unwind), then scan the native stack from the current stack pointer up to the thread's stack base. Worker-thread allocations don't start collections; the main thread does.
 - **Failures:** C++ exceptions travel only through native segments of the stack, and non-unwinding `longjmp`s cross the compiled segments. This needs nothing from MIR.
   - **Landing pads:** every native → compiled edge is one: host entry, an extern calling back into Fraze, interpreter → compiled. It does a `setjmp`, then clears `Frame`. On landing, it restores VM state (`rsp`, `rbp`, `rip` and any JIT state) and rethrows the exception saved on the `Program`.
-  - **Stubs:** every compiled → native edge is one: extern, intrinsic, runtime helper, compiled → interpreter. It catches all exceptions, stores `std::current_exception()` on the `Program`, leaves the `catch`, then `longjmp`s to the innermost landing pad. `Debug_Fail` keeps throwing, and its stub converts the exception. Only a native function that compiled code calls directly, with no stub, must not throw.
+  - **Stubs:** every compiled → native edge is one: extern, runtime helper, compiled → interpreter. It catches all exceptions, stores `std::current_exception()` on the `Program`, leaves the `catch`, then `longjmp`s to the innermost landing pad. `Debug_Fail` keeps throwing, and its stub converts the exception. Only a native function that compiled code calls directly, with no stub, must not throw.
   - **Pad chain:** pads form a chain, per `Program` or `thread_local`, and each one pops itself before rethrowing.
   - **Constraints:**
     - Never `longjmp` from inside a `catch` block: MSVC keeps the exception object and the CRT's exception state live there.

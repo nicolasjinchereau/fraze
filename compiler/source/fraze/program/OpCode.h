@@ -149,7 +149,6 @@ enum class OpCode : uint8_t
 
     // calls external function id on top of stack
     CallExternal,
-    CallIntrinsic,
     
     Jump, // jump to code[arg]
     JumpIf, // jump to code[arg] if stack[top] is true and pop stack
@@ -234,7 +233,6 @@ inline std::unordered_map<OpCode, std::string> OpCodeNames {
     { OpCode::DupN,            "DupN" },
     { OpCode::Call,            "Call" },
     { OpCode::CallExternal,    "CallExternal" },
-    { OpCode::CallIntrinsic,   "CallIntrinsic" },
     { OpCode::CallVirtual,     "CallVirtual" },
     { OpCode::Jump,            "Jump" },
     { OpCode::JumpIf,          "JumpIf" },

@@ -54,7 +54,6 @@ public:
     std::vector<SourceLocation> locations; // of operations in 'code'
     std::vector<CheckSite> checkSites;
     std::vector<sptr<TypeInfo>> typeInfo;
-    std::vector<IntrinsicFunction> intrinsics;
     dynamic_array<Word> globals;
 
     Program();
@@ -156,7 +155,6 @@ private:
     void Execute_CallVirtual(const Operation& op);
     void Execute_Return(const Operation& op);
     void Execute_CallExternal(const Operation& op);
-    void Execute_CallIntrinsic(const Operation& op);
     void Execute_Jump(const Operation& op);
     void Execute_JumpIf(const Operation& op);
     void Execute_JumpIfNot(const Operation& op);
@@ -229,7 +227,6 @@ private:
         &Program::Execute_CallVirtual,
         &Program::Execute_Return,
         &Program::Execute_CallExternal,
-        &Program::Execute_CallIntrinsic,
         &Program::Execute_Jump,
         &Program::Execute_JumpIf,
         &Program::Execute_JumpIfNot,

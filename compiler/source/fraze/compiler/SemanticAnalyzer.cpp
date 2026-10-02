@@ -761,7 +761,7 @@ void SemanticAnalyzer::Visit(const sptr<FunctionDefinition>& node)
 
     if(node->isExternal)
     {
-        if(!node->externalFunction && !node->externalIntrinsic)
+        if(!node->externalFunction)
         {
             std::string name = std::string(node->qualifiedName);
 
@@ -881,13 +881,9 @@ void SemanticAnalyzer::Visit(const sptr<FunctionDefinition>& node)
 
                 node->externalFunction = func;
             }
-            else if(auto intrin = Compiler::GetActiveCompiler()->GetIntrinsic(name, signature))
-            {
-                node->externalIntrinsic = intrin;
-            }
             else
             {
-                ENFORCE(false, node->loc, "No native function or intrinsic found for extern definition: {}", name);
+                ENFORCE(false, node->loc, "No native function found for extern definition: {}", name);
             }
         }
     }

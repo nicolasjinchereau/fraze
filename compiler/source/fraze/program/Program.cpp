@@ -840,79 +840,17 @@ void Program::Execute_Return(const Operation& op)
         ++rip;
 }
 
+// Calls the native function on the arguments at the top of the stack, then pops them. It pushes no frame: the stack
+// pointer, rsp, stays on the first argument, so a callback into the VM builds its frame above the arguments, and
+// InvokeImpl saves the instruction pointer, rip.
 void Program::Execute_CallExternal(const Operation& op)
 {
-    auto info = typeInfo[op.arg1_u64]->ToFunctionInfo();
-    assert(info);
+    assert(typeInfo[op.arg1_u64]->ToFunctionInfo());
+    auto info = static_cast<const FunctionInfo*>(typeInfo[op.arg1_u64].get());
 
-    Word* top = rsp; // last argument
+    info->externalFunction->Invoke(this, rsp + 1);
 
-    *(++top) = Word::Raw(rip);
-    rip = 0; // no code address for external function
-
-    *(++top) = { rbp };
-    rbp = top + 1;
-    // no locals
-
-    constexpr int MaxArgs = 32;
-    std::array<Word*, MaxArgs> argPointerBuffer;
-    std::span<Word*> argPointers;
-    std::span<Word> result;
-
-    if(info->paramSize != 0)
-    {
-        int i = 0;
-        for(auto& param : info->params)
-            argPointerBuffer[i++] = rbp - 2 - param.offset - param.size;
-
-        argPointers = std::span<Word*>(argPointerBuffer.begin(), argPointerBuffer.begin() + i);
-    }
-
-    Word* returnStorageStart = rbp - 2 - info->paramSize - info->returnSize;
-    Word* returnStorageEnd = returnStorageStart + info->returnSize;
-    result = std::span<Word>(returnStorageStart, returnStorageEnd);
-
-    // commit the changes here in case native calls back into the VM
-    rsp = top;
-    info->externalFunction->Invoke(this, result, argPointers);
-
-    top = rbp - 1;
-    rbp = (top--)->reference;
-
-    rip = (top--)->storage;
-
-    rsp = top - info->paramSize;
-
-    ++rip;
-}
-
-void Program::Execute_CallIntrinsic(const Operation& op)
-{
-    // op.arg1_u32a: type id;
-    // op.arg1_u32b: intrinsic id;
-    // op.arg2_u32a: return size;
-    // op.arg2_u32b: args size;
-
-    const uint32_t intrinsicID = op.arg1_u32b;
-    const uint32_t argsSize = op.arg2_u32b;
-
-    Word* top = rsp;
-
-    *(++top) = Word::Raw(rip);
-    rip = 0; // no code address for external function
-
-    *(++top) = { rbp };
-    rbp = top + 1;
-
-    intrinsics[intrinsicID](rbp);
-
-    top = rbp - 1;
-    rbp = (top--)->reference;
-
-    rip = (top--)->storage;
-
-    rsp = top - argsSize;
-
+    rsp -= info->paramSize;
     ++rip;
 }
 

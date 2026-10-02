@@ -23,43 +23,43 @@ thread_local Compiler* Compiler::activeCompiler = nullptr;
 Compiler::Compiler(std::string_view assetsPath)
 {
     AddDirectory(assetsPath);
-    AddFunction("WaitAsync", &WaitAsync);
-    AddFunction("YieldAsync", &YieldAsync);
-    AddFunction("Console.Write", &Console_Write);
-    AddFunction("Console.WriteLine", &Console_WriteLine);
-    AddFunction("Boolean.GetHashCode", &Boolean_GetHashCode);
-    AddFunction("Integer.GetHashCode", &Integer_GetHashCode);
-    AddFunction("Number.GetHashCode", &Number_GetHashCode);
-    AddFunction("Object.GetHashCode", &Object_GetHashCode);
-    AddFunction("String.GetHashCode", &String_GetHashCode);
-    AddFunction("String.Split", &String_Split);
-    AddFunction("String.Concat", &String_Concat);
-    AddFunction("String.Equals", &String_Equals);
-    AddFunction("String.FromBool", &String_FromBool);
-    AddFunction("String.FromInt", &String_FromInt);
-    AddFunction("String.FromNum", &String_FromNum);
-    AddFunction("String.FromEnum", &String_FromEnum);
-    AddFunction("GC.Collect", &GC_Collect);
-    AddFunction("GC.Report", &GC_Report);
-    AddFunction("Array.GetCount", &Array_GetCount);
-    AddFunction("Array.GetSize", &Array_GetSize);
-    AddFunction("Type.Find", &Type_Find);
-    AddFunction("Type.NewClass", &Type_NewClass);
-    AddFunction("Type.NewArray", &Type_NewArray);
-    AddFunction("Type.GetName", &Type_GetName);
-    AddFunction("Type.IsInstance", &Type_IsInstance);
-    AddFunction("Type.AsInstance", &Type_AsInstance);
-    AddFunction("Debug.Fail", &Debug_Fail);
-    AddFunction("Math.Fmod", &Math_Fmod);
-    AddFunction("Math.Abs", &Math_Abs);
-    AddFunction("Math.Sqrt", &Math_Sqrt);
-    AddFunction("Math.Sin", &Math_Sin);
-    AddFunction("Math.Cos", &Math_Cos);
-    AddFunction("Math.Tan", &Math_Tan);
-    AddFunction("Math.Asin", &Math_Asin);
-    AddFunction("Math.Acos", &Math_Acos);
-    AddFunction("Math.Atan", &Math_Atan);
-    AddFunction("Math.Atan2", &Math_Atan2);
+    AddFunction<&WaitAsync>("WaitAsync");
+    AddFunction<&YieldAsync>("YieldAsync");
+    AddFunction<&Console_Write>("Console.Write");
+    AddFunction<&Console_WriteLine>("Console.WriteLine");
+    AddFunction<&Boolean_GetHashCode>("Boolean.GetHashCode");
+    AddFunction<&Integer_GetHashCode>("Integer.GetHashCode");
+    AddFunction<&Number_GetHashCode>("Number.GetHashCode");
+    AddFunction<&Object_GetHashCode>("Object.GetHashCode");
+    AddFunction<&String_GetHashCode>("String.GetHashCode");
+    AddFunction<&String_Split>("String.Split");
+    AddFunction<&String_Concat>("String.Concat");
+    AddFunction<&String_Equals>("String.Equals");
+    AddFunction<&String_FromBool>("String.FromBool");
+    AddFunction<&String_FromInt>("String.FromInt");
+    AddFunction<&String_FromNum>("String.FromNum");
+    AddFunction<&String_FromEnum>("String.FromEnum");
+    AddFunction<&GC_Collect>("GC.Collect");
+    AddFunction<&GC_Report>("GC.Report");
+    AddFunction<&Array_GetCount>("Array.GetCount");
+    AddFunction<&Array_GetSize>("Array.GetSize");
+    AddFunction<&Type_Find>("Type.Find");
+    AddFunction<&Type_NewClass>("Type.NewClass");
+    AddFunction<&Type_NewArray>("Type.NewArray");
+    AddFunction<&Type_GetName>("Type.GetName");
+    AddFunction<&Type_IsInstance>("Type.IsInstance");
+    AddFunction<&Type_AsInstance>("Type.AsInstance");
+    AddFunction<&Debug_Fail>("Debug.Fail");
+    AddFunction<&Math_Fmod>("Math.Fmod");
+    AddFunction<&Math_Abs>("Math.Abs");
+    AddFunction<&Math_Sqrt>("Math.Sqrt");
+    AddFunction<&Math_Sin>("Math.Sin");
+    AddFunction<&Math_Cos>("Math.Cos");
+    AddFunction<&Math_Tan>("Math.Tan");
+    AddFunction<&Math_Asin>("Math.Asin");
+    AddFunction<&Math_Acos>("Math.Acos");
+    AddFunction<&Math_Atan>("Math.Atan");
+    AddFunction<&Math_Atan2>("Math.Atan2");
 }
 
 Compiler& Compiler::AddFile(std::string_view fileName)
@@ -404,25 +404,6 @@ sptr<IExternalFunction> Compiler::GetFunction(std::string_view qualifiedName, st
 
     it = functions.find(nameAndSignature);
     if(it != functions.end())
-        return it->second;
-
-    return nullptr;
-}
-
-IntrinsicFunction Compiler::GetIntrinsic(std::string_view qualifiedName, std::string_view signature)
-{
-    auto it = intrinsics.find(qualifiedName);
-    if(it != intrinsics.end())
-        return it->second;
-
-    std::string nameAndSignature;
-    nameAndSignature.reserve(qualifiedName.length() + 1 + signature.length());
-    nameAndSignature += qualifiedName;
-    nameAndSignature += ":";
-    nameAndSignature += signature;
-
-    it = intrinsics.find(nameAndSignature);
-    if(it != intrinsics.end())
         return it->second;
 
     return nullptr;

@@ -123,10 +123,6 @@ void ProgramDiagnostics::PrintOperation(const Program& program, size_t index, st
         stream << OpCodeNames[op.code] << ", " << program.typeInfo[op.arg1_u64]->qualifiedName;
         break;
 
-    case OpCode::CallIntrinsic:
-        stream << OpCodeNames[op.code] << ", " << program.typeInfo[op.arg1_u32a]->qualifiedName;
-        break;
-
     case OpCode::CallVirtual:
         stream << OpCodeNames[op.code] << ", " << program.typeInfo[op.arg1_u64]->qualifiedName;
         break;

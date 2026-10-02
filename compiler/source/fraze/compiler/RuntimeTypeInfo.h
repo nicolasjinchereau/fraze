@@ -17,7 +17,6 @@ public:
     const TypeInfo* typeInfoTypeInfo{};
     std::vector<sptr<TypeInfo>> allTypeInfo;
     std::unordered_map<const Type*, sptr<TypeInfo>> typeInfoByType;
-    std::vector<IntrinsicFunction> intrinsics;
     size_t globalSize{};
 
     RuntimeTypeInfo(const sptr<ASTRoot>& root, const std::vector<sptr<Type>>& types);

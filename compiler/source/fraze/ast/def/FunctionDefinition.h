@@ -36,7 +36,6 @@ public:
     bool isCoroutine = false;
     bool isConstructor = false;
     sptr<IExternalFunction> externalFunction;
-    IntrinsicFunction externalIntrinsic{};
     sptr<BlockStatement> body;
     size_t offset = 0;
     size_t paramSize = 0;

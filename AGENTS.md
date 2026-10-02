@@ -9,7 +9,7 @@ These aren't loaded automatically. Before starting a task, read the ones that ma
 - Changing the compiler, VM or GC: `docs/agents/compiler-architecture.md`, covering what each pass does, where it lives and the traps in it.
 - Adding an AST node, opcode or keyword: `docs/agents/extending-the-compiler.md`.
 - Writing or editing `.fz` code, tests included: `docs/agents/writing-fraze.md`.
-- Adding or changing an extern, intrinsic or extern class, or C++ that holds or allocates Fraze objects: `docs/agents/native-interop.md`.
+- Adding or changing an extern or extern class, or C++ that holds or allocates Fraze objects: `docs/agents/native-interop.md`.
 - Investigating a miscompile, a lowering or a crash: `docs/agents/debugging.md`, covering the AST, lowered-code and bytecode dumps and the trace macros.
 - Hitting behavior that looks like a compiler bug, or fixing one: `docs/agents/known-bugs.md`.
 - Measuring or optimizing speed: `docs/agents/performance.md`.
@@ -85,6 +85,7 @@ These serve two goals: being able to move or delete AST nodes freely, and keepin
 - **Comments:** one per function, on its definition, and on a field whose name can't carry its meaning.
   - The first sentence says concretely what the thing does, returns or holds, not what it isn't; the why comes after, briefly.
   - Name the calls made and the state changed rather than a verb that stands in for them: "stores the value, marks it done and calls Finish", not "completes the operation".
+  - When a name doesn't say what it is, as with an abbreviation or a single letter, put what it is next to it: "the retry limit, `k`", not just "`k`".
   - Leave out what the reader can infer: which pass does a step when only one pass does that kind of work, or a property that follows from how the thing was built.
   - Describe a node by what the source wrote and what it lowers to, not by the other parts that lowering emits.
   - Usually 1–2 lines; a mechanism spanning several functions can take about 7.

@@ -499,9 +499,6 @@ void CodePrinter::Visit(const sptr<FunctionDefinition>& node)
     if(node->isCoroutine)
         attributes.push_back("isCoroutine");
 
-    if(node->externalIntrinsic)
-        attributes.push_back("externalIntrinsic");
-
     PrintAttributes(attributes, true);
     PrintIndent();
 

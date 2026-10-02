@@ -24,60 +24,60 @@ namespace fraze {
 
 void AddExternFunctions(Compiler& compiler)
 {
-    compiler.AddFunction("RecordFrameStart", &RecordFrameStart);
-    compiler.AddFunction("RecordFrameEnd", &RecordFrameEnd);
-    compiler.AddFunction("Time.GetTicks", &Time_GetTicks);
-    compiler.AddFunction("Time.GetTicksPerSecond", &Time_GetTicksPerSecond);
-    compiler.AddFunction("NativeWindow.this", &NativeWindow_this);
-    compiler.AddFunction("NativeWindow.Show", &NativeWindow_Show);
-    compiler.AddFunction("NativeWindow.Hide", &NativeWindow_Hide);
-    compiler.AddFunction("NativeWindow.Close", &NativeWindow_Close);
-    compiler.AddFunction("NativeWindow.PumpMessage", &NativeWindow_PumpMessage);
-    compiler.AddFunction("NativeWindow.GetWidth", &NativeWindow_GetWidth);
-    compiler.AddFunction("NativeWindow.GetHeight", &NativeWindow_GetHeight);
-    compiler.AddFunction("NativeGraphics.this", &NativeGraphics_this);
-    compiler.AddFunction("NativeGraphics.SetRenderTarget", &NativeGraphics_SetRenderTarget);
-    compiler.AddFunction("NativeGraphics.SetShader", &NativeGraphics_SetShader);
-    compiler.AddFunction("NativeGraphics.SetVertexBuffer", &NativeGraphics_SetVertexBuffer);
-    compiler.AddFunction("NativeGraphics.SetIndexBuffer", &NativeGraphics_SetIndexBuffer);
-    compiler.AddFunction("NativeGraphics.SetClearColor", &NativeGraphics_SetClearColor);
-    compiler.AddFunction("NativeGraphics.SetViewport", &NativeGraphics_SetViewport);
-    compiler.AddFunction("NativeGraphics.GetViewport", &NativeGraphics_GetViewport);
-    compiler.AddFunction("NativeGraphics.SetCullMode", &NativeGraphics_SetCullMode);
-    compiler.AddFunction("NativeGraphics.SetScissorTestEnabled", &NativeGraphics_SetScissorTestEnabled);
-    compiler.AddFunction("NativeGraphics.SetScissorRect", &NativeGraphics_SetScissorRect);
-    compiler.AddFunction("NativeGraphics.SetDepthTest", &NativeGraphics_SetDepthTest);
-    compiler.AddFunction("NativeGraphics.SetDepthWriteEnabled", &NativeGraphics_SetDepthWriteEnabled);
-    compiler.AddFunction("NativeGraphics.SetBlendingEnabled", &NativeGraphics_SetBlendingEnabled);
-    compiler.AddFunction("NativeGraphics.SetBlendOperations", &NativeGraphics_SetBlendOperations);
-    compiler.AddFunction("NativeGraphics.SetBlendFactors", &NativeGraphics_SetBlendFactors);
-    compiler.AddFunction("NativeGraphics.SetColorMask", &NativeGraphics_SetColorMask);
-    compiler.AddFunction("NativeGraphics.SetBlendColor", &NativeGraphics_SetBlendColor);
-    compiler.AddFunction("NativeGraphics.Clear", &NativeGraphics_Clear);
-    compiler.AddFunction("NativeGraphics.Present", &NativeGraphics_Present);
-    compiler.AddFunction("NativeGraphics.DrawArray", &NativeGraphics_DrawArray);
-    compiler.AddFunction("NativeGraphics.DrawIndexed", &NativeGraphics_DrawIndexed);
-    compiler.AddFunction("NativeShader.this", &NativeShader_this);
-    compiler.AddFunction("NativeShader.SetUniformMat4", &NativeShader_SetUniformMat4);
-    compiler.AddFunction("NativeShader.SetUniformTex", &NativeShader_SetUniformTex);
-    compiler.AddFunction("Shader.CreateNativeShaderAsync", &Shader_CreateShaderObjectAsync);
-    compiler.AddFunction("NativeTexture.this", &NativeTexture_this);
-    compiler.AddFunction("Texture.CreateNativeTextureAsync", &Texture_CreateNativeTextureAsync);
-    compiler.AddFunction("Model.ImportModel", &Model_ImportModel);
-    compiler.AddFunction("Model.CreateSphereMesh", &Model_CreateSphereMesh);
-    compiler.AddFunction("Model.ImportModelObjectAsync", &Model_ImportModelObjectAsync);
-    compiler.AddFunction("NativeBuffer.this", "NativeBuffer(object,BufferType,BufferUsage,BufferCPUAccess,int)", &NativeBuffer_this_size);
-    compiler.AddFunction("NativeBuffer.this", "NativeBuffer(object,BufferType,BufferUsage,BufferCPUAccess,void[])", &NativeBuffer_this_data);
-    compiler.AddFunction("NativeBuffer.SetData", &NativeBuffer_SetData);
-    compiler.AddFunction("NativeBuffer.GetSize", &NativeBuffer_GetSize);
-    compiler.AddFunction("NativeBuffer.GetStride", &NativeBuffer_GetStride);
-    compiler.AddFunction("File.ReadAllText", &File_ReadAllText);
-    compiler.AddFunction("File.ReadAllTextAsync", &File_ReadAllTextAsync);
-    compiler.AddIntrinsic("Mat4.operator+", "Mat4(Mat4,Mat4)", &Intrinsic_Mat4Add);
-    compiler.AddIntrinsic("Mat4.operator-", "Mat4(Mat4,Mat4)", &Intrinsic_Mat4Sub);
-    compiler.AddIntrinsic("Mat4.operator*", "Mat4(Mat4,Mat4)", &Intrinsic_Mat4Mul);
-    compiler.AddIntrinsic("Mat4.operator*", "Mat4(Mat4,num)", &Intrinsic_Mat4NumMul);
-    compiler.AddIntrinsic("Vec4.operator*", &Intrinsic_Vec4Mat4Mul);
+    compiler.AddFunction<&RecordFrameStart>("RecordFrameStart");
+    compiler.AddFunction<&RecordFrameEnd>("RecordFrameEnd");
+    compiler.AddFunction<&Time_GetTicks>("Time.GetTicks");
+    compiler.AddFunction<&Time_GetTicksPerSecond>("Time.GetTicksPerSecond");
+    compiler.AddFunction<&NativeWindow_this>("NativeWindow.this");
+    compiler.AddFunction<&NativeWindow_Show>("NativeWindow.Show");
+    compiler.AddFunction<&NativeWindow_Hide>("NativeWindow.Hide");
+    compiler.AddFunction<&NativeWindow_Close>("NativeWindow.Close");
+    compiler.AddFunction<&NativeWindow_PumpMessage>("NativeWindow.PumpMessage");
+    compiler.AddFunction<&NativeWindow_GetWidth>("NativeWindow.GetWidth");
+    compiler.AddFunction<&NativeWindow_GetHeight>("NativeWindow.GetHeight");
+    compiler.AddFunction<&NativeGraphics_this>("NativeGraphics.this");
+    compiler.AddFunction<&NativeGraphics_SetRenderTarget>("NativeGraphics.SetRenderTarget");
+    compiler.AddFunction<&NativeGraphics_SetShader>("NativeGraphics.SetShader");
+    compiler.AddFunction<&NativeGraphics_SetVertexBuffer>("NativeGraphics.SetVertexBuffer");
+    compiler.AddFunction<&NativeGraphics_SetIndexBuffer>("NativeGraphics.SetIndexBuffer");
+    compiler.AddFunction<&NativeGraphics_SetClearColor>("NativeGraphics.SetClearColor");
+    compiler.AddFunction<&NativeGraphics_SetViewport>("NativeGraphics.SetViewport");
+    compiler.AddFunction<&NativeGraphics_GetViewport>("NativeGraphics.GetViewport");
+    compiler.AddFunction<&NativeGraphics_SetCullMode>("NativeGraphics.SetCullMode");
+    compiler.AddFunction<&NativeGraphics_SetScissorTestEnabled>("NativeGraphics.SetScissorTestEnabled");
+    compiler.AddFunction<&NativeGraphics_SetScissorRect>("NativeGraphics.SetScissorRect");
+    compiler.AddFunction<&NativeGraphics_SetDepthTest>("NativeGraphics.SetDepthTest");
+    compiler.AddFunction<&NativeGraphics_SetDepthWriteEnabled>("NativeGraphics.SetDepthWriteEnabled");
+    compiler.AddFunction<&NativeGraphics_SetBlendingEnabled>("NativeGraphics.SetBlendingEnabled");
+    compiler.AddFunction<&NativeGraphics_SetBlendOperations>("NativeGraphics.SetBlendOperations");
+    compiler.AddFunction<&NativeGraphics_SetBlendFactors>("NativeGraphics.SetBlendFactors");
+    compiler.AddFunction<&NativeGraphics_SetColorMask>("NativeGraphics.SetColorMask");
+    compiler.AddFunction<&NativeGraphics_SetBlendColor>("NativeGraphics.SetBlendColor");
+    compiler.AddFunction<&NativeGraphics_Clear>("NativeGraphics.Clear");
+    compiler.AddFunction<&NativeGraphics_Present>("NativeGraphics.Present");
+    compiler.AddFunction<&NativeGraphics_DrawArray>("NativeGraphics.DrawArray");
+    compiler.AddFunction<&NativeGraphics_DrawIndexed>("NativeGraphics.DrawIndexed");
+    compiler.AddFunction<&NativeShader_this>("NativeShader.this");
+    compiler.AddFunction<&NativeShader_SetUniformMat4>("NativeShader.SetUniformMat4");
+    compiler.AddFunction<&NativeShader_SetUniformTex>("NativeShader.SetUniformTex");
+    compiler.AddFunction<&Shader_CreateShaderObjectAsync>("Shader.CreateNativeShaderAsync");
+    compiler.AddFunction<&NativeTexture_this>("NativeTexture.this");
+    compiler.AddFunction<&Texture_CreateNativeTextureAsync>("Texture.CreateNativeTextureAsync");
+    compiler.AddFunction<&Model_ImportModel>("Model.ImportModel");
+    compiler.AddFunction<&Model_CreateSphereMesh>("Model.CreateSphereMesh");
+    compiler.AddFunction<&Model_ImportModelObjectAsync>("Model.ImportModelObjectAsync");
+    compiler.AddFunction<&NativeBuffer_this_size>("NativeBuffer.this", "NativeBuffer(object,BufferType,BufferUsage,BufferCPUAccess,int)");
+    compiler.AddFunction<&NativeBuffer_this_data>("NativeBuffer.this", "NativeBuffer(object,BufferType,BufferUsage,BufferCPUAccess,void[])");
+    compiler.AddFunction<&NativeBuffer_SetData>("NativeBuffer.SetData");
+    compiler.AddFunction<&NativeBuffer_GetSize>("NativeBuffer.GetSize");
+    compiler.AddFunction<&NativeBuffer_GetStride>("NativeBuffer.GetStride");
+    compiler.AddFunction<&File_ReadAllText>("File.ReadAllText");
+    compiler.AddFunction<&File_ReadAllTextAsync>("File.ReadAllTextAsync");
+    compiler.AddFunction<&Mat4_Add>("Mat4.operator+", "Mat4(Mat4,Mat4)");
+    compiler.AddFunction<&Mat4_Sub>("Mat4.operator-", "Mat4(Mat4,Mat4)");
+    compiler.AddFunction<&Mat4_Mul>("Mat4.operator*", "Mat4(Mat4,Mat4)");
+    compiler.AddFunction<&Mat4_NumMul>("Mat4.operator*", "Mat4(Mat4,num)");
+    compiler.AddFunction<&Vec4_Mat4Mul>("Vec4.operator*");
 }
 
 //#define PRINT_FPS
@@ -383,148 +383,115 @@ void File_ReadAllTextAsync(Program* program, Class& task, const String& path)
 }
 
 // MATH
-void Intrinsic_Mat4Add(Word* rbp)
+Mat4 Mat4_Add(const Mat4& left, const Mat4& right)
 {
-    constexpr uint64_t wordSizeArg0 = 16;
-    constexpr uint64_t wordSizeArg1 = 16;
-    constexpr uint64_t wordSizeRet = 16;
-    constexpr uint64_t totalArgSize = wordSizeArg0 + wordSizeArg1;
+    Mat4 result;
 
-    Word* argsEnd = rbp - 2;
-    Mat4& arg0 = *reinterpret_cast<Mat4*>(argsEnd - wordSizeArg0);
-    Mat4& arg1 = *reinterpret_cast<Mat4*>(argsEnd - wordSizeArg0 - wordSizeArg1);
-    Mat4* result = reinterpret_cast<Mat4*>(argsEnd - totalArgSize - wordSizeRet);
-
-    result->m11 = arg0.m11 + arg1.m11;
-    result->m12 = arg0.m12 + arg1.m12;
-    result->m13 = arg0.m13 + arg1.m13;
-    result->m14 = arg0.m14 + arg1.m14;
-    result->m21 = arg0.m21 + arg1.m21;
-    result->m22 = arg0.m22 + arg1.m22;
-    result->m23 = arg0.m23 + arg1.m23;
-    result->m24 = arg0.m24 + arg1.m24;
-    result->m31 = arg0.m31 + arg1.m31;
-    result->m32 = arg0.m32 + arg1.m32;
-    result->m33 = arg0.m33 + arg1.m33;
-    result->m34 = arg0.m34 + arg1.m34;
-    result->m41 = arg0.m41 + arg1.m41;
-    result->m42 = arg0.m42 + arg1.m42;
-    result->m43 = arg0.m43 + arg1.m43;
-    result->m44 = arg0.m44 + arg1.m44;
+    result.m11 = left.m11 + right.m11;
+    result.m12 = left.m12 + right.m12;
+    result.m13 = left.m13 + right.m13;
+    result.m14 = left.m14 + right.m14;
+    result.m21 = left.m21 + right.m21;
+    result.m22 = left.m22 + right.m22;
+    result.m23 = left.m23 + right.m23;
+    result.m24 = left.m24 + right.m24;
+    result.m31 = left.m31 + right.m31;
+    result.m32 = left.m32 + right.m32;
+    result.m33 = left.m33 + right.m33;
+    result.m34 = left.m34 + right.m34;
+    result.m41 = left.m41 + right.m41;
+    result.m42 = left.m42 + right.m42;
+    result.m43 = left.m43 + right.m43;
+    result.m44 = left.m44 + right.m44;
+    return result;
 }
 
-void Intrinsic_Mat4Sub(Word* rbp)
+Mat4 Mat4_Sub(const Mat4& left, const Mat4& right)
 {
-    constexpr uint64_t wordSizeArg0 = 16;
-    constexpr uint64_t wordSizeArg1 = 16;
-    constexpr uint64_t wordSizeRet = 16;
-    constexpr uint64_t totalArgSize = wordSizeArg0 + wordSizeArg1;
+    Mat4 result;
 
-    Word* argsEnd = rbp - 2;
-    Mat4& arg0 = *reinterpret_cast<Mat4*>(argsEnd - wordSizeArg0);
-    Mat4& arg1 = *reinterpret_cast<Mat4*>(argsEnd - wordSizeArg0 - wordSizeArg1);
-    Mat4* result = reinterpret_cast<Mat4*>(argsEnd - totalArgSize - wordSizeRet);
-
-    result->m11 = arg0.m11 - arg1.m11;
-    result->m12 = arg0.m12 - arg1.m12;
-    result->m13 = arg0.m13 - arg1.m13;
-    result->m14 = arg0.m14 - arg1.m14;
-    result->m21 = arg0.m21 - arg1.m21;
-    result->m22 = arg0.m22 - arg1.m22;
-    result->m23 = arg0.m23 - arg1.m23;
-    result->m24 = arg0.m24 - arg1.m24;
-    result->m31 = arg0.m31 - arg1.m31;
-    result->m32 = arg0.m32 - arg1.m32;
-    result->m33 = arg0.m33 - arg1.m33;
-    result->m34 = arg0.m34 - arg1.m34;
-    result->m41 = arg0.m41 - arg1.m41;
-    result->m42 = arg0.m42 - arg1.m42;
-    result->m43 = arg0.m43 - arg1.m43;
-    result->m44 = arg0.m44 - arg1.m44;
+    result.m11 = left.m11 - right.m11;
+    result.m12 = left.m12 - right.m12;
+    result.m13 = left.m13 - right.m13;
+    result.m14 = left.m14 - right.m14;
+    result.m21 = left.m21 - right.m21;
+    result.m22 = left.m22 - right.m22;
+    result.m23 = left.m23 - right.m23;
+    result.m24 = left.m24 - right.m24;
+    result.m31 = left.m31 - right.m31;
+    result.m32 = left.m32 - right.m32;
+    result.m33 = left.m33 - right.m33;
+    result.m34 = left.m34 - right.m34;
+    result.m41 = left.m41 - right.m41;
+    result.m42 = left.m42 - right.m42;
+    result.m43 = left.m43 - right.m43;
+    result.m44 = left.m44 - right.m44;
+    return result;
 }
 
-void Intrinsic_Mat4Mul(Word* rbp)
+Mat4 Mat4_Mul(const Mat4& left, const Mat4& right)
 {
-    constexpr uint64_t wordSizeArg0 = 16;
-    constexpr uint64_t wordSizeArg1 = 16;
-    constexpr uint64_t wordSizeRet = 16;
-    constexpr uint64_t totalArgSize = wordSizeArg0 + wordSizeArg1;
+    Mat4 result;
 
-    Word* argsEnd = rbp - 2;
-    Mat4& arg0 = *reinterpret_cast<Mat4*>(argsEnd - wordSizeArg0);
-    Mat4& arg1 = *reinterpret_cast<Mat4*>(argsEnd - wordSizeArg0 - wordSizeArg1);
-    Mat4* result = reinterpret_cast<Mat4*>(argsEnd - totalArgSize - wordSizeRet);
+    result.m11 = left.m11 * right.m11 + left.m12 * right.m21 + left.m13 * right.m31 + left.m14 * right.m41;
+    result.m12 = left.m11 * right.m12 + left.m12 * right.m22 + left.m13 * right.m32 + left.m14 * right.m42;
+    result.m13 = left.m11 * right.m13 + left.m12 * right.m23 + left.m13 * right.m33 + left.m14 * right.m43;
+    result.m14 = left.m11 * right.m14 + left.m12 * right.m24 + left.m13 * right.m34 + left.m14 * right.m44;
 
-    result->m11 = arg0.m11 * arg1.m11 + arg0.m12 * arg1.m21 + arg0.m13 * arg1.m31 + arg0.m14 * arg1.m41;
-    result->m12 = arg0.m11 * arg1.m12 + arg0.m12 * arg1.m22 + arg0.m13 * arg1.m32 + arg0.m14 * arg1.m42;
-    result->m13 = arg0.m11 * arg1.m13 + arg0.m12 * arg1.m23 + arg0.m13 * arg1.m33 + arg0.m14 * arg1.m43;
-    result->m14 = arg0.m11 * arg1.m14 + arg0.m12 * arg1.m24 + arg0.m13 * arg1.m34 + arg0.m14 * arg1.m44;
+    result.m21 = left.m21 * right.m11 + left.m22 * right.m21 + left.m23 * right.m31 + left.m24 * right.m41;
+    result.m22 = left.m21 * right.m12 + left.m22 * right.m22 + left.m23 * right.m32 + left.m24 * right.m42;
+    result.m23 = left.m21 * right.m13 + left.m22 * right.m23 + left.m23 * right.m33 + left.m24 * right.m43;
+    result.m24 = left.m21 * right.m14 + left.m22 * right.m24 + left.m23 * right.m34 + left.m24 * right.m44;
 
-    result->m21 = arg0.m21 * arg1.m11 + arg0.m22 * arg1.m21 + arg0.m23 * arg1.m31 + arg0.m24 * arg1.m41;
-    result->m22 = arg0.m21 * arg1.m12 + arg0.m22 * arg1.m22 + arg0.m23 * arg1.m32 + arg0.m24 * arg1.m42;
-    result->m23 = arg0.m21 * arg1.m13 + arg0.m22 * arg1.m23 + arg0.m23 * arg1.m33 + arg0.m24 * arg1.m43;
-    result->m24 = arg0.m21 * arg1.m14 + arg0.m22 * arg1.m24 + arg0.m23 * arg1.m34 + arg0.m24 * arg1.m44;
+    result.m31 = left.m31 * right.m11 + left.m32 * right.m21 + left.m33 * right.m31 + left.m34 * right.m41;
+    result.m32 = left.m31 * right.m12 + left.m32 * right.m22 + left.m33 * right.m32 + left.m34 * right.m42;
+    result.m33 = left.m31 * right.m13 + left.m32 * right.m23 + left.m33 * right.m33 + left.m34 * right.m43;
+    result.m34 = left.m31 * right.m14 + left.m32 * right.m24 + left.m33 * right.m34 + left.m34 * right.m44;
 
-    result->m31 = arg0.m31 * arg1.m11 + arg0.m32 * arg1.m21 + arg0.m33 * arg1.m31 + arg0.m34 * arg1.m41;
-    result->m32 = arg0.m31 * arg1.m12 + arg0.m32 * arg1.m22 + arg0.m33 * arg1.m32 + arg0.m34 * arg1.m42;
-    result->m33 = arg0.m31 * arg1.m13 + arg0.m32 * arg1.m23 + arg0.m33 * arg1.m33 + arg0.m34 * arg1.m43;
-    result->m34 = arg0.m31 * arg1.m14 + arg0.m32 * arg1.m24 + arg0.m33 * arg1.m34 + arg0.m34 * arg1.m44;
+    result.m41 = left.m41 * right.m11 + left.m42 * right.m21 + left.m43 * right.m31 + left.m44 * right.m41;
+    result.m42 = left.m41 * right.m12 + left.m42 * right.m22 + left.m43 * right.m32 + left.m44 * right.m42;
+    result.m43 = left.m41 * right.m13 + left.m42 * right.m23 + left.m43 * right.m33 + left.m44 * right.m43;
+    result.m44 = left.m41 * right.m14 + left.m42 * right.m24 + left.m43 * right.m34 + left.m44 * right.m44;
 
-    result->m41 = arg0.m41 * arg1.m11 + arg0.m42 * arg1.m21 + arg0.m43 * arg1.m31 + arg0.m44 * arg1.m41;
-    result->m42 = arg0.m41 * arg1.m12 + arg0.m42 * arg1.m22 + arg0.m43 * arg1.m32 + arg0.m44 * arg1.m42;
-    result->m43 = arg0.m41 * arg1.m13 + arg0.m42 * arg1.m23 + arg0.m43 * arg1.m33 + arg0.m44 * arg1.m43;
-    result->m44 = arg0.m41 * arg1.m14 + arg0.m42 * arg1.m24 + arg0.m43 * arg1.m34 + arg0.m44 * arg1.m44;
+    return result;
 }
 
-void Intrinsic_Mat4NumMul(Word* rbp)
+Mat4 Mat4_NumMul(const Mat4& m, Number s)
 {
-    constexpr uint64_t wordSizeArg0 = 16;
-    constexpr uint64_t wordSizeArg1 = 1;
-    constexpr uint64_t wordSizeRet = 16;
-    constexpr uint64_t totalArgSize = wordSizeArg0 + wordSizeArg1;
-
-    Word* argsEnd = rbp - 2;
-    Mat4& arg0 = *reinterpret_cast<Mat4*>(argsEnd - wordSizeArg0);
-    Number& arg1 = *reinterpret_cast<Number*>(argsEnd - wordSizeArg0 - wordSizeArg1);
-    Mat4* result = reinterpret_cast<Mat4*>(argsEnd - totalArgSize - wordSizeRet);
+    Mat4 result;
     
-    result->m11 = arg0.m11 * arg1;
-    result->m12 = arg0.m12 * arg1;
-    result->m13 = arg0.m13 * arg1;
-    result->m14 = arg0.m14 * arg1;
+    result.m11 = m.m11 * s;
+    result.m12 = m.m12 * s;
+    result.m13 = m.m13 * s;
+    result.m14 = m.m14 * s;
 
-    result->m21 = arg0.m21 * arg1;
-    result->m22 = arg0.m22 * arg1;
-    result->m23 = arg0.m23 * arg1;
-    result->m24 = arg0.m24 * arg1;
+    result.m21 = m.m21 * s;
+    result.m22 = m.m22 * s;
+    result.m23 = m.m23 * s;
+    result.m24 = m.m24 * s;
 
-    result->m31 = arg0.m31 * arg1;
-    result->m32 = arg0.m32 * arg1;
-    result->m33 = arg0.m33 * arg1;
-    result->m34 = arg0.m34 * arg1;
+    result.m31 = m.m31 * s;
+    result.m32 = m.m32 * s;
+    result.m33 = m.m33 * s;
+    result.m34 = m.m34 * s;
 
-    result->m41 = arg0.m41 * arg1;
-    result->m42 = arg0.m42 * arg1;
-    result->m43 = arg0.m43 * arg1;
-    result->m44 = arg0.m44 * arg1;
+    result.m41 = m.m41 * s;
+    result.m42 = m.m42 * s;
+    result.m43 = m.m43 * s;
+    result.m44 = m.m44 * s;
+
+    return result;
 }
 
-void Intrinsic_Vec4Mat4Mul(Word* rbp)
+Vec4 Vec4_Mat4Mul(const Vec4& v, const Mat4& m)
 {
-    constexpr uint64_t wordSizeArg0 = 4;
-    constexpr uint64_t wordSizeArg1 = 16;
-    constexpr uint64_t wordSizeRet = 4;
-    constexpr uint64_t totalArgSize = wordSizeArg0 + wordSizeArg1;
-    
-    Word* argsEnd = rbp - 2;
-    Vec4& arg0 = *reinterpret_cast<Vec4*>(argsEnd - wordSizeArg0);
-    Mat4& arg1 = *reinterpret_cast<Mat4*>(argsEnd - wordSizeArg0 - wordSizeArg1);
-    Vec4* result = reinterpret_cast<Vec4*>(argsEnd - totalArgSize - wordSizeRet);
+    Vec4 result;
 
-    result->x = arg0.x * arg1.m11 + arg0.y * arg1.m21 + arg0.z * arg1.m31 + arg0.w * arg1.m41;
-    result->y = arg0.x * arg1.m12 + arg0.y * arg1.m22 + arg0.z * arg1.m32 + arg0.w * arg1.m42;
-    result->z = arg0.x * arg1.m13 + arg0.y * arg1.m23 + arg0.z * arg1.m33 + arg0.w * arg1.m43;
-    result->w = arg0.x * arg1.m14 + arg0.y * arg1.m24 + arg0.z * arg1.m34 + arg0.w * arg1.m44;
+    result.x = v.x * m.m11 + v.y * m.m21 + v.z * m.m31 + v.w * m.m41;
+    result.y = v.x * m.m12 + v.y * m.m22 + v.z * m.m32 + v.w * m.m42;
+    result.z = v.x * m.m13 + v.y * m.m23 + v.z * m.m33 + v.w * m.m43;
+    result.w = v.x * m.m14 + v.y * m.m24 + v.z * m.m34 + v.w * m.m44;
+    return result;
 }
 
 } // fraze

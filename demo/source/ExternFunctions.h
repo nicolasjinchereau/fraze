@@ -84,10 +84,10 @@ String* File_ReadAllText(Program* program, const String& path);
 void File_ReadAllTextAsync(Program* program, Class& task, const String& path);
 
 // MATH
-void Intrinsic_Mat4Add(Word* rbp);
-void Intrinsic_Mat4Sub(Word* rbp);
-void Intrinsic_Mat4Mul(Word* rbp);
-void Intrinsic_Mat4NumMul(Word* rbp);
-void Intrinsic_Vec4Mat4Mul(Word* rbp);
+Mat4 Mat4_Add(const Mat4& left, const Mat4& right);
+Mat4 Mat4_Sub(const Mat4& left, const Mat4& right);
+Mat4 Mat4_Mul(const Mat4& left, const Mat4& right);
+Mat4 Mat4_NumMul(const Mat4& m, Number s);
+Vec4 Vec4_Mat4Mul(const Vec4& v, const Mat4& m);
 
 } // fraze

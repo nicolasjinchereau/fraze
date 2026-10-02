@@ -418,31 +418,20 @@ sptr<TypeInfo> RuntimeTypeInfo::GetTypeInfo(Type* type)
                 assert(returnSize >= 1);
             }
 
-            // param offset and size
-            std::vector<ParamInfo> params;
-            for(const auto& param : func->GetChildren<ParameterDefinition>())
+            // a native function reads its arguments and writes its result at offsets fixed by its C++ types
+            if(func->externalFunction)
             {
-                params.push_back({ (uint32_t)param->offset, (uint32_t)param->size });
-            }
+                auto paramSizes = func->externalFunction->GetParamSizes();
+                size_t paramIndex = 0;
 
-            int intrinsicID = -1;
-
-            if(func->externalIntrinsic)
-            {
-                for(size_t i = 0; i != intrinsics.size(); ++i)
+                for(const auto& param : func->GetChildren<ParameterDefinition>())
                 {
-                    if(intrinsics[i] == func->externalIntrinsic)
-                    {
-                        intrinsicID = (int)i;
-                        break;
-                    }
+                    ENFORCE(paramSizes[paramIndex++] == param->size, func->loc,
+                        "External function parameter size mismatch: {}", type->GetName());
                 }
 
-                if(intrinsicID == -1)
-                {
-                    intrinsicID = (int)intrinsics.size();
-                    intrinsics.push_back(func->externalIntrinsic);
-                }
+                ENFORCE(func->externalFunction->GetReturnSize() == returnSize, func->loc,
+                    "External function return size mismatch: {}", type->GetName());
             }
 
             sptr<FunctionInfo> info = spnew<FunctionInfo>(typeInfoTypeInfo);
@@ -455,10 +444,8 @@ sptr<TypeInfo> RuntimeTypeInfo::GetTypeInfo(Type* type)
             info->codeStart = 0;
             info->codeEnd = 0;
             info->externalFunction = func->externalFunction;
-            info->intrinsicID = intrinsicID;
             info->isExternal = func->isExternal;
             info->offset = static_cast<uint32_t>(func->offset);
-            info->params = std::move(params);
             allTypeInfo.push_back(info);
             typeInfoByType[type] = info;
             ret = info;

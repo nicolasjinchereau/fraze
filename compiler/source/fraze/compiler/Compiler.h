@@ -49,7 +49,6 @@ class Compiler
 
     string_view_map<SourceFile> sourceFiles;
     string_view_map<sptr<IExternalFunction>> functions;
-    string_view_map<IntrinsicFunction> intrinsics;
     std::vector<sptr<Type>> types;
     
     static thread_local Compiler* activeCompiler;
@@ -73,25 +72,15 @@ public:
     Compiler& ExportLoweredCode(std::string_view outputPath = "");
     Compiler& ExportBytecode(std::string_view outputPath = "");
 
-    template<class Ret, class... Args>
-    Compiler& AddFunction(const std::string& qualifiedName, Ret(*func)(Args...)) {
-        functions[qualifiedName] = std::make_shared<ExternalFunction<Ret, Args...>>(qualifiedName, func);
+    template<auto Func>
+    Compiler& AddFunction(const std::string& qualifiedName) {
+        functions[qualifiedName] = spnew<ExternalFunction<Func>>(qualifiedName);
         return *this;
     }
 
-    template<class Ret, class... Args>
-    Compiler& AddFunction(const std::string& qualifiedName, const std::string& signature, Ret(*func)(Args...)) {
-        AddFunction(std::format("{}:{}", qualifiedName, signature), func);
-        return *this;
-    }
-
-    Compiler& AddIntrinsic(const std::string& qualifiedName, IntrinsicFunction intrinsic) {
-        intrinsics[qualifiedName] = intrinsic;
-        return *this;
-    }
-
-    Compiler& AddIntrinsic(const std::string& qualifiedName, const std::string& signature, IntrinsicFunction intrinsic) {
-        AddIntrinsic(std::format("{}:{}", qualifiedName, signature), intrinsic);
+    template<auto Func>
+    Compiler& AddFunction(const std::string& qualifiedName, const std::string& signature) {
+        AddFunction<Func>(std::format("{}:{}", qualifiedName, signature));
         return *this;
     }
 
@@ -99,7 +88,6 @@ public:
     static Compiler* GetActiveCompiler();
 
     sptr<IExternalFunction> GetFunction(std::string_view qualifiedName, std::string_view signature);
-    IntrinsicFunction GetIntrinsic(std::string_view qualifiedName, std::string_view signature);
     bool IsAssertEnabled() const { return assertEnabled; }
     bool IsNullCheckEnabled() const { return nullCheckEnabled; }
     bool IsBoundsCheckEnabled() const { return boundsCheckEnabled; }

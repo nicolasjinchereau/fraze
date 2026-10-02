@@ -327,7 +327,6 @@ void CodeGenerator::Visit(const sptr<ASTRoot>& node)
     auto rtti = RuntimeTypeInfo(node, compiler->types);
     typeInfo = std::move(rtti.typeInfoByType);
     program->typeInfo = std::move(rtti.allTypeInfo);
-    program->intrinsics = std::move(rtti.intrinsics);
     program->globals = dynamic_array<Word>(rtti.globalSize);
     std::ranges::fill(program->globals, Word(nullptr));
 
@@ -784,23 +783,8 @@ void CodeGenerator::Visit(const sptr<CallExpression>& node)
         {
             if(funcInfo->isExternal)
             {
-                if(funcInfo->externalFunction)
-                {
-                    Emit(node->loc, OpCode::CallExternal, funcInfo->id);
-                }
-                else if(funcInfo->intrinsicID != -1)
-                {
-                    Operation op(OpCode::CallIntrinsic);
-                    op.arg1_u32a = (uint32_t)funcInfo->id;
-                    op.arg1_u32b = (uint32_t)funcInfo->intrinsicID;
-                    op.arg2_u32a = funcInfo->returnSize;
-                    op.arg2_u32b = funcInfo->paramSize;
-                    Emit(node->loc, op);
-                }
-                else
-                {
-                    assert(0);
-                }
+                assert(funcInfo->externalFunction);
+                Emit(node->loc, OpCode::CallExternal, funcInfo->id);
             }
             else
             {

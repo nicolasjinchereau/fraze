@@ -85,12 +85,6 @@ struct FieldInfo : TypeInfo
     virtual const FieldInfo* ToFieldInfo() const override { return this; }
 };
 
-struct ParamInfo
-{
-    uint32_t offset;
-    uint32_t size;
-};
-
 struct FunctionInfo : TypeInfo
 {
     uint32_t returnSize;
@@ -100,9 +94,7 @@ struct FunctionInfo : TypeInfo
     uint32_t codeEnd;
     uint32_t offset;
     sptr<IExternalFunction> externalFunction;
-    int intrinsicID;
     bool isExternal;
-    std::vector<ParamInfo> params;
 
     FunctionInfo(const TypeInfo* typeInfo) : TypeInfo(typeInfo) {}
 
