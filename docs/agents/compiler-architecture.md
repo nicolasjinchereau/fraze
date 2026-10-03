@@ -1,6 +1,6 @@
 # Compiler architecture
 
-`Compiler` (`compiler/Compiler.*`) runs `Lexer -> Parser -> SemanticAnalyzer -> VMCodeGenerator` and returns an `sptr<Program>`. Paths below are relative to `compiler/source/fraze/`.
+`Compiler` (`compiler/Compiler.*`) runs `Lexer -> Parser -> SemanticAnalyzer -> VMCodeGenerator`, or `JITCodeGenerator` in its place, and returns an `sptr<Program>`. Paths below are relative to `compiler/source/fraze/`.
 
 Every `.fz` under the assets path given to `Compiler::AddFrazeRuntime` (the standard library) and under each `AddDirectory` path is parsed into one `ASTRoot`. There are no imports: a definition in any file is visible from every other.
 
@@ -16,6 +16,7 @@ Every `.fz` under the assets path given to `Compiler::AddFrazeRuntime` (the stan
 
   A member access gets its receiver as `node->context` (`this`, or `$this` inside a coroutine), and `VisitCallTarget` passes it as the first argument. By code generation, `this` is an ordinary argument.
 - **VMCodeGenerator** (`compiler/VMCodeGenerator.*`): emits stack-based bytecode, similar to C# IL, into a `VMProgram`. It assigns everything numeric: frame and field offsets, check-site ids and jump targets.
+- **JITCodeGenerator** (`compiler/JITCodeGenerator.*`): with `Compiler::SetCodeGenerator(CodeGenerator::JIT)`, generates MIR in place of `VMCodeGenerator` and compiles it into a `JITProgram` (`program/JITProgram.*`). What it supports so far is in `jit-planning.md`.
 - **Program** (`program/Program.*`): the run-time state every backend shares: globals, `Heap`, `TypeInfo`, `checkSites` and the string literals in `staticObjects`. A backend derives from it and implements `InvokeImpl` and `GetUsedStackRange`, the part of its stack in use, which the GC scans. Externs and allocators take a `Program*`.
 - **VMProgram** (`program/VMProgram.*`): the VM. It owns the stack. `OpCode` (`program/OpCode.h`) is a `uint8_t` enum, and each opcode has an `Execute_*` handler, force-inlined into the `switch` in `VMProgram::Run`. While `Run` executes, the stack pointer, base pointer and instruction pointer live in its locals. It stores the `rsp` member after every operation, for the GC, but `rbp` and `rip` are only current outside `Run` and during an external call, so code that reads them must run from there. `Dispatcher` runs async work, and `program->Invoke("main", args)` runs inside a `ScopedAllocator`.
 - **GC** (`memory/Heap.*`): mark-and-sweep. It scans the globals and the backend's used stack range conservatively, and `PinMemory` keeps objects in place for native code.

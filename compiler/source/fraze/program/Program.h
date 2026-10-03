@@ -26,8 +26,6 @@ namespace fraze {
 
 class ScopedAllocator;
 
-// A compiled program: the heap, type info, globals and other run-time state that every backend shares. A backend
-// derives from it and implements InvokeImpl and GetUsedStackRange.
 class Program
 {
     Heap heap;
@@ -73,7 +71,7 @@ public:
 protected:
     virtual Word InvokeImpl(const std::string& qualifiedFuncName, const std::span<Word>& args) = 0;
 
-    // Returns the words of the backend's stack that are in use, for the GC to scan as roots.
+    // Heap::CollectInternal scans this range for references.
     virtual std::span<Word> GetUsedStackRange() = 0;
 };
 

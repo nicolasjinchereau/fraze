@@ -29,7 +29,6 @@
 
 namespace fraze {
 
-// The bytecode VM: runs the operations in 'code' on its own stack.
 class VMProgram : public Program
 {
     constexpr static std::size_t StackSize = 1024 * 1024 / sizeof(Word);

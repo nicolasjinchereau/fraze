@@ -13,7 +13,7 @@ These aren't loaded automatically. Before starting a task, read the ones that ma
 - Investigating a miscompile, a lowering or a crash: `docs/agents/debugging.md`, covering the AST, lowered-code and bytecode dumps and the trace macros.
 - Hitting behavior that looks like a compiler bug, or fixing one: `docs/agents/known-bugs.md`.
 - Measuring or optimizing speed: `docs/agents/performance.md`.
-- Hooking Fraze up to the MIR JIT library: `docs/agents/jit-planning.md`, covering what already fits, how MIR behaves on Windows and what still blocks it.
+- Working on the JIT backend: `docs/agents/jit-planning.md`, covering what it generates so far, what already fits, how MIR behaves on Windows and what still blocks it.
 - Editing this file or anything in `docs/agents/`: `docs/agents/README.md`.
 
 ## Working in this repository
@@ -49,11 +49,16 @@ Push-Location demo; .\bin\x64\Debug\Demo.exe --test; "exit code: $LASTEXITCODE";
   ```powershell
   .\demo\RunScene.ps1; "exit code: $LASTEXITCODE"
   ```
+- After a change to the compiler, also run the JIT. `--jit` compiles `demo/assets/jit/MainTest.fz` with the JIT instead of running the demo, and exits with what its `main` returns:
+
+  ```powershell
+  Push-Location demo; .\bin\x64\Debug\Demo.exe --jit; "exit code: $LASTEXITCODE"; Pop-Location
+  ```
 - Only Debug runs checks: Release calls `DisableAssert()`, `DisableNullCheck()`, `DisableBoundsCheck()` and `DisableTypeCheck()` in `demo/source/main.cpp`.
 
 ## Layout
 
-- `compiler/`: static library with the whole language. C++ is under `compiler/source/fraze/`, where `Compiler` runs `Lexer -> Parser -> SemanticAnalyzer -> VMCodeGenerator` and returns a `Program`, here a `VMProgram`, the bytecode VM. The standard library (`fraze.*.fz`) and test suite are in `compiler/assets/`.
+- `compiler/`: static library with the whole language. C++ is under `compiler/source/fraze/`, where `Compiler` runs `Lexer -> Parser -> SemanticAnalyzer -> VMCodeGenerator` and returns a `Program`, here a `VMProgram`, the bytecode VM. With `SetCodeGenerator(CodeGenerator::JIT)`, `JITCodeGenerator` replaces `VMCodeGenerator` and the `Program` is a `JITProgram`. The standard library (`fraze.*.fz`) and test suite are in `compiler/assets/`.
 - `demo/`: 3D app that embeds Fraze. The C++ host is in `demo/source/` (extern functions are registered in `ExternFunctions.cpp`), and scripts are in `demo/assets/scripts/`.
 - `syntax-extensions/`: syntax highlighting for Visual Studio and VS Code. The grammar is `fraze-syntax.json`.
 - `third_party/`: the demo's external dependencies, which are most of the repository's files. Leave it out of searches.
@@ -83,11 +88,7 @@ These serve two goals: being able to move or delete AST nodes freely, and keepin
   - Name a function's side effects. Don't name one like a query (`TryTakeCachedResult`, not `HasCachedResult`), and name an effect beyond what the caller can already read (`TryCancelScheduledSave`, not `TryTakePendingSave`).
   - Don't rename existing code unless asked.
 - **Audience:** write comments and docs, `docs/agents/` included, for an expert engineer who already knows this project. Give the shape of a problem or mechanism, not a walkthrough of its details.
-- **Comments:** one per function, on its definition, and on a field whose name can't carry its meaning.
-  - The first sentence says concretely what the thing does, returns or holds, not what it isn't; the why comes after, briefly.
-  - Name the calls made and the state changed rather than a verb that stands in for them: "stores the value, marks it done and calls Finish", not "completes the operation".
-  - When a name doesn't say what it is, as with an abbreviation or a single letter, put what it is next to it: "the retry limit, `k`", not just "`k`".
-  - Leave out what the reader can infer: which pass does a step when only one pass does that kind of work, or a property that follows from how the thing was built.
-  - Describe a node by what the source wrote and what it lowers to, not by the other parts that lowering emits.
-  - Usually 1–2 lines; a mechanism spanning several functions can take about 7.
-  - At compile time, code "emits"; the emitted code "evaluates", "pushes" or "jumps".
+- **Comments:** none by default. Add one only where someone who knows the project would otherwise misread the code, or would have to go read other code to follow it.
+  - Before adding a comment, try to make it unnecessary with a better name or simpler code. A comment that a name could replace is a defect.
+  - Use actual code references rather than descriptive phrasing: prefer "stores `value` and calls `Finish`" over "completes the operation".
+  - When referring to an identifier that's vague or too short, say what it is: prefer "the retry limit, `k`" over "`k`".

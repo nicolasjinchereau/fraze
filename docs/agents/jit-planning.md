@@ -4,6 +4,14 @@ What stands between Fraze and a JIT backend, with MIR as the backend. Paths are 
 
 The backend is an off-the-shelf JIT library, which brings its own optimizations and portability. Writing a code emitter for Fraze is ruled out.
 
+## Current state
+
+- **Pipeline:** `Compiler::SetCodeGenerator(CodeGenerator::JIT)` makes `Compile` run `JITCodeGenerator` (`compiler/JITCodeGenerator.*`) instead of `VMCodeGenerator`, and return a `JITProgram` (`program/JITProgram.*`), which owns the MIR context and the machine code in it. Only the `.cpp` files and `JITCodeGenerator.h` include MIR's headers; `JITProgram.h` forward-declares `MIR_context`.
+- **Generated so far:** only the global `main`, which must take no parameters and return `int`, and in it only blocks, `return` and integer literals. Every other statement and expression throws "the JIT can't generate X yet" at its location. Static constructors aren't generated or run.
+- **Running:** `JITProgram::InvokeImpl` calls a function by qualified name with no arguments and returns its `int`. `GetUsedStackRange` is empty, since compiled code can't allocate yet.
+- **Testing:** the demo's `--jit` flag compiles the runtime plus `demo/assets/jit/MainTest.fz` and exits with what `main` returns. `MainTest.fz` grows as the generator does.
+- **Errors:** if generating throws, `JITCodeGenerator` finishes the open MIR function and module first, because `MIR_finish` reads freed memory when either is left open. MIR's own errors go to its default handler, which prints the message and calls `exit(1)`.
+
 ## Already compatible
 
 - **Globals** live in `Program::globals`, a fixed-address array, which a JIT can address directly or import as one symbol.

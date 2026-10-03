@@ -34,6 +34,12 @@ class VMCodeGenerator;
 class Scope;
 class Type;
 
+enum class CodeGenerator
+{
+    VM,
+    JIT,
+};
+
 class Compiler
 {
     bool exportAST = false;
@@ -43,6 +49,7 @@ class Compiler
     bool nullCheckEnabled = true;
     bool boundsCheckEnabled = true;
     bool typeCheckEnabled = true;
+    CodeGenerator codeGenerator = CodeGenerator::VM;
     std::string astOutputPath;
     std::string loweredCodeOutputPath;
     std::string bytecodeOutputPath;
@@ -70,6 +77,7 @@ public:
     Compiler& ExportAST(std::string_view outputPath = "");
     Compiler& ExportLoweredCode(std::string_view outputPath = "");
     Compiler& ExportBytecode(std::string_view outputPath = "");
+    Compiler& SetCodeGenerator(CodeGenerator codeGenerator);
 
     template<auto Func>
     Compiler& AddFunction(const std::string& qualifiedName) {

@@ -27,7 +27,6 @@ std::size_t VMProgram::GetStackSize() const {
     return std::size_t(rsp + 1 - stack.data());
 }
 
-// Returns the VM stack from its bottom up to rsp, which Run stores after every operation.
 std::span<Word> VMProgram::GetUsedStackRange()
 {
     return std::span(stack.data(), rsp + 1);
@@ -909,9 +908,9 @@ void VMProgram::Execute_Return(const Operation& op, Word*& rsp, Word*& rbp, size
         ++rip;
 }
 
-// Calls the native function on the arguments at the top of the stack, then pops them. It first stores the stack
-// pointer, base pointer and instruction pointer into the rsp, rbp and rip members, where a callback into the VM and the
-// GC read them. It pushes no frame, so a callback builds its frame above the arguments, and InvokeImpl saves rip.
+// The `rsp`, `rbp` and `rip` members must be current during the call: InvokeImpl reads all three for a callback into
+// the VM, and GetUsedStackRange reads `rsp` for the GC. No frame is pushed, so a callback builds its frame above the
+// arguments, and InvokeImpl saves `rip`.
 void VMProgram::Execute_CallExternal(const Operation& op, Word*& rsp, Word*& rbp, size_t& rip)
 {
     assert(typeInfo[op.arg1_u64]->ToFunctionInfo());
