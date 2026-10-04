@@ -783,17 +783,7 @@ void SemanticAnalyzer::Visit(const sptr<FunctionDefinition>& node)
                     name.erase(name.begin());
             }
 
-            std::string signature { node->returnType->GetTypeName(true) };
-            signature += "(";
-            
-            size_t paramIndex = 0;
-            for(const auto& param : node->GetChildren<ParameterDefinition>())
-            {
-                if(paramIndex++ != 0) signature += ",";
-                signature += param->typeSpec->GetTypeName(true);
-            }
-
-            signature += ")";
+            std::string signature = node->GetSignature();
 
             if(auto func = Compiler::GetActiveCompiler()->GetFunction(name, signature))
             {

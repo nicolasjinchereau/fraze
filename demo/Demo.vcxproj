@@ -44,6 +44,7 @@
     <ClInclude Include="source\WorkerThread.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="assets\jit\MainTest.fz" />
     <None Include="assets\models\character.fbx" />
     <None Include="assets\models\character_low.fbx" />
     <None Include="assets\scripts\Animator.fz" />

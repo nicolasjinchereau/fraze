@@ -15,6 +15,15 @@ namespace fraze {
 
 class JITProgram : public Program
 {
+    bool shouldInitialize = true;
+
+    void* GetFunctionAddress(const std::string& qualifiedFuncName);
+
+    template<class Signature>
+    Signature* GetFunction(const std::string& qualifiedFuncName) {
+        return reinterpret_cast<Signature*>(GetFunctionAddress(qualifiedFuncName));
+    }
+
 public:
     MIR_context* context{};
     std::unordered_map<std::string, void*> functionAddresses;

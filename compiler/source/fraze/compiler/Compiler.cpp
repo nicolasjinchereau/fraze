@@ -159,6 +159,12 @@ Compiler& Compiler::SetCodeGenerator(CodeGenerator codeGenerator)
     return *this;
 }
 
+Compiler& Compiler::SetOptimization(Optimization optimization)
+{
+    this->optimization = optimization;
+    return *this;
+}
+
 sptr<Program> Compiler::Compile()
 {
     sptr<VMProgram> program;

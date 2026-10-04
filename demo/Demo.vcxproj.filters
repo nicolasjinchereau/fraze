@@ -20,6 +20,9 @@
     <Filter Include="assets\shaders">
       <UniqueIdentifier>{d1a30d68-7db7-4de7-ac5f-1572b8c31c81}</UniqueIdentifier>
     </Filter>
+    <Filter Include="assets\jit">
+      <UniqueIdentifier>{a841c566-f23f-4987-be59-755e031257eb}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\Buffer.cpp">
@@ -161,6 +164,9 @@
     </None>
     <None Include="assets\scripts\Tests.fz">
       <Filter>assets\scripts</Filter>
+    </None>
+    <None Include="assets\jit\MainTest.fz">
+      <Filter>assets\jit</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>

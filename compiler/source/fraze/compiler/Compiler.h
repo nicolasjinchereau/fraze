@@ -31,6 +31,7 @@ struct SourceFile
 class Parser;
 class SemanticAnalyzer;
 class VMCodeGenerator;
+class JITCodeGenerator;
 class Scope;
 class Type;
 
@@ -38,6 +39,15 @@ enum class CodeGenerator
 {
     VM,
     JIT,
+};
+
+// applies to JIT/MIR only
+enum class Optimization : uint32_t
+{
+    Off     = 0, // fast generation
+    Minimal = 1, // register allocation and combiner
+    Default = 2, // adds GVN and CCP
+    Maximum = 3, // everything
 };
 
 class Compiler
@@ -50,6 +60,7 @@ class Compiler
     bool boundsCheckEnabled = true;
     bool typeCheckEnabled = true;
     CodeGenerator codeGenerator = CodeGenerator::VM;
+    Optimization optimization = Optimization::Default;
     std::string astOutputPath;
     std::string loweredCodeOutputPath;
     std::string bytecodeOutputPath;
@@ -63,6 +74,7 @@ class Compiler
     friend Parser;
     friend SemanticAnalyzer;
     friend VMCodeGenerator;
+    friend JITCodeGenerator;
     friend Type;
 
 public:
@@ -78,6 +90,7 @@ public:
     Compiler& ExportLoweredCode(std::string_view outputPath = "");
     Compiler& ExportBytecode(std::string_view outputPath = "");
     Compiler& SetCodeGenerator(CodeGenerator codeGenerator);
+    Compiler& SetOptimization(Optimization optimization);
 
     template<auto Func>
     Compiler& AddFunction(const std::string& qualifiedName) {

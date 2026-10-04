@@ -120,6 +120,27 @@ public:
         assert(!hasImplicitThis || GetFirstChild<ParameterDefinition>( "this" ) != nullptr);
         return hasImplicitThis;
     }
+
+    // Distinguishes the overloads that share this function's qualified name, as "ReturnType(ParamType,...)".
+    std::string GetSignature() const
+    {
+        std::string signature { returnType->type->GetName() };
+        signature += "(";
+
+        size_t paramIndex = 0;
+
+        for(const auto& param : GetChildren<ParameterDefinition>())
+        {
+            if(paramIndex++ != 0)
+                signature += ",";
+
+            signature += param->typeSpec->type->GetName();
+        }
+
+        signature += ")";
+
+        return signature;
+    }
 };
 
 } // fraze

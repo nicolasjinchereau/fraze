@@ -2,7 +2,30 @@
 *  Copyright (c) 2026 Nicolas Jinchereau. All rights reserved.  *
 *---------------------------------------------------------------*/
 
+int Pick(int value)
+{
+    return value;
+}
+
+int Pick(bool value)
+{
+    return 20;
+}
+
+int Pick(num value)
+{
+    return 30;
+}
+
 int main()
 {
-    return 0;
+    bool flag = true;
+    num scale = 1.5;
+    int result = Pick(7);
+
+    result = Pick(flag);
+    result = Pick(result);
+    result = Pick(scale);
+
+    return result;
 }

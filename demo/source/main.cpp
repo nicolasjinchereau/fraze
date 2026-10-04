@@ -33,10 +33,10 @@ int main(int argc, char** argv)
     try
     {
         fraze::Compiler compiler;
-        compiler.AddFrazeRuntime("../compiler/assets");
 
         if(!useJIT)
         {
+            compiler.AddFrazeRuntime("../compiler/assets");
             compiler.AddDirectory("assets/scripts");
             AddExternFunctions(compiler);
 
