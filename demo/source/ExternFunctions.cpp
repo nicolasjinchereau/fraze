@@ -133,7 +133,7 @@ Integer Time_GetTicksPerSecond() {
 // WINDOW
 Object* NativeWindow_this(Program* program, Object& window, const String& title, Integer x, Integer y, Integer width, Integer height) {
     ScopedAllocator allocator(program);
-    return NEW_FRAZE_EXTERN_CLASS(allocator, Window, "NativeWindow",
+    return allocator.NewExternClass<Window>("NativeWindow",
         program,
         &window,
         title.GetView(),
@@ -175,7 +175,7 @@ Integer NativeWindow_PumpMessage(Object& self) {
 // GRAPHICS
 Object* NativeGraphics_this(Program* program) {
     ScopedAllocator allocator(program);
-    return NEW_FRAZE_EXTERN_CLASS(allocator, Graphics, "NativeGraphics");
+    return allocator.NewExternClass<Graphics>("NativeGraphics");
 }
 
 void NativeGraphics_SetRenderTarget(Object& self, Object& windowObj) {
@@ -291,7 +291,7 @@ void NativeGraphics_DrawIndexed(Object& self, Integer start, Integer count, Draw
 Object* NativeShader_this(Program* program, Object& graphicsObj, const String& src, const String& vertexEntry, const String& pixelEntry) {
     auto graphics = static_cast<Graphics*>(&graphicsObj);
     ScopedAllocator allocator(program);
-    return NEW_FRAZE_EXTERN_CLASS(allocator, Shader, "NativeShader", graphics, src.GetView(), vertexEntry.GetView(), pixelEntry.GetView());
+    return allocator.NewExternClass<Shader>("NativeShader", graphics, src.GetView(), vertexEntry.GetView(), pixelEntry.GetView());
 }
 
 void NativeShader_SetUniformMat4(Object& self, const String& name, const Mat4& value) {
@@ -315,7 +315,7 @@ void Shader_CreateShaderObjectAsync(Program* program, Class& task, Object& graph
 Object* NativeTexture_this(Program* program, Object& graphicsObj, const String& path) {
     auto graphics = static_cast<Graphics*>(&graphicsObj);
     ScopedAllocator allocator(program);
-    return NEW_FRAZE_EXTERN_CLASS(allocator, Texture, "NativeTexture", graphics, path);
+    return allocator.NewExternClass<Texture>("NativeTexture", graphics, path);
 }
 
 void Texture_CreateNativeTextureAsync(Program* program, Class& task, Object& graphicsObj, const String& path) {
@@ -344,13 +344,13 @@ void Model_ImportModelObjectAsync(Program* program, Class& task, Object& graphic
 Object* NativeBuffer_this_size(Program* program, Object& graphicsObj, BufferType type, BufferUsage usage, BufferCPUAccess cpuAccess, Integer size) {
     auto graphics = static_cast<Graphics*>(&graphicsObj);
     ScopedAllocator allocator(program);
-    return NEW_FRAZE_EXTERN_CLASS(allocator, Buffer, "NativeBuffer", graphics, type, usage, cpuAccess, size);
+    return allocator.NewExternClass<Buffer>("NativeBuffer", graphics, type, usage, cpuAccess, size);
 }
 
 Object* NativeBuffer_this_data(Program* program, Object& graphicsObj, BufferType type, BufferUsage usage, BufferCPUAccess cpuAccess, const Array<>& data) {
     auto graphics = static_cast<Graphics*>(&graphicsObj);
     ScopedAllocator allocator(program);
-    return NEW_FRAZE_EXTERN_CLASS(allocator, Buffer, "NativeBuffer", graphics, type, usage, cpuAccess, data);
+    return allocator.NewExternClass<Buffer>("NativeBuffer", graphics, type, usage, cpuAccess, data);
 }
 
 void NativeBuffer_SetData(Object& self, const Array<>& data)

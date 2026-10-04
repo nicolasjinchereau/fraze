@@ -24,7 +24,7 @@ struct NativeVertex
     float nx, ny, nz;
 };
 
-Class* BuildNode(const aiScene* scene, IAllocator& allocator, const std::vector<Class*>& allMeshes, aiNode* pNode)
+Class* BuildNode(const aiScene* scene, Allocator& allocator, const std::vector<Class*>& allMeshes, aiNode* pNode)
 {
     aiVector3D localScale;
     aiQuaternion localRotation;
@@ -43,11 +43,11 @@ Class* BuildNode(const aiScene* scene, IAllocator& allocator, const std::vector<
     transform.scale.y = localScale.y;
     transform.scale.z = localScale.z;
 
-    Class* node = NEW_FRAZE_CLASS(allocator, "ModelNode");
-    node->SetField("name", NEW_FRAZE_STRING(allocator, pNode->mName.C_Str()));
+    Class* node = allocator.NewClass("ModelNode");
+    node->SetField("name", allocator.NewString(pNode->mName.C_Str()));
     node->SetField("transform", transform);
 
-    Array<>* meshes = NEW_FRAZE_ARRAY(allocator, "Mesh[]", pNode->mNumMeshes);
+    Array<>* meshes = allocator.NewArray("Mesh[]", pNode->mNumMeshes);
 
     for(uint32_t i = 0; i != pNode->mNumMeshes; ++i)
     {
@@ -57,7 +57,7 @@ Class* BuildNode(const aiScene* scene, IAllocator& allocator, const std::vector<
 
     node->SetField("meshes", meshes);
 
-    Array<>* children = NEW_FRAZE_ARRAY(allocator, "ModelNode[]", pNode->mNumChildren);
+    Array<>* children = allocator.NewArray("ModelNode[]", pNode->mNumChildren);
 
     for(uint32_t i = 0; i != pNode->mNumChildren; ++i)
     {
@@ -121,7 +121,7 @@ aiNode* FindNodeForMesh(aiNode* node, unsigned int meshIndex)
     return nullptr;
 }
 
-Class* ModelImporter::ImportModel(IAllocator& allocator, Graphics* graphics, const std::string& path)
+Class* ModelImporter::ImportModel(Allocator& allocator, Graphics* graphics, const std::string& path)
 {
     Assimp::Importer importer;
     importer.SetPropertyInteger(AI_CONFIG_IMPORT_FBX_PRESERVE_PIVOTS, 0);
@@ -193,8 +193,8 @@ Class* ModelImporter::ImportModel(IAllocator& allocator, Graphics* graphics, con
             }
         }
 
-        Class* vertexBuffer = NEW_FRAZE_CLASS(allocator, "Buffer");
-        Object* nativeVertexBuffer = NEW_FRAZE_EXTERN_CLASS(allocator, Buffer, "NativeBuffer",
+        Class* vertexBuffer = allocator.NewClass("Buffer");
+        Object* nativeVertexBuffer = allocator.NewExternClass<Buffer>("NativeBuffer",
             graphics,
             BufferType::Vertex,
             BufferUsage::Dynamic,
@@ -205,8 +205,8 @@ Class* ModelImporter::ImportModel(IAllocator& allocator, Graphics* graphics, con
         );
         vertexBuffer->SetField("nativeBuffer", nativeVertexBuffer);
 
-        Class* indexBuffer = NEW_FRAZE_CLASS(allocator, "Buffer");
-        Object* nativeIndexBuffer = NEW_FRAZE_EXTERN_CLASS(allocator, Buffer, "NativeBuffer",
+        Class* indexBuffer = allocator.NewClass("Buffer");
+        Object* nativeIndexBuffer = allocator.NewExternClass<Buffer>("NativeBuffer",
             graphics,
             BufferType::Index,
             BufferUsage::Static,
@@ -222,7 +222,7 @@ Class* ModelImporter::ImportModel(IAllocator& allocator, Graphics* graphics, con
         std::vector<std::vector<std::pair<uint32_t, float>>> vertWeightSets;
         vertWeightSets.resize(vertices.size());
         
-        Array<Bone>* bones = NEW_FRAZE_ARRAY_T(allocator, Bone, "Bone[]", pMesh->mNumBones);
+        Array<Bone>* bones = allocator.NewArray<Bone>("Bone[]", pMesh->mNumBones);
 
         for(uint32_t b = 0; b < pMesh->mNumBones; ++b)
         {
@@ -235,14 +235,14 @@ Class* ModelImporter::ImportModel(IAllocator& allocator, Graphics* graphics, con
             }
             
             const aiNode* pNode = scene->mRootNode->findBoneNode(pBone);
-            String* linkNodeName = NEW_FRAZE_STRING(allocator, pNode->mName.C_Str());
+            String* linkNodeName = allocator.NewString(pNode->mName.C_Str());
             
             const aiNode* pMeshNode = FindNodeForMesh(scene->mRootNode, m);
             Mat4 meshBindMatrix = GetGlobalTransform(pMeshNode);
             
             Mat4 invBoneBindMatrix = FromAIMat4x4(pBone->mOffsetMatrix);
             
-            Class* bone = NEW_FRAZE_CLASS(allocator, "Bone");
+            Class* bone = allocator.NewClass("Bone");
             bone->SetField("linkNodeName", linkNodeName);
             bone->SetField("meshBindMatrix", meshBindMatrix);
             bone->SetField("invBoneBindMatrix", invBoneBindMatrix);
@@ -258,8 +258,8 @@ Class* ModelImporter::ImportModel(IAllocator& allocator, Graphics* graphics, con
                 });
         }
 
-        Array<IVec4>* boneIndices = NEW_FRAZE_ARRAY_T(allocator, IVec4, "IVec4[]", vertices.size()); // 4 indices per vertex
-        Array<Vec4>* boneWeights = NEW_FRAZE_ARRAY_T(allocator, Vec4, "Vec4[]", vertices.size()); // 4 weights per vertex
+        Array<IVec4>* boneIndices = allocator.NewArray<IVec4>("IVec4[]", vertices.size()); // 4 indices per vertex
+        Array<Vec4>* boneWeights = allocator.NewArray<Vec4>("Vec4[]", vertices.size()); // 4 weights per vertex
 
         constexpr size_t MaxBones = 4;
         
@@ -296,7 +296,7 @@ Class* ModelImporter::ImportModel(IAllocator& allocator, Graphics* graphics, con
             (*boneWeights)[v] = Vec4{ weightSet[0].second, weightSet[1].second, weightSet[2].second, weightSet[3].second };
         }
 
-        Array<Vertex>* vertexArray = NEW_FRAZE_ARRAY_T(allocator, Vertex, "Vertex[]", vertices.size());
+        Array<Vertex>* vertexArray = allocator.NewArray<Vertex>("Vertex[]", vertices.size());
         
         for(size_t i = 0; i != vertices.size(); ++i)
         {
@@ -309,7 +309,7 @@ Class* ModelImporter::ImportModel(IAllocator& allocator, Graphics* graphics, con
             };
         }
 
-        Class* mesh = NEW_FRAZE_CLASS(allocator, "Mesh");
+        Class* mesh = allocator.NewClass("Mesh");
         mesh->SetField("vertices", vertexArray);
         mesh->SetField("vertexBuffer", vertexBuffer);
         mesh->SetField("indexBuffer", indexBuffer);
@@ -321,16 +321,16 @@ Class* ModelImporter::ImportModel(IAllocator& allocator, Graphics* graphics, con
         allMeshes.push_back(mesh);
     }
     
-    Array<AnimationClip>* clips = NEW_FRAZE_ARRAY_T(allocator, AnimationClip, "AnimationClip[]", scene->mNumAnimations);
+    Array<AnimationClip>* clips = allocator.NewArray<AnimationClip>("AnimationClip[]", scene->mNumAnimations);
 
     for(int i = 0; i != scene->mNumAnimations; ++i)
     {
         aiAnimation* anim = scene->mAnimations[i];
 
-        String* name = NEW_FRAZE_STRING(allocator, anim->mName.C_Str());
+        String* name = allocator.NewString(anim->mName.C_Str());
         Number length = anim->mDuration / anim->mTicksPerSecond;
 
-        Array<AnimationTrack>* tracks = NEW_FRAZE_ARRAY_T(allocator, AnimationTrack, "AnimationTrack[]", anim->mNumChannels);
+        Array<AnimationTrack>* tracks = allocator.NewArray<AnimationTrack>("AnimationTrack[]", anim->mNumChannels);
 
         for(int c = 0; c != anim->mNumChannels; ++c)
         {
@@ -339,14 +339,14 @@ Class* ModelImporter::ImportModel(IAllocator& allocator, Graphics* graphics, con
             assert(channel->mNumRotationKeys >= 1);
             assert(channel->mNumScalingKeys >= 1);
 
-            String* nodeName = NEW_FRAZE_STRING(allocator, channel->mNodeName.C_Str());
+            String* nodeName = allocator.NewString(channel->mNodeName.C_Str());
 
             uint32_t positionKeyCount = channel->mNumPositionKeys;
             uint32_t rotationKeyCount = channel->mNumRotationKeys;
             uint32_t scaleKeyCount = channel->mNumScalingKeys;
             uint32_t keyCount = std::max(std::max(positionKeyCount, rotationKeyCount), scaleKeyCount);
 
-            Array<Keyframe>* frames = NEW_FRAZE_ARRAY_T(allocator, Keyframe, "Keyframe[]", keyCount);
+            Array<Keyframe>* frames = allocator.NewArray<Keyframe>("Keyframe[]", keyCount);
 
             for(uint32_t k = 0; k != keyCount; ++k)
             {
@@ -360,7 +360,7 @@ Class* ModelImporter::ImportModel(IAllocator& allocator, Graphics* graphics, con
                 (*frames)[k] = keyframe;
             }
             
-            Class* track = NEW_FRAZE_CLASS(allocator, "AnimationTrack");
+            Class* track = allocator.NewClass("AnimationTrack");
             assert(nodeName);
             track->SetField("nodeName", nodeName);
             track->SetField("frames", frames);
@@ -368,7 +368,7 @@ Class* ModelImporter::ImportModel(IAllocator& allocator, Graphics* graphics, con
             tracks->At(c) = track;
         }
 
-        Class* clip = NEW_FRAZE_CLASS(allocator, "AnimationClip");
+        Class* clip = allocator.NewClass("AnimationClip");
         clip->SetField("name", name);
         clip->SetField("length", length);
         clip->SetField("tracks", tracks);
@@ -377,7 +377,7 @@ Class* ModelImporter::ImportModel(IAllocator& allocator, Graphics* graphics, con
 
     Class* rootNode = BuildNode(scene, allocator, allMeshes, scene->mRootNode);
     
-    Class* model = NEW_FRAZE_CLASS(allocator, "Model");
+    Class* model = allocator.NewClass("Model");
     model->SetField("rootNode", rootNode);
     model->SetField("clips", clips);
 
@@ -414,8 +414,8 @@ Class* ModelImporter::CreateSphereMesh(Program* program, Graphics* graphics, Num
     Integer vertexCount = (rings + 1) * (segments + 1);
     Integer indexCount = rings * segments * 6;
 
-    Array<Vertex>* vertices = NEW_FRAZE_ARRAY_T(allocator, Vertex, "Vertex[]", vertexCount);
-    Array<Integer>* indices = NEW_FRAZE_ARRAY_T(allocator, Integer, "int[]", indexCount);
+    Array<Vertex>* vertices = allocator.NewArray<Vertex>("Vertex[]", vertexCount);
+    Array<Integer>* indices = allocator.NewArray<Integer>("int[]", indexCount);
 
     size_t vert = 0;
 
@@ -513,8 +513,8 @@ Class* ModelImporter::CreateSphereMesh(Program* program, Graphics* graphics, Num
         nativeIndices.push_back((uint32_t)index);
     }
 
-    Class* vertexBuffer = NEW_FRAZE_CLASS(allocator, "Buffer");
-    Object* nativeVertexBuffer = NEW_FRAZE_EXTERN_CLASS(allocator, Buffer, "NativeBuffer",
+    Class* vertexBuffer = allocator.NewClass("Buffer");
+    Object* nativeVertexBuffer = allocator.NewExternClass<Buffer>("NativeBuffer",
         graphics,
         BufferType::Vertex,
         BufferUsage::Static,
@@ -525,8 +525,8 @@ Class* ModelImporter::CreateSphereMesh(Program* program, Graphics* graphics, Num
     );
     vertexBuffer->SetField("nativeBuffer", nativeVertexBuffer);
 
-    Class* indexBuffer = NEW_FRAZE_CLASS(allocator, "Buffer");
-    Object* nativeIndexBuffer = NEW_FRAZE_EXTERN_CLASS(allocator, Buffer, "NativeBuffer",
+    Class* indexBuffer = allocator.NewClass("Buffer");
+    Object* nativeIndexBuffer = allocator.NewExternClass<Buffer>("NativeBuffer",
         graphics,
         BufferType::Index,
         BufferUsage::Static,
@@ -537,7 +537,7 @@ Class* ModelImporter::CreateSphereMesh(Program* program, Graphics* graphics, Num
     );
     indexBuffer->SetField("nativeBuffer", nativeIndexBuffer);
 
-    Class* mesh = NEW_FRAZE_CLASS(allocator, "Mesh");
+    Class* mesh = allocator.NewClass("Mesh");
     mesh->SetField("vertices", vertices);
     mesh->SetField("vertexBuffer", vertexBuffer);
     mesh->SetField("indexBuffer", indexBuffer);

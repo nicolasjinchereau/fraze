@@ -8,6 +8,7 @@
 #include <fraze/compiler/VMCodeGenerator.h>
 #include <fraze/compiler/Compiler.h>
 #include <fraze/compiler/RuntimeTypeInfo.h>
+#include <fraze/memory/PersistentAllocator.h>
 
 namespace fraze {
 
@@ -1331,8 +1332,8 @@ void VMCodeGenerator::Visit(const sptr<SizeOfExpression>& node)
 }
 
 void VMCodeGenerator::Visit(const sptr<StringLiteralExpression>& node) {
-    program->staticObjects.push_back(String::New(program.get(), node->value));
-    auto index = Emit((String*)program->staticObjects.back().get());
+    PersistentAllocator allocator(program.get());
+    auto index = Emit(String::New(allocator, node->value));
     Emit(node->loc, OpCode::PushLiteral, index);
 }
 

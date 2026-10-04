@@ -56,9 +56,9 @@ int main(int argc, char** argv)
 
             dispatcher->InvokeAsync([&]{
                 fraze::ScopedAllocator alloc(program.get());
-                fraze::Array<fraze::String>* argArray = NEW_FRAZE_ARRAY_T(alloc, fraze::String, "string[]", frazeArgs.size());
+                fraze::Array<fraze::String>* argArray = alloc.NewArray<fraze::String>("string[]", frazeArgs.size());
                 for(size_t i = 0; i != frazeArgs.size(); ++i)
-                    argArray->At(i) = NEW_FRAZE_STRING(alloc, frazeArgs[i]);
+                    argArray->At(i) = alloc.NewString(frazeArgs[i]);
                 program->Invoke("main", argArray).GetInteger();
             });
 

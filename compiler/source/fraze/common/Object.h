@@ -16,7 +16,7 @@
 #include <fraze/common/Pointers.h>
 #include <fraze/common/Extensions.h>
 #include <fraze/memory/Heap.h>
-#include <fraze/memory/IAllocator.h>
+#include <fraze/memory/Allocator.h>
 
 namespace fraze {
 
@@ -103,30 +103,11 @@ public:
     }
 
     template<class T, typename... Args> requires std::is_convertible_v<T*, Object*>
-    static T* Create(IAllocator& allocator, size_t size, Args&&... args)
+    static T* Create(Allocator& allocator, size_t size, Args&&... args)
     {
         assert(size != 0);
         T* val = reinterpret_cast<T*>(allocator.Allocate(size));
         return std::construct_at(val, std::forward<Args>(args)...);
-    }
-
-    struct Deleter
-    {
-        void operator()(Object* object)
-        {
-            assert(object);
-            std::destroy_at(object);
-            ::operator delete(object);
-        }
-    };
-
-    template<class T, typename... Args> requires std::is_convertible_v<T*, Object*>
-    static std::unique_ptr<T, Deleter> Create(size_t size, Args&&... args)
-    {
-        assert(size != 0);
-        T* val = reinterpret_cast<T*>(::operator new(size));
-        std::construct_at(val, std::forward<Args>(args)...);
-        return std::unique_ptr<T, Deleter>(val);
     }
 };
 
@@ -233,7 +214,7 @@ protected:
 public:
     Array(const ArrayInfo* info, size_t length);
 
-    static Array<>* New(IAllocator& allocator, const ArrayInfo* info, size_t length);
+    static Array<>* New(Allocator& allocator, const ArrayInfo* info, size_t length);
 
     size_t GetSize() const;
     size_t GetElementSize() const;
@@ -309,7 +290,7 @@ class Class : public Object
 public:
     Class(const ClassInfo* info);
 
-    static Class* New(IAllocator& allocator, const ClassInfo* info);
+    static Class* New(Allocator& allocator, const ClassInfo* info);
 
     std::string_view GetName() const;
     size_t GetFieldCount() const;
@@ -356,12 +337,9 @@ public:
     String(const TypeInfo* info, std::string_view str);
     String(const TypeInfo* info, std::string_view left, std::string_view right);
 
-    static String* New(IAllocator& allocator, std::string_view str);
-    static String* New(IAllocator& allocator, size_t length);
-    static String* New(IAllocator& allocator, std::string_view left, std::string_view right);
-    
-    // for static strings
-    static std::unique_ptr<String, Object::Deleter> New(Program* program, std::string_view str);
+    static String* New(Allocator& allocator, std::string_view str);
+    static String* New(Allocator& allocator, size_t length);
+    static String* New(Allocator& allocator, std::string_view left, std::string_view right);
 
     bool IsEmpty() const;
     char* GetChar(size_t i) const;

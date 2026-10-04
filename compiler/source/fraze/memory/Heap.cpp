@@ -11,33 +11,13 @@
 
 namespace fraze {
 
-struct HeapObject
-{
-    size_t size;
-
-#if FRAZE_HEAP_DEBUG
-    SourceLocation* pLocation;
-#endif
-
-    std::byte* payload() {
-        return reinterpret_cast<std::byte*>(this) + sizeof(HeapObject);
-    }
-
-    size_t payloadSize() const {
-        return size - sizeof(HeapObject);
-    }
-
-    static HeapObject* from(std::byte* pPayload) {
-        return reinterpret_cast<HeapObject*>(pPayload - sizeof(HeapObject));
-    }
-};
-
 Page::Page(size_t requestedSize)
 {
     totalSize = (std::max(requestedSize, Heap::MinPageSize) + Heap::BlockSize - 1) & ~(Heap::BlockSize - 1 );
     blockCount = totalSize / Heap::BlockSize;
     totalUsed = 0;
     nextFree = 0;
+    freeRunLimit = blockCount;
 
     void* mem = ::operator new(totalSize, std::align_val_t(Heap::BlockSize));
     storage.reset(static_cast<std::byte*>(mem));
@@ -45,20 +25,29 @@ Page::Page(size_t requestedSize)
     starts.resize(blockCount, false);
     inuse.resize(blockCount, false);
     color.resize(blockCount, Heap::InitialBlockColor);
+
+#if FRAZE_HEAP_DEBUG
+    locations.resize(blockCount, nullptr);
+#endif
 }
 
 std::byte* Page::Allocate(size_t size)
 {
+    assert(size != 0);
+    assert(freeRunLimit <= blockCount);
+
     size_t blocksNeeded = (size + Heap::BlockSize - 1) / Heap::BlockSize;
-    if(blocksNeeded > blockCount)
+    if(blocksNeeded > freeRunLimit)
         return nullptr;
+
+    const size_t startLimit = blockCount - blocksNeeded + 1;
 
     size_t i = nextFree;
     size_t wrapped = 0;
 
     while(wrapped < 2)
     {
-        size_t scanEnd = (wrapped == 0) ? blockCount - blocksNeeded + 1 : nextFree;
+        size_t scanEnd = (wrapped == 0) ? startLimit : std::min(nextFree, startLimit);
 
         while(i < scanEnd)
         {
@@ -75,7 +64,10 @@ std::byte* Page::Allocate(size_t size)
                 starts[i] = true;
 
                 for(size_t k = 0; k != blocksNeeded; ++k)
+                {
                     inuse[i + k] = true;
+                    color[i + k] = Heap::InitialBlockColor;
+                }
 
                 totalUsed += blocksNeeded * Heap::BlockSize;
 
@@ -83,7 +75,12 @@ std::byte* Page::Allocate(size_t size)
                 if(nextFree >= blockCount)
                     nextFree = 0;
 
-                return storage.get() + i * Heap::BlockSize;
+                std::byte* p = storage.get() + i * Heap::BlockSize;
+
+                // Heap::Mark scans whole blocks, so the slack past size must not hold stale pointers.
+                std::fill(p + size, p + blocksNeeded * Heap::BlockSize, std::byte(0));
+
+                return p;
             }
 
             i += j + 1;
@@ -92,6 +89,9 @@ std::byte* Page::Allocate(size_t size)
         i = 0;
         ++wrapped;
     }
+
+    // Both passes together cover every start position, so no run this long exists.
+    freeRunLimit = blocksNeeded - 1;
 
     return nullptr;
 }
@@ -124,6 +124,8 @@ void Page::Deallocate(const std::byte* p)
         ++block;
         totalUsed -= Heap::BlockSize;
     }
+
+    freeRunLimit = blockCount;
 }
 
 bool Page::Contains(const std::byte* p) const
@@ -133,7 +135,7 @@ bool Page::Contains(const std::byte* p) const
     return p >= begin && p < end;
 }
 
-size_t Page::GetHeapObjectStart(const std::byte* p) const
+size_t Page::GetAllocationStart(const std::byte* p) const
 {
     assert(p);
     assert(Contains(p));
@@ -149,11 +151,11 @@ size_t Page::GetHeapObjectStart(const std::byte* p) const
     return i;
 }
 
-HeapObject* Page::GetHeapObject(size_t blockIndex)
+std::byte* Page::GetBlock(size_t blockIndex)
 {
     assert(blockIndex < blockCount);
     assert(starts[blockIndex]);
-    return reinterpret_cast<HeapObject*>(storage.get() + blockIndex * Heap::BlockSize);
+    return storage.get() + blockIndex * Heap::BlockSize;
 }
 
 // HEAP
@@ -167,7 +169,16 @@ Heap::Heap(Program* pProgram)
     sortedPageInfo.reserve(32);
 
 #if FRAZE_HEAP_DEBUG
-    logFile.open("heap-log.txt", std::ios::out);
+    std::filesystem::path outputPath = "output";
+
+    std::error_code ec;
+    std::filesystem::create_directories(outputPath, ec);
+    assert(!ec && "Failed to create output path for Heap log");
+
+    outputPath /= "heap-log.txt";
+    outputPath.make_preferred();
+
+    logFile.open(outputPath, std::ios::out);
 #endif
 }
 
@@ -202,26 +213,47 @@ std::byte* Heap::Allocate(size_t size, bool pin)
 {
     std::lock_guard<std::mutex> lk(mut);
 
-    size_t bytesNeeded = sizeof(HeapObject) + size;
-    
-    if(auto block = AllocateRaw(bytesNeeded))
+    if(auto block = AllocateRaw(size))
     {
-        HeapObject* heapObject = reinterpret_cast<HeapObject*>(block);
-        heapObject->size = bytesNeeded;
-
 #if FRAZE_HEAP_DEBUG
-        pBlock->pLocation = pLocation;
+        Page* page = FindPage(block);
+        page->locations[page->GetAllocationStart(block)] = pLocation;
         LogLocation("Alloc", pLocation);
 #endif
-        auto p = heapObject->payload();
-
         if(pin)
-            pinned.insert(p);
+            pinned.insert(block);
 
-        return p;
+        return block;
     }
 
     return nullptr;
+}
+
+std::byte* Heap::AllocatePersistent(size_t size)
+{
+    std::lock_guard<std::mutex> lk(mut);
+
+    for(auto& page : persistentPages)
+    {
+        if(auto p = page.Allocate(size))
+            return p;
+    }
+
+    return persistentPages.emplace_back(size).Allocate(size);
+}
+
+void Heap::DeallocatePersistent(const std::byte* p)
+{
+    std::lock_guard<std::mutex> lk(mut);
+
+    auto it = std::find_if(
+        persistentPages.begin(), persistentPages.end(),
+        [&](const Page& page) {
+            return page.Contains(p);
+        });
+
+    assert(it != persistentPages.end());
+    it->Deallocate(p);
 }
 
 Page* Heap::AddPage(size_t requestedSize)
@@ -362,19 +394,25 @@ void Heap::UnpinMemory(const std::span<std::byte*> ps)
 }
 
 #if FRAZE_HEAP_DEBUG
-void Heap::SetLocation(SourceLocation* pLoc) {
+void Heap::SetLocation(const std::source_location& nativeLocation)
+{
     std::lock_guard<std::mutex> lk(mut);
-    pLocation = pLoc;
+    auto key = std::tuple(std::string_view(nativeLocation.file_name()), nativeLocation.line(), nativeLocation.column());
+    pLocation = &nativeLocations.try_emplace(key, nativeLocation).first->second;
 }
 #endif
 
 std::byte* Heap::AllocateFromExistingPages(size_t size)
 {
-    for(auto& page : pages)
+    for(size_t i = 0; i != pages.size(); ++i)
     {
-        auto p = page.Allocate(size);
-        if(p)
+        size_t pageIndex = (nextPage + i) % pages.size();
+
+        if(auto p = pages[pageIndex].Allocate(size))
+        {
+            nextPage = pageIndex;
             return p;
+        }
     }
 
     return nullptr;
@@ -417,13 +455,11 @@ void Heap::CollectInternal()
         {
             if(page.starts[i] && page.color[i] != currentColor)
             {
-                HeapObject* pObject = page.GetHeapObject(i);
-
 #if FRAZE_HEAP_DEBUG
-                LogLocation("Free", pObject->pLocation);
+                LogLocation("Free", page.locations[i]);
 #endif
 
-                page.Deallocate(reinterpret_cast<std::byte*>(pObject));
+                page.Deallocate(page.GetBlock(i));
                 ++deallocations;
             }
         }
@@ -454,29 +490,32 @@ void Heap::Mark(const std::byte* p)
     if(!page)
         return;
 
-    size_t startBlockIndex = page->GetHeapObjectStart(p);
+    size_t startBlockIndex = page->GetAllocationStart(p);
     if(startBlockIndex == Page::InvalidIndex)
         return;
 
-    HeapObject* pObject = page->GetHeapObject(startBlockIndex);
-
 #if FRAZE_HEAP_DEBUG
-    LogLocation("Mark", pObject->pLocation);
+    LogLocation("Mark", page->locations[startBlockIndex]);
 #endif
 
     if(page->color[startBlockIndex] == currentColor)
         return;
 
-    for(auto i = 0; i < pObject->size; i += Heap::BlockSize)
+    page->color[startBlockIndex] = currentColor;
+
+    size_t endBlockIndex = startBlockIndex + 1;
+
+    for( ; endBlockIndex != page->blockCount && page->inuse[endBlockIndex] && !page->starts[endBlockIndex]; ++endBlockIndex)
     {
-        page->color[startBlockIndex + i / Heap::BlockSize] = currentColor;
+        page->color[endBlockIndex] = currentColor;
     }
 
-    std::byte* pPayload = pObject->payload();
+    std::byte* pObject = page->GetBlock(startBlockIndex);
+    size_t allocatedSize = (endBlockIndex - startBlockIndex) * Heap::BlockSize;
 
-    for(size_t i = 0, sz = pObject->payloadSize(); i < sz; i += sizeof(Word))
+    for(size_t i = 0; i < allocatedSize; i += sizeof(Word))
     {
-        auto potentialPointer = *reinterpret_cast<std::byte**>(pPayload + i);
+        auto potentialPointer = *reinterpret_cast<std::byte**>(pObject + i);
         Mark(potentialPointer);
     }
 }

@@ -19,7 +19,7 @@
 #include <fraze/common/Stack.h>
 #include <fraze/common/Utility.h>
 #include <fraze/memory/Heap.h>
-#include <fraze/memory/DefaultAllocator.h>
+#include <fraze/memory/Allocator.h>
 #include <fraze/program/CheckSite.h>
 #include <fraze/program/OpCode.h>
 #include <fraze/program/Operation.h>

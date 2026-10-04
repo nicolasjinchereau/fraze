@@ -8,6 +8,7 @@
 #include <fraze/memory/ScopedAllocator.h>
 #include <fraze/program/Program.h>
 #include <fraze/program/Dispatcher.h>
+#include <fraze/common/ScopeUtil.h>
 #include <cmath>
 #include <print>
 
@@ -135,11 +136,11 @@ inline Array<String>* String_Split(Program* program, const String& input, const 
     if(a != str.size())
         parts.push_back(std::string_view(str.begin() + a, str.end()));
 
-    Array<String>* ret = NEW_FRAZE_ARRAY_T(alloc, String, "string[]", parts.size());
+    Array<String>* ret = alloc.NewArray<String>("string[]", parts.size());
 
     for(size_t i = 0; i != parts.size(); ++i)
     {
-        ret->At(i) = NEW_FRAZE_STRING(alloc, parts[i]);
+        ret->At(i) = alloc.NewString(parts[i]);
     }
 
     return ret;
@@ -159,7 +160,7 @@ inline Integer String_GetHashCode(const String& value)
 inline String* String_Concat(Program* program, const String& left, const String& right)
 {
     ScopedAllocator alloc(program);
-    return NEW_FRAZE_STRING_JOIN(alloc, left.GetView(), right.GetView());
+    return alloc.NewString(left.GetView(), right.GetView());
 }
 
 inline Boolean String_Equals(const String* left, const String* right)
@@ -170,7 +171,7 @@ inline Boolean String_Equals(const String* left, const String* right)
 inline String* String_FromBool(Program* program, const Boolean& value)
 {
     ScopedAllocator alloc(program);
-    return NEW_FRAZE_STRING(alloc, value ? "true" : "false");
+    return alloc.NewString(value ? "true" : "false");
 }
 
 inline String* String_FromInt(Program* program, const Integer& value)
@@ -180,7 +181,7 @@ inline String* String_FromInt(Program* program, const Integer& value)
     assert(ret.ec == std::errc());
 
     ScopedAllocator alloc(program);
-    return NEW_FRAZE_STRING(alloc, std::string_view(buffer.data(), ret.ptr));
+    return alloc.NewString(std::string_view(buffer.data(), ret.ptr));
 }
 
 inline String* String_FromNum(Program* program, const Number& value)
@@ -190,7 +191,7 @@ inline String* String_FromNum(Program* program, const Number& value)
     assert(ret.ec == std::errc());
 
     ScopedAllocator alloc(program);
-    return NEW_FRAZE_STRING(alloc, std::string_view(buffer.data(), ret.ptr));
+    return alloc.NewString(std::string_view(buffer.data(), ret.ptr));
 }
 
 inline String* String_FromEnum(Program* program, const TypeInfo& enumTypeInfo, const Integer& value)
@@ -200,7 +201,7 @@ inline String* String_FromEnum(Program* program, const TypeInfo& enumTypeInfo, c
     assert(it != enumInfo->members.end());
 
     ScopedAllocator alloc(program);
-    return NEW_FRAZE_STRING(alloc, std::string_view(it->first));
+    return alloc.NewString(std::string_view(it->first));
 }
 
 inline Integer Object_GetHashCode(const Object& value)
@@ -256,7 +257,7 @@ inline Object* Type_NewArray(Program* program, const Integer& typeID, const Inte
 inline String* Type_GetName(Program* program, const TypeInfo& self)
 {
     ScopedAllocator alloc(program);
-    return NEW_FRAZE_STRING(alloc, self.qualifiedName);
+    return alloc.NewString(self.qualifiedName);
 }
 
 inline Boolean Type_IsInstance(const Object* obj, const TypeInfo& rightTypeInfo)

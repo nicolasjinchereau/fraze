@@ -31,7 +31,7 @@ String* File::ReadAllText(Program* program, const String& path)
         Throw("Failed to get size of file: {}", pathStr);
 
     ScopedAllocator allocator(program);
-    String* text = NEW_FRAZE_STRING_N(allocator, static_cast<size_t>(size));
+    String* text = allocator.NewString(static_cast<size_t>(size));
 
     file.seekg(0, std::ios::beg);
     file.read(text->GetChar(0), size);
@@ -60,7 +60,7 @@ void File::ReadAllTextAsync(Program* program, Class& task, const String& path)
             Throw("Failed to get size of file: {}", pathStr);
 
         ScopedAllocator allocator(program);
-        String* text = NEW_FRAZE_STRING_N(allocator, static_cast<size_t>(size));
+        String* text = allocator.NewString(static_cast<size_t>(size));
 
         file.seekg(0, std::ios::beg);
         file.read(text->GetChar(0), size);

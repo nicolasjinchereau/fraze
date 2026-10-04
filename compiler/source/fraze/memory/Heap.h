@@ -8,17 +8,21 @@
 #include <cstdlib>
 #include <memory>
 #include <fstream>
+#include <map>
+#include <source_location>
 #include <span>
+#include <string_view>
+#include <tuple>
 #include <vector>
 #include <unordered_set>
 #include <iostream>
+#include <fraze/common/Platform.h>
 #include <fraze/common/SourceLocation.h>
 #include <fraze/common/Stack.h>
 
 namespace fraze {
 
 class Word;
-struct HeapObject;
 struct Page;
 class Program;
 
@@ -32,15 +36,19 @@ struct PageInfo
 class Heap
 {
 #if FRAZE_HEAP_DEBUG
-    SourceLocation* pLocation{};
+    static inline thread_local SourceLocation* pLocation = nullptr;
+    std::map<std::tuple<std::string_view, uint32_t, uint32_t>, SourceLocation> nativeLocations;
     std::ofstream logFile;
 #endif
 
     std::mutex mut;
     std::vector<Page> pages;
+    size_t nextPage{};
     std::vector<PageInfo> sortedPageInfo;
     std::byte* minAddress = nullptr;
     std::byte* maxAddress = nullptr;
+
+    std::vector<Page> persistentPages;
 
     std::vector<std::span<std::byte>> ranges;
     std::unordered_set<const std::byte*> pinned;
@@ -58,6 +66,8 @@ public:
     Heap(Program* pProgram);
 
     std::byte* Allocate(size_t size, bool pin = false);
+    std::byte* AllocatePersistent(size_t size);
+    void DeallocatePersistent(const std::byte* p);
     void Collect();
     size_t TotalUsed() const;
     void Report();
@@ -68,7 +78,11 @@ public:
     void UnpinMemory(const std::span<std::byte*> ps);
 
 #if FRAZE_HEAP_DEBUG
-    void SetLocation(SourceLocation* pLocation);
+    void SetLocation(SourceLocation* pLoc) {
+        pLocation = pLoc;
+    }
+
+    void SetLocation(const std::source_location& nativeLocation);
 #endif
 
 private:
@@ -98,10 +112,19 @@ struct Page
     size_t blockCount{};
     size_t totalUsed{};
     size_t nextFree{};
+
+    // No run of free blocks is longer than this. Deallocate raises it instead of measuring.
+    size_t freeRunLimit{};
+
     std::unique_ptr<std::byte[], AlignedDeleter> storage;
     std::vector<uint8_t> starts;
     std::vector<uint8_t> inuse;
     std::vector<uint8_t> color;
+
+#if FRAZE_HEAP_DEBUG
+    std::vector<SourceLocation*> locations;
+#endif
+
     static constexpr size_t InvalidIndex = static_cast<size_t>(-1);
 
     Page(size_t requestedSize = Heap::MinPageSize);
@@ -109,8 +132,8 @@ struct Page
     std::byte* Allocate(size_t size);
     void Deallocate(const std::byte* p);
     bool Contains(const std::byte* p) const;
-    size_t GetHeapObjectStart(const std::byte* p) const;
-    HeapObject* GetHeapObject(size_t blockIndex);
+    size_t GetAllocationStart(const std::byte* p) const;
+    std::byte* GetBlock(size_t blockIndex);
 };
 
 } // fraze

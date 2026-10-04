@@ -114,7 +114,10 @@
     <ClCompile Include="source\fraze\compiler\RuntimeTypeInfo.cpp">
       <Filter>source\fraze\compiler</Filter>
     </ClCompile>
-    <ClCompile Include="source\fraze\memory\DefaultAllocator.cpp">
+    <ClCompile Include="source\fraze\memory\Allocator.cpp">
+      <Filter>source\fraze\memory</Filter>
+    </ClCompile>
+    <ClCompile Include="source\fraze\memory\PersistentAllocator.cpp">
       <Filter>source\fraze\memory</Filter>
     </ClCompile>
     <ClCompile Include="source\fraze\ast\expr\Expression.cpp">
@@ -401,10 +404,10 @@
     <ClInclude Include="source\fraze\compiler\RuntimeTypeInfo.h">
       <Filter>source\fraze\compiler</Filter>
     </ClInclude>
-    <ClInclude Include="source\fraze\memory\IAllocator.h">
+    <ClInclude Include="source\fraze\memory\Allocator.h">
       <Filter>source\fraze\memory</Filter>
     </ClInclude>
-    <ClInclude Include="source\fraze\memory\DefaultAllocator.h">
+    <ClInclude Include="source\fraze\memory\PersistentAllocator.h">
       <Filter>source\fraze\memory</Filter>
     </ClInclude>
     <ClInclude Include="source\fraze\ast\expr\TypeOfExpression.h">

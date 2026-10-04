@@ -174,7 +174,7 @@ void Texture::CreateTextureAsync(Program* program, Class& task, Graphics* graphi
     
     WorkerThread::GetInstance().InvokeAsync([=]{
         sptr<ScopedAllocator> allocator = spnew<ScopedAllocator>(program);
-        Object* texture = NEW_FRAZE_EXTERN_CLASS(*allocator, Texture, "NativeTexture", graphics, pathStr);
+        Object* texture = allocator->NewExternClass<Texture>("NativeTexture", graphics, pathStr);
 
         dispatcher->InvokeAsync([=, allocator=allocator] {
             taskPtr->SetField("$position", Integer(-1));

@@ -18,23 +18,25 @@
 #include <fraze/common/Object.h>
 #include <fraze/common/Pointers.h>
 #include <fraze/memory/Heap.h>
-#include <fraze/memory/DefaultAllocator.h>
+#include <fraze/memory/Allocator.h>
 #include <fraze/program/CheckSite.h>
 #include <fraze/program/TypeInfo.h>
 
 namespace fraze {
 
+class PersistentAllocator;
 class ScopedAllocator;
 
 class Program
 {
-    Heap heap;
+protected:
 
-    friend DefaultAllocator;
+    friend Allocator;
+    friend PersistentAllocator;
     friend ScopedAllocator;
     friend Heap;
 public:
-    std::vector<std::unique_ptr<Object, Object::Deleter>> staticObjects;
+    Heap heap;
     std::vector<CheckSite> checkSites;
     std::vector<sptr<TypeInfo>> typeInfo;
     dynamic_array<Word> globals;

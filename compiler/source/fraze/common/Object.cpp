@@ -12,7 +12,7 @@ namespace fraze {
 
 // ARRAY
 
-Array<>* Array<>::New(IAllocator& allocator, const ArrayInfo* info, size_t length)
+Array<>* Array<>::New(Allocator& allocator, const ArrayInfo* info, size_t length)
 {
     auto allocSize = sizeof(Array<>) + sizeof(Word) * length;
     return Object::Create<Array<>>(allocator, allocSize, info, length);
@@ -61,15 +61,7 @@ const ArrayInfo* Array<>::GetInfo() const
 }
 // STRING
 
-std::unique_ptr<String, Object::Deleter> String::New(Program* program, std::string_view str)
-{
-    auto size = sizeof(String) + str.size() * sizeof(char);
-    TypeInfo* typeInfo = program->GetTypeInfo("string");
-    assert(typeInfo);
-    return Object::Create<String>(size, typeInfo, str);
-}
-
-String* String::New(IAllocator& allocator, std::string_view str)
+String* String::New(Allocator& allocator, std::string_view str)
 {
     auto size = sizeof(String) + str.size() * sizeof(char);
     TypeInfo* typeInfo = allocator.program()->GetTypeInfo("string");
@@ -77,7 +69,7 @@ String* String::New(IAllocator& allocator, std::string_view str)
     return Object::Create<String>(allocator, size, typeInfo, str);
 }
 
-String* String::New(IAllocator& allocator, size_t length)
+String* String::New(Allocator& allocator, size_t length)
 {
     auto size = sizeof(String) + length * sizeof(char);
     TypeInfo* typeInfo = allocator.program()->GetTypeInfo("string");
@@ -85,7 +77,7 @@ String* String::New(IAllocator& allocator, size_t length)
     return Object::Create<String>(allocator, size, typeInfo, length);
 }
 
-String* String::New(IAllocator& allocator, std::string_view left, std::string_view right)
+String* String::New(Allocator& allocator, std::string_view left, std::string_view right)
 {
     auto size = sizeof(String) + (left.size() + right.size()) * sizeof(char);
     TypeInfo* typeInfo = allocator.program()->GetTypeInfo("string");
@@ -140,7 +132,7 @@ char* String::GetChar(size_t i) const {
 
 // CLASS 
 
-Class* Class::New(IAllocator& allocator, const ClassInfo* info)
+Class* Class::New(Allocator& allocator, const ClassInfo* info)
 {
     assert(info);
     auto size = sizeof(Class) + sizeof(Word) * info->size;

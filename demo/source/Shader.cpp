@@ -37,7 +37,7 @@ void Shader::CreateShaderAsync(Program* program, Class& task, Graphics* graphics
 
     WorkerThread::GetInstance().InvokeAsync([=] {
         sptr<ScopedAllocator> allocator = spnew<ScopedAllocator>(program);
-        Shader* shader = NEW_FRAZE_EXTERN_CLASS(*allocator, Shader, "NativeShader", graphics, sourceStr, vertexEntryStr, pixelEntryStr);
+        Shader* shader = allocator->NewExternClass<Shader>("NativeShader", graphics, sourceStr, vertexEntryStr, pixelEntryStr);
 
         dispatcher->InvokeAsync([=, allocator=allocator]{
             taskPtr->SetField("$position", Integer(-1));
