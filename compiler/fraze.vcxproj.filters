@@ -269,6 +269,9 @@
     <ClInclude Include="source\fraze\common\Stack.h">
       <Filter>source\fraze\common</Filter>
     </ClInclude>
+    <ClInclude Include="source\fraze\common\IntrusiveList.h">
+      <Filter>source\fraze\common</Filter>
+    </ClInclude>
     <ClInclude Include="source\fraze\program\TypeInfo.h">
       <Filter>source\fraze\program</Filter>
     </ClInclude>

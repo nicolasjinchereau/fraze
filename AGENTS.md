@@ -44,6 +44,7 @@ Push-Location demo; .\bin\x64\Debug\Demo.exe --test; "exit code: $LASTEXITCODE";
 ```
 
 - **Pass:** exit code 0. **Fail:** exit code 1, after a compile error or failed `assert` prints `file(line,col): message`.
+- Don't build and run for a change that only edits comments or docs.
 - Before finishing a change to the compiler, VM, GC or demo, also run the full scene, which runs far more code than the tests. `demo\RunScene.ps1` closes it after 30 s and exits with 0 when the scene finished loading:
 
   ```powershell

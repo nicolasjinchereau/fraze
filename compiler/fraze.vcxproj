@@ -116,6 +116,7 @@
     <ClInclude Include="source\fraze\common\Exception.h" />
     <ClInclude Include="source\fraze\common\Extensions.h" />
     <ClInclude Include="source\fraze\common\ExternalFunction.h" />
+    <ClInclude Include="source\fraze\common\IntrusiveList.h" />
     <ClInclude Include="source\fraze\common\Object.h" />
     <ClInclude Include="source\fraze\common\Platform.h" />
     <ClInclude Include="source\fraze\common\Pointers.h" />
