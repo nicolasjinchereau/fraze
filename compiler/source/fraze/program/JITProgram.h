@@ -7,9 +7,9 @@
 #include <string>
 #include <unordered_map>
 #include <fraze/common/Object.h>
+#include <fraze/common/Pointers.h>
+#include <fraze/program/MIRContext.h>
 #include <fraze/program/Program.h>
-
-struct MIR_context;
 
 namespace fraze {
 
@@ -25,11 +25,8 @@ class JITProgram : public Program
     }
 
 public:
-    MIR_context* context{};
+    sptr<MIRContext> context = spnew<MIRContext>();
     std::unordered_map<std::string, void*> functionAddresses;
-
-    JITProgram();
-    ~JITProgram() override;
 
 protected:
     Word InvokeImpl(const std::string& qualifiedFuncName, const std::span<Word>& args) override;

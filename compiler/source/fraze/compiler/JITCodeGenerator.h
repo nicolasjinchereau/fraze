@@ -10,6 +10,7 @@
 #include <fraze/ast/AST.h>
 #include <fraze/ast/ASTVisitor.h>
 #include <fraze/program/JITProgram.h>
+#include <fraze/program/MIRContext.h>
 #include <mir.h>
 
 namespace fraze {
@@ -41,8 +42,13 @@ class JITCodeGenerator : public ASTVisitor
     MIR_item_t GetFunctionItem(const sptr<FunctionDefinition>& def);
     [[noreturn]] void ThrowUnsupported(const ASTNode& node);
 
+    // Cleared when Visit(ASTRoot) returns, because the program that owns the context is local to it.
+    MIR_context_t context = nullptr;
+
 public:
     sptr<JITProgram> program;
+
+    virtual void VisitChildNode(const sptr<ASTNode>& node) override;
 
     virtual void Visit(const sptr<ASTRoot>& node) override;
     virtual void Visit(const sptr<FunctionDefinition>& node) override;

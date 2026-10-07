@@ -75,6 +75,9 @@
     <ClCompile Include="source\fraze\program\JITProgram.cpp">
       <Filter>source\fraze\program</Filter>
     </ClCompile>
+    <ClCompile Include="source\fraze\program\MIRContext.cpp">
+      <Filter>source\fraze\program</Filter>
+    </ClCompile>
     <ClCompile Include="source\fraze\program\Program.cpp">
       <Filter>source\fraze\program</Filter>
     </ClCompile>
@@ -424,6 +427,9 @@
     </ClInclude>
     <ClInclude Include="source\fraze\ast\stmt\EmptyStatement.h">
       <Filter>source\fraze\ast\stmt</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\program\MIRContext.h">
+      <Filter>source\fraze\program</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

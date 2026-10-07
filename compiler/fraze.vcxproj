@@ -43,6 +43,7 @@
     <ClCompile Include="source\fraze\memory\ScopedAllocator.cpp" />
     <ClCompile Include="source\fraze\program\Dispatcher.cpp" />
     <ClCompile Include="source\fraze\program\JITProgram.cpp" />
+    <ClCompile Include="source\fraze\program\MIRContext.cpp" />
     <ClCompile Include="source\fraze\program\Program.cpp" />
     <ClCompile Include="source\fraze\program\VMProgram.cpp" />
     <ClCompile Include="source\fraze\program\ProgramDiagnostics.cpp" />
@@ -144,6 +145,7 @@
     <ClInclude Include="source\fraze\program\CheckSite.h" />
     <ClInclude Include="source\fraze\program\Operation.h" />
     <ClInclude Include="source\fraze\program\JITProgram.h" />
+    <ClInclude Include="source\fraze\program\MIRContext.h" />
     <ClInclude Include="source\fraze\program\Program.h" />
     <ClInclude Include="source\fraze\program\VMProgram.h" />
     <ClInclude Include="source\fraze\program\ProgramDiagnostics.h" />

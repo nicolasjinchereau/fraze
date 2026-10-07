@@ -9,16 +9,6 @@
 
 namespace fraze {
 
-JITProgram::JITProgram()
-{
-    context = MIR_init();
-}
-
-JITProgram::~JITProgram()
-{
-    MIR_finish(context);
-}
-
 void* JITProgram::GetFunctionAddress(const std::string& qualifiedFuncName)
 {
     auto it = functionAddresses.find(qualifiedFuncName);

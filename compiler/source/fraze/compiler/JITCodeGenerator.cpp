@@ -7,6 +7,7 @@
 #include <string>
 #include <typeinfo>
 #include <utility>
+#include <fraze/common/ScopeUtil.h>
 #include <fraze/compiler/Compiler.h>
 #include <fraze/compiler/JITCodeGenerator.h>
 #include <mir-gen.h>
@@ -14,7 +15,7 @@
 namespace fraze {
 
 void JITCodeGenerator::AppendInsn(MIR_insn_t insn) {
-    MIR_append_insn(program->context, currentFunctionItem, insn);
+    MIR_append_insn(context, currentFunctionItem, insn);
 }
 
 static MIR_insn_code_t MoveCodeOf(MIR_type_t type) {
@@ -28,7 +29,6 @@ std::string JITCodeGenerator::NewRegisterName() {
 
 MIR_reg_t JITCodeGenerator::NewRegister(MIR_type_t type)
 {
-    MIR_context_t context = program->context;
     MIR_func_t func = MIR_get_item_func(context, currentFunctionItem);
     return MIR_new_func_reg(context, func, type, NewRegisterName().c_str());
 }
@@ -66,7 +66,6 @@ std::vector<MIR_type_t> JITCodeGenerator::GetParameterTypes(const sptr<FunctionD
 
 MIR_item_t JITCodeGenerator::GetProtoItem(const sptr<FunctionDefinition>& def)
 {
-    MIR_context_t context = program->context;
     MIR_type_t resultType = GetResultType(def);
     std::vector<MIR_type_t> paramTypes = GetParameterTypes(def);
     std::string_view resultName = resultType == MIR_T_UNDEF ? "void" : MIR_type_str(context, resultType);
@@ -118,7 +117,7 @@ MIR_item_t JITCodeGenerator::GetFunctionItem(const sptr<FunctionDefinition>& def
     auto [it, inserted] = functionItems.try_emplace(def->type, nullptr);
 
     if(inserted)
-        it->second = MIR_new_forward(program->context, GetFunctionName(def).c_str());
+        it->second = MIR_new_forward(context, GetFunctionName(def).c_str());
 
     return it->second;
 }
@@ -129,6 +128,16 @@ void JITCodeGenerator::ThrowUnsupported(const ASTNode& node)
     className = className.substr(className.rfind(':') + 1);
     Throw(node.loc, "the JIT can't generate {} yet", className);
     std::unreachable();
+}
+
+void JITCodeGenerator::VisitChildNode(const sptr<ASTNode>& node)
+{
+    if(!node)
+        return;
+
+    SourceLocation enclosingLocation = std::exchange(MIRContext::errorLocation, node->loc);
+    ASTVisitor::VisitChildNode(node);
+    MIRContext::errorLocation = enclosingLocation;
 }
 
 /*****************************
@@ -145,25 +154,20 @@ void JITCodeGenerator::Visit(const sptr<ASTRoot>& node)
 
     ENFORCE(mainDef, SourceLocation(), "the JIT requires a global function named 'main'");
 
-    program = spnew<JITProgram>();
-    MIR_context_t context = program->context;
+    sptr<JITProgram> program = spnew<JITProgram>();
+
+    context = *program->context;
+    auto finally = scope_exit([&]{ context = nullptr; });
 
     MIR_module_t module = MIR_new_module(context, "program");
 
-    try
-    {
-        VisitChild(node->global);
-    }
-    catch(...)
-    {
-        // MIR_finish, called by ~JITProgram, reads freed memory if a function or module is left open
-        if(currentFunctionItem)
-        {
-            MIR_finish_func(context);
-        }
+    VisitChild(node->global);
 
-        MIR_finish_module(context);
-        throw;
+    // Check for unresolved function declarations to prevent MIR_link from freezing.
+    for(auto& [functionType, forwardItem] : functionItems)
+    {
+        ENFORCE(forwardItem->ref_def, SourceLocation(),
+            "the JIT generated a call to '{}' but never defined it", MIR_item_name(context, forwardItem));
     }
 
     MIR_finish_module(context);
@@ -174,11 +178,13 @@ void JITCodeGenerator::Visit(const sptr<ASTRoot>& node)
     MIR_link(context, MIR_set_gen_interface, nullptr);
     MIR_gen_finish(context);
 
-    // The host invokes a function by qualified name, which can't name one overload, so the first one wins.
+    // Functions are mapped by qualified name, so Program::Invoke calls the first one found.
     for(auto& [qualifiedName, item] : generatedFunctions)
     {
         program->functionAddresses.try_emplace(std::string(qualifiedName), item->addr);
     }
+
+    this->program = std::move(program);
 }
 
 /*****************************
@@ -189,7 +195,6 @@ void JITCodeGenerator::Visit(const sptr<FunctionDefinition>& node)
 {
     ENFORCE(!node->isExternal, node->loc, "the JIT can't generate an extern function yet");
 
-    MIR_context_t context = program->context;
     MIR_type_t resultType = GetResultType(node);
     std::vector<MIR_type_t> paramTypes = GetParameterTypes(node);
 
@@ -243,13 +248,13 @@ void JITCodeGenerator::Visit(const sptr<AssignExpression>& node)
     MIR_op_t targetOp = exprValueOp;
 
     MIR_type_t type = MIRTypeOf(node->left->EvaluateType(), node->loc);
-    AppendInsn(MIR_new_insn(program->context, MoveCodeOf(type), targetOp, valueOp));
+    AppendInsn(MIR_new_insn(context, MoveCodeOf(type), targetOp, valueOp));
 
     exprValueOp = targetOp;
 }
 
 void JITCodeGenerator::Visit(const sptr<BooleanLiteralExpression>& node) {
-    exprValueOp = MIR_new_int_op(program->context, node->value ? 1 : 0);
+    exprValueOp = MIR_new_int_op(context, node->value ? 1 : 0);
 }
 
 void JITCodeGenerator::Visit(const sptr<CallExpression>& node)
@@ -258,7 +263,6 @@ void JITCodeGenerator::Visit(const sptr<CallExpression>& node)
 
     auto func = node->target->ToIdentifierExpression()->targetDef->ToFunctionDefinition();
 
-    MIR_context_t context = program->context;
     MIR_type_t resultType = GetResultType(func);
 
     std::vector<MIR_op_t> ops {
@@ -292,15 +296,15 @@ void JITCodeGenerator::Visit(const sptr<IdentifierExpression>& node)
     auto it = variableRegisters.find(node->targetDef);
     ENFORCE(it != variableRegisters.end(), node->loc, "the JIT can't generate a reference to '{}' yet", node->value);
 
-    exprValueOp = MIR_new_reg_op(program->context, it->second);
+    exprValueOp = MIR_new_reg_op(context, it->second);
 }
 
 void JITCodeGenerator::Visit(const sptr<IntegerLiteralExpression>& node) {
-    exprValueOp = MIR_new_int_op(program->context, node->value);
+    exprValueOp = MIR_new_int_op(context, node->value);
 }
 
 void JITCodeGenerator::Visit(const sptr<NumberLiteralExpression>& node) {
-    exprValueOp = MIR_new_double_op(program->context, node->value);
+    exprValueOp = MIR_new_double_op(context, node->value);
 }
 
 /*****************************
@@ -328,7 +332,6 @@ void JITCodeGenerator::Visit(const sptr<VariableDefinitionStatement>& node)
     VisitChild(def->initializer);
     MIR_op_t valueOp = exprValueOp;
 
-    MIR_context_t context = program->context;
     MIR_reg_t reg = NewRegister(type);
     variableRegisters[def.get()] = reg;
 
@@ -339,12 +342,12 @@ void JITCodeGenerator::Visit(const sptr<ReturnStatement>& node)
 {
     if(!node->expression)
     {
-        AppendInsn(MIR_new_ret_insn(program->context, 0));
+        AppendInsn(MIR_new_ret_insn(context, 0));
         return;
     }
 
     VisitChild(node->expression);
-    AppendInsn(MIR_new_ret_insn(program->context, 1, exprValueOp));
+    AppendInsn(MIR_new_ret_insn(context, 1, exprValueOp));
 }
 
 } // fraze
