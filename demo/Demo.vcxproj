@@ -23,6 +23,7 @@
     <ClCompile Include="source\Buffer.cpp" />
     <ClCompile Include="source\File.cpp" />
     <ClCompile Include="source\Graphics.cpp" />
+    <ClCompile Include="source\JITTestFunctions.cpp" />
     <ClCompile Include="source\main.cpp" />
     <ClCompile Include="source\Model.cpp" />
     <ClCompile Include="source\Shader.cpp" />
@@ -35,6 +36,7 @@
     <ClInclude Include="source\Buffer.h" />
     <ClInclude Include="source\File.h" />
     <ClInclude Include="source\Graphics.h" />
+    <ClInclude Include="source\JITTestFunctions.h" />
     <ClInclude Include="source\Model.h" />
     <ClInclude Include="source\Shader.h" />
     <ClInclude Include="source\Texture.h" />

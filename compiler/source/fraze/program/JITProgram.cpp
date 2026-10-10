@@ -5,6 +5,7 @@
 #include <fraze/program/JITProgram.h>
 #include <fraze/common/Exception.h>
 #include <fraze/common/SourceLocation.h>
+#include <fraze/common/jump/LandingPad.h>
 #include <mir.h>
 
 namespace fraze {
@@ -16,17 +17,27 @@ void* JITProgram::GetFunctionAddress(const std::string& qualifiedFuncName)
     return it->second;
 }
 
+// Everything that can throw on its own is done before the pad is saved, so the pad covers the calls into
+// compiled code and nothing else.
 Word JITProgram::InvokeImpl(const std::string& qualifiedFuncName, const std::span<Word>& args)
 {
-    if(shouldInitialize)
-    {
-        shouldInitialize = false;
-        GetFunction<void()>("$staticConstructor")();
-    }
-
     ENFORCE(args.empty(), SourceLocation(), "the JIT can't pass arguments yet: {}", qualifiedFuncName);
 
-    return Word(GetFunction<Integer()>(qualifiedFuncName)());
+    auto staticConstructor = shouldInitialize ? GetFunction<void()>("$staticConstructor") : nullptr;
+    auto function = GetFunction<Integer()>(qualifiedFuncName);
+
+    LandingPad pad;
+
+    if(SaveJumpPoint(pad.jumpPoint) != 0)
+        pad.RethrowFailure();
+
+    if(staticConstructor)
+    {
+        shouldInitialize = false;
+        staticConstructor();
+    }
+
+    return Word(function());
 }
 
 // Compiled code can't allocate yet, so there are no references on the native stack.

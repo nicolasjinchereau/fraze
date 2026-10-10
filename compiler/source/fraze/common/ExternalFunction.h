@@ -4,6 +4,7 @@
 
 #pragma once
 #include <array>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <new>
@@ -13,6 +14,7 @@
 #include <utility>
 #include <fraze/common/Object.h>
 #include <fraze/common/Platform.h>
+#include <fraze/common/jump/LandingPad.h>
 
 namespace fraze {
 
@@ -57,11 +59,52 @@ struct ParamLayout<std::tuple<Params...>>
     }();
 };
 
+// How a parameter crosses the boundary to a JIT shim: a scalar by value and everything else by address, so the
+// shim's signature holds no aggregate for MIR to classify.
+template<class T>
+struct JITParam
+{
+    using Param = std::remove_cvref_t<T>;
+
+    using type =
+        std::conditional_t<std::is_class_v<Param>, Param*,
+        std::conditional_t<std::is_pointer_v<Param>, Param,
+        std::conditional_t<std::is_same_v<Param, Number>, Number, Integer>>>;
+
+    static decltype(auto) AsArgument(type value)
+    {
+        if constexpr(std::is_class_v<Param>)
+            return (*value);
+        else if constexpr(std::is_pointer_v<Param>)
+            return value;
+        else
+            return Param(value);
+    }
+};
+
+// A result that fits a register is returned, and a struct is constructed in storage the caller passes, since MIR
+// returns no aggregate.
+template<class T>
+struct JITResult
+{
+    using Result = std::remove_cvref_t<T>;
+
+    static constexpr bool isReturnedByAddress = std::is_class_v<Result>;
+
+    using type =
+        std::conditional_t<std::is_void_v<Result> || isReturnedByAddress, void,
+        std::conditional_t<std::is_pointer_v<Result>, Result,
+        std::conditional_t<std::is_same_v<Result, Number>, Number, Integer>>>;
+};
+
 class IExternalFunction
 {
 public:
     virtual ~IExternalFunction(){}
     virtual void Invoke(Program* program, Word* argsEnd) = 0;
+
+    // The address of the shim a JIT calls instead of Invoke, whose signature JITParam and JITResult define.
+    virtual void* GetJITEntry() = 0;
     virtual std::span<WordType> GetParamTypes() = 0;
     virtual std::span<const uint32_t> GetParamSizes() = 0;
     virtual WordType GetReturnType() = 0;
@@ -117,6 +160,14 @@ public:
         }
     }
 
+    virtual void* GetJITEntry() override
+    {
+        if constexpr(JITResult<Ret>::isReturnedByAddress)
+            return reinterpret_cast<void*>(&JITEntry<ObjectArgs>::CallWithResultStorage);
+        else
+            return reinterpret_cast<void*>(&JITEntry<ObjectArgs>::Call);
+    }
+
     virtual std::span<WordType> GetParamTypes() override {
         return GetParamTypesImpl(std::make_index_sequence<ParamCount>());
     }
@@ -142,6 +193,52 @@ public:
     }
 
 private:
+    // The JIT's entry point for Func: Program* leads, and every parameter arrives in the form JITParam gives it.
+    template<class Tuple>
+    struct JITEntry;
+
+    template<class... Params>
+    struct JITEntry<std::tuple<Params...>>
+    {
+        static typename JITResult<Ret>::type Call(Program* program, typename JITParam<Params>::type... args)
+        {
+            if constexpr(std::is_void_v<typename JITResult<Ret>::type>)
+                ApplyFunc(program, args...);
+            else
+                return typename JITResult<Ret>::type(ApplyFunc(program, args...));
+        }
+
+        static void CallWithResultStorage(
+            Program* program, typename JITResult<Ret>::Result* result, typename JITParam<Params>::type... args)
+        {
+            ::new (static_cast<void*>(result)) typename JITResult<Ret>::Result(ApplyFunc(program, args...));
+        }
+
+    private:
+        // Compiled code has no unwind data, so an exception out of Func can't travel back through it. It is
+        // carried to the innermost landing pad instead, by a jump made after the 'catch' has been left.
+        static Ret ApplyFunc(Program* program, typename JITParam<Params>::type... args)
+        {
+            LandingPad* pad = nullptr;
+
+            try
+            {
+                if constexpr(FirstArgIsProgram<Args...>)
+                    return Func(program, JITParam<Params>::AsArgument(args)...);
+                else
+                    return Func(JITParam<Params>::AsArgument(args)...);
+            }
+            catch(...)
+            {
+                pad = LandingPad::GetInnermost();
+                assert(pad);
+                pad->StoreFailure(std::current_exception());
+            }
+
+            pad->JumpToFailureHandling();
+        }
+    };
+
     // Returns parameter I as a reference to its words on the stack.
     template<size_t I>
     static decltype(auto) GetArg(Word* argsEnd)

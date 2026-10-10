@@ -8,6 +8,7 @@
 #include <fraze/program/Dispatcher.h>
 #include <fraze/program/ProgramDiagnostics.h>
 #include <ExternFunctions.h>
+#include <JITTestFunctions.h>
 #include <WorkerThread.h>
 #include <iostream>
 #include <print>
@@ -72,9 +73,31 @@ int main(int argc, char** argv)
         {
             compiler.SetCodeGenerator(fraze::CodeGenerator::JIT);
             compiler.AddFile("assets/jit/MainTest.fz");
+            AddJITTestFunctions(compiler);
 
             auto program = compiler.Compile();
             exitCode = static_cast<int>(program->Invoke("main").GetInteger());
+
+            // a failed assert in compiled code has to arrive here as a Fraze error, across one landing pad
+            // and across two, and the program has to keep working afterwards
+            for(const char* entry : { "FailingAssert", "FailingAssertThroughExtern" })
+            {
+                try
+                {
+                    program->Invoke(entry);
+                    std::print("{} returned instead of failing\n", entry);
+                    exitCode = 1;
+                }
+                catch(const fraze::Exception&)
+                {
+                }
+            }
+
+            if(program->Invoke("StillRuns").GetInteger() != 7)
+            {
+                std::print("the program stopped working after a failure\n");
+                exitCode = 1;
+            }
         }
     }
     catch(const std::exception& ex)

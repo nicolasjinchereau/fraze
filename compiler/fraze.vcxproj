@@ -118,6 +118,8 @@
     <ClInclude Include="source\fraze\common\Extensions.h" />
     <ClInclude Include="source\fraze\common\ExternalFunction.h" />
     <ClInclude Include="source\fraze\common\IntrusiveList.h" />
+    <ClInclude Include="source\fraze\common\jump\JumpPoint.h" />
+    <ClInclude Include="source\fraze\common\jump\LandingPad.h" />
     <ClInclude Include="source\fraze\common\Object.h" />
     <ClInclude Include="source\fraze\common\Platform.h" />
     <ClInclude Include="source\fraze\common\Pointers.h" />
@@ -150,6 +152,9 @@
     <ClInclude Include="source\fraze\program\VMProgram.h" />
     <ClInclude Include="source\fraze\program\ProgramDiagnostics.h" />
     <ClInclude Include="source\fraze\program\TypeInfo.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="source\fraze\common\jump\JumpPoint.x64.asm" />
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="natvis\fraze.natvis" />
@@ -199,6 +204,7 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.props" />
   </ImportGroup>
   <ImportGroup Label="Shared">
   </ImportGroup>
@@ -321,5 +327,6 @@
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\masm.targets" />
   </ImportGroup>
 </Project>

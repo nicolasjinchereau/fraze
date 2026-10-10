@@ -31,6 +31,9 @@
     <Filter Include="source\fraze\common">
       <UniqueIdentifier>{e96bf754-7914-4221-8cee-988e436ef9a3}</UniqueIdentifier>
     </Filter>
+    <Filter Include="source\fraze\common\jump">
+      <UniqueIdentifier>{3f1d9c42-6a58-4f0e-9b27-5c8e1a7d4b60}</UniqueIdentifier>
+    </Filter>
     <Filter Include="source\fraze\compiler">
       <UniqueIdentifier>{3bb08fd0-7c66-4e83-9010-3a43dbdf213f}</UniqueIdentifier>
     </Filter>
@@ -275,6 +278,12 @@
     <ClInclude Include="source\fraze\common\IntrusiveList.h">
       <Filter>source\fraze\common</Filter>
     </ClInclude>
+    <ClInclude Include="source\fraze\common\jump\JumpPoint.h">
+      <Filter>source\fraze\common\jump</Filter>
+    </ClInclude>
+    <ClInclude Include="source\fraze\common\jump\LandingPad.h">
+      <Filter>source\fraze\common\jump</Filter>
+    </ClInclude>
     <ClInclude Include="source\fraze\program\TypeInfo.h">
       <Filter>source\fraze\program</Filter>
     </ClInclude>
@@ -431,6 +440,11 @@
     <ClInclude Include="source\fraze\program\MIRContext.h">
       <Filter>source\fraze\program</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="source\fraze\common\jump\JumpPoint.x64.asm">
+      <Filter>source\fraze\common\jump</Filter>
+    </MASM>
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="natvis\fraze.natvis">

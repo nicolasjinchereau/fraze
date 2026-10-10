@@ -2,6 +2,84 @@
 *  Copyright (c) 2026 Nicolas Jinchereau. All rights reserved.  *
 *---------------------------------------------------------------*/
 
+// Stands in for fraze.system.fz, which the JIT can't compile yet: RuntimeTypeInfo needs the Type class.
+extern class Type
+{
+}
+
+class JITTest
+{
+    extern static int Double(int value);
+    extern static num Scale(num value, num factor);
+    extern static bool Not(bool value);
+    extern static void Record(int value);
+    extern static int GetRecorded();
+    extern static bool RecordAndReturn(int value, bool result);
+    extern static int Mix(bool flag, int value, num amount);
+    extern static int AddWithProgram(int left, int right);
+    extern static void CallBackIntoFraze();
+}
+
+// Stands in for the String class in fraze.system.fz, which a string comparison lowers to a call into.
+class String
+{
+    extern static bool Equals(string left, string right);
+}
+
+// Stands in for the Debug class in fraze.system.fz, which an assert lowers to a call into.
+class Debug
+{
+    static void Assert(bool condition, string message, int siteId)
+    {
+        if(!condition)
+            Fail(message, siteId);
+    }
+
+    extern static void Fail(string message, int siteId);
+}
+
+enum Shade
+{
+    Dim = 1,
+    Mid = 2,
+    Bright = 4,
+}
+
+Shade shade = Shade.Mid;
+
+// A variable in a section, the global one included, is static.
+int counter = 7;
+num ratio = 0.25;
+bool ready;
+int fromExtern = JITTest.Double(4);
+
+class Statics
+{
+    static int value = 3;
+    static num scale;
+}
+
+section Nested
+{
+    int depth = 2;
+}
+
+// Returns 2 and leaves 'counter' at 2, so a caller can tell a static read apart from one made after the call.
+int BumpCounter()
+{
+    counter += 1;
+    return counter;
+}
+
+// Takes a string parameter and returns whether it was given one, so a string crosses a call boundary.
+int Describe(string text)
+{
+    if(text == null)
+        return 0;
+
+    return 1;
+}
+
 int Pick(int value)
 {
     return value;
@@ -17,15 +95,257 @@ int Pick(num value)
     return 30;
 }
 
+// The host invokes these three after main, to check that a failed assert reaches it as a Fraze error from one
+// landing pad and from two, and that the program still runs afterwards.
+void FailingAssert()
+{
+    assert(counter == -1, "a deliberate failure, for the host to catch");
+}
+
+void FailingAssertThroughExtern()
+{
+    JITTest.CallBackIntoFraze();
+}
+
+int StillRuns()
+{
+    return 7;
+}
+
+// Every check is an assert, so main returns 0 once they have all passed and a failure reports its own location.
 int main()
 {
-    bool flag = true;
-    num scale = 1.5;
-    int result = Pick(7);
+    int a = 17;
+    int b = 5;
 
-    result = Pick(flag);
-    result = Pick(result);
-    result = Pick(scale);
+    assert(a + b == 22);
+    assert(a - b == 12);
+    assert(a * b == 85);
+    assert(a / b == 3);
+    assert(a % b == 2);
+    assert(-a == 0 - 17);
+    assert(~a == -18);
+    assert((a & b) == 1);
+    assert((a | b) == 21);
+    assert((a ^ b) == 20);
+    assert((a << 2) == 68);
+    assert((a >> 2) == 4);
+    assert(a &? 1);
+    assert(!(a &? 8));
 
-    return result;
+    int c = a;
+    c += 3;
+    c -= 1;
+    c *= 2;
+    c /= 4;
+    c %= 7;
+    c <<= 3;
+    c >>= 1;
+    c &= 12;
+    c |= 1;
+    c ^= 5;
+    assert(c == 12);
+
+    int d = 4;
+    assert(d++ == 4);
+    assert(++d == 6);
+    assert(d-- == 6);
+    assert(--d == 4);
+
+    num x = 7.5;
+    num y = 2.0;
+
+    assert(x + y == 9.5);
+    assert(x - y == 5.5);
+    assert(x * y == 15.0);
+    assert(x / y == 3.75);
+    assert(x % y == 1.5);
+    assert(-x == 0.0 - 7.5);
+    assert(x > y);
+    assert(y < x);
+    assert(x >= x);
+    assert(y <= y);
+    assert(x != y);
+    assert(!(x == y));
+    assert((b as num) / y == 2.5);
+    assert((x as int) == 7);
+
+    bool t = true;
+    bool f = false;
+
+    assert(t && t);
+    assert(!(t && f));
+    assert(!(f && t));
+    assert(t || f);
+    assert(f || t);
+    assert(!(f || f));
+    assert(!f == t);
+    assert((t ? 1 : 2) == 1);
+    assert((f ? 1 : 2) == 2);
+
+    // the operand that decides the result leaves the other one unevaluated, which Record makes visible
+    JITTest.Record(0);
+    assert(!(f && JITTest.RecordAndReturn(7, true)));
+    assert(JITTest.GetRecorded() == 0);
+
+    assert(t || JITTest.RecordAndReturn(8, false));
+    assert(JITTest.GetRecorded() == 0);
+
+    assert(t && JITTest.RecordAndReturn(9, true));
+    assert(JITTest.GetRecorded() == 9);
+
+    int sum = 0;
+    for(int i = 1; i <= 10; ++i)
+        sum += i;
+
+    assert(sum == 55);
+
+    int countdown = 5;
+    int steps = 0;
+
+    while(countdown > 0)
+    {
+        countdown -= 1;
+        steps += 1;
+    }
+
+    assert(steps == 5);
+
+    int g = 0;
+
+    top:
+    g += 1;
+    if(g < 3) goto top;
+
+    goto skip;
+    g = 100;
+
+    skip:
+    assert(g == 3);
+
+    // a dense span, so the switch is a jump table
+    int dense = 0;
+
+    for(int i = 0; i != 5; ++i)
+    {
+        switch(i)
+        {
+        case 1:
+            dense += 1;
+        case 2, 3:
+            dense += 10;
+        default:
+            dense += 100;
+        }
+    }
+
+    assert(dense == 221);
+
+    // a sparse span, so the switch is a chain of comparisons
+    int sparse = 0;
+
+    for(int i = 0; i != 3; ++i)
+    {
+        switch(i * 1000)
+        {
+        case 0:
+            sparse += 1;
+        case 2000:
+            sparse += 10;
+        default:
+            sparse += 100;
+        }
+    }
+
+    assert(sparse == 111);
+
+    // a switch whose value never matches, with no default
+    int unmatched = 0;
+
+    switch(a)
+    {
+    case 1, 2:
+        unmatched = 1;
+    }
+
+    assert(unmatched == 0);
+
+    assert(Pick(7) == 7);
+    assert(Pick(t) == 20);
+    assert(Pick(x) == 30);
+
+    assert(JITTest.Double(21) == 42);
+    assert(JITTest.Scale(1.5, 2.0) == 3.0);
+    assert(!JITTest.Not(t));
+
+    JITTest.Record(57);
+    assert(JITTest.GetRecorded() == 57);
+
+    assert(JITTest.Mix(f, 60, 3.0) == 57);
+    assert(JITTest.Mix(t, 60, 3.0) == 63);
+    assert(JITTest.AddWithProgram(57, -15) == 42);
+
+    // the static constructor ran before main, and it reached generated code with a call in it
+    assert(counter == 7);
+    assert(ratio == 0.25);
+    assert(!ready);
+    assert(fromExtern == 8);
+    assert(Statics.value == 3);
+    assert(Statics.scale == 0.0);
+    assert(Nested.depth == 2);
+
+    counter = 11;
+    assert(counter == 11);
+
+    counter += 4;
+    counter -= 1;
+    assert(counter == 14);
+
+    assert(counter++ == 14);
+    assert(++counter == 16);
+
+    Statics.scale = ratio * 2.0;
+    assert(Statics.scale == 0.5);
+
+    ready = t && !f;
+    assert(ready);
+
+    // the read happens before the call, so the old value is the one added
+    counter = 1;
+    int beforeCall = counter + JITTest.Double(0) + BumpCounter();
+    assert(beforeCall == 3);
+    assert(counter == 2);
+
+    Nested.depth = Statics.value + counter;
+    assert(Nested.depth == 5);
+
+    assert(shade == Shade.Mid);
+
+    Shade mask = Shade.Dim;
+    mask |= Shade.Bright;
+    assert(mask &? Shade.Bright);
+    assert(!(mask &? Shade.Mid));
+    assert((mask as int) == 5);
+
+    int seen = 0;
+
+    switch(shade)
+    {
+    case Shade.Dim:
+        seen = 1;
+    case Shade.Mid, Shade.Bright:
+        seen = 2;
+    default:
+        seen = 3;
+    }
+
+    assert(seen == 2);
+
+    // an assert's message, which these three pass as a literal, a local and null
+    string message = "held in a local";
+    assert(Describe(message) == 1, "a string crosses a call boundary");
+    assert(message != null, message);
+    assert(Describe(null) == 0, null);
+
+    return 0;
 }

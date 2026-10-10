@@ -47,6 +47,9 @@
     <ClCompile Include="source\ExternFunctions.cpp">
       <Filter>source</Filter>
     </ClCompile>
+    <ClCompile Include="source\JITTestFunctions.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
     <ClCompile Include="source\File.cpp">
       <Filter>source</Filter>
     </ClCompile>
@@ -80,6 +83,9 @@
       <Filter>source</Filter>
     </ClInclude>
     <ClInclude Include="source\ExternFunctions.h">
+      <Filter>source</Filter>
+    </ClInclude>
+    <ClInclude Include="source\JITTestFunctions.h">
       <Filter>source</Filter>
     </ClInclude>
     <ClInclude Include="source\File.h">
