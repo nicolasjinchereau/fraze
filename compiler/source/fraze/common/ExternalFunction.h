@@ -59,21 +59,33 @@ struct ParamLayout<std::tuple<Params...>>
     }();
 };
 
+template<class T>
+inline constexpr bool IsObjectPointer =
+    std::is_pointer_v<T> && std::is_base_of_v<Object, std::remove_cv_t<std::remove_pointer_t<T>>>;
+
 // How a parameter crosses the boundary to a JIT shim: a scalar by value and everything else by address, so the
-// shim's signature holds no aggregate for MIR to classify.
+// shim's signature holds no aggregate for MIR to classify. An object arrives as the Object* that compiled code
+// holds, which is not the address of the whole object when its C++ class has virtual functions.
 template<class T>
 struct JITParam
 {
     using Param = std::remove_cvref_t<T>;
 
+    static constexpr bool isObject = std::is_base_of_v<Object, Param>;
+
     using type =
+        std::conditional_t<isObject || IsObjectPointer<Param>, Object*,
         std::conditional_t<std::is_class_v<Param>, Param*,
         std::conditional_t<std::is_pointer_v<Param>, Param,
-        std::conditional_t<std::is_same_v<Param, Number>, Number, Integer>>>;
+        std::conditional_t<std::is_same_v<Param, Number>, Number, Integer>>>>;
 
     static decltype(auto) AsArgument(type value)
     {
-        if constexpr(std::is_class_v<Param>)
+        if constexpr(isObject)
+            return (*static_cast<Param*>(value));
+        else if constexpr(IsObjectPointer<Param>)
+            return static_cast<Param>(value);
+        else if constexpr(std::is_class_v<Param>)
             return (*value);
         else if constexpr(std::is_pointer_v<Param>)
             return value;
@@ -83,7 +95,7 @@ struct JITParam
 };
 
 // A result that fits a register is returned, and a struct is constructed in storage the caller passes, since MIR
-// returns no aggregate.
+// returns no aggregate. An object is returned as the Object* that compiled code holds.
 template<class T>
 struct JITResult
 {
@@ -93,8 +105,9 @@ struct JITResult
 
     using type =
         std::conditional_t<std::is_void_v<Result> || isReturnedByAddress, void,
+        std::conditional_t<IsObjectPointer<Result>, const Object*,
         std::conditional_t<std::is_pointer_v<Result>, Result,
-        std::conditional_t<std::is_same_v<Result, Number>, Number, Integer>>>;
+        std::conditional_t<std::is_same_v<Result, Number>, Number, Integer>>>>;
 };
 
 class IExternalFunction

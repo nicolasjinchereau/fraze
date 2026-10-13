@@ -31,6 +31,15 @@ static Number JITFmod(Number left, Number right) {
     return std::fmod(left, right);
 }
 
+// Returns the code address of the receiver's implementation of an interface function. An interface call calls
+// this to find its callee.
+static void* JITGetInterfaceImplementationAddress(
+    Program* program, Class* receiver, size_t interfaceID, size_t interfaceFuncOffset)
+{
+    size_t implementationFuncID = receiver->GetFunctionID(interfaceID, interfaceFuncOffset);
+    return program->typeInfo[implementationFuncID]->ToFunctionInfo()->functionAddress;
+}
+
 // The MIR instruction for 'operation' on operands of 'operandType', which also accepts each operator's compound
 // assignment form. Returns MIR_INVALID_INSN for an operation with no single instruction.
 static MIR_insn_code_t ArithmeticCodeOf(TokenType operation, MIR_type_t operandType)
@@ -94,34 +103,83 @@ MIR_reg_t JITCodeGenerator::NewRegister(MIR_type_t type)
     return MIR_new_func_reg(context, func, registerType, NewRegisterName().c_str());
 }
 
+// The MIR type a value of 'type' has. A struct's value is the address of its storage, so it is a pointer like a
+// reference is.
 MIR_type_t JITCodeGenerator::MIRTypeOf(Type* type, const SourceLocation& loc)
 {
     if(type->IsBoolean() || type->IsInteger() || type->IsEnum())
         return MIR_T_I64;
 
-    if(type->IsString() || type->IsNull())
+    if(type->IsString() || type->IsNull() || type->IsObject() || type->IsClass() || type->IsInterface()
+        || type->IsArray() || type->IsStruct())
+    {
         return MIR_T_P;
+    }
 
     ENFORCE(type->IsNumber(), loc, "the JIT can't generate the type '{}' yet", type->GetName());
 
     return MIR_T_D;
 }
 
-// Returns MIR_T_UNDEF for a void function, which MIR never uses as a result type, so the result count is
-// one for every other type.
+size_t JITCodeGenerator::GetStructSize(Type* structType) {
+    return typeInfo.at(structType)->ToStructInfo()->size;
+}
+
+// Returns a register holding the address of storage for a struct in the function's frame, which lasts until the
+// function returns. The ALLOCA goes at the start of the function, because one that ran on every pass through a
+// loop would grow the stack each time.
+MIR_reg_t JITCodeGenerator::NewStructStorage(Type* structType)
+{
+    MIR_reg_t addressReg = NewRegister(MIR_T_I64);
+    MIR_op_t sizeOp = MIR_new_int_op(context, static_cast<int64_t>(GetStructSize(structType) * sizeof(Word)));
+
+    MIR_prepend_insn(context, currentFunctionItem,
+        MIR_new_insn(context, MIR_ALLOCA, MIR_new_reg_op(context, addressReg), sizeOp));
+
+    return addressReg;
+}
+
+// Returns MIR_T_UNDEF for a function with no MIR result, which MIR never uses as a result type, so the result
+// count is one for every other type. A void function has none, and neither does one that returns a struct, which
+// it writes to storage the caller passes.
 MIR_type_t JITCodeGenerator::GetResultType(const sptr<FunctionDefinition>& def)
 {
     Type* returnType = def->returnType->type;
-    return returnType->IsVoid() ? MIR_T_UNDEF : MIRTypeOf(returnType, def->loc);
+    return returnType->IsVoid() || returnType->IsStruct() ? MIR_T_UNDEF : MIRTypeOf(returnType, def->loc);
 }
 
+// Returns how a host that invokes 'def' gets its result, which is Unsupported when 'def' takes or returns a
+// struct.
+CompiledResultKind JITCodeGenerator::GetCompiledResultKind(const sptr<FunctionDefinition>& def)
+{
+    Type* returnType = def->returnType->type;
+
+    bool hasStructParam = std::ranges::any_of(def->GetChildren<ParameterDefinition>(),
+        [](const auto& param) { return param->typeSpec->type->IsStruct(); });
+
+    if(hasStructParam || returnType->IsStruct())
+        return CompiledResultKind::Unsupported;
+
+    if(returnType->IsVoid())
+        return CompiledResultKind::None;
+
+    return returnType->IsNumber() ? CompiledResultKind::Number : CompiledResultKind::Integer;
+}
+
+// The address of a struct result's storage leads. A struct parameter is an address whether it is passed by value
+// or by reference: by value, it is the address of a copy the caller made.
 std::vector<MIR_type_t> JITCodeGenerator::GetParameterTypes(const sptr<FunctionDefinition>& def)
 {
     std::vector<MIR_type_t> types;
 
+    if(def->returnType->type->IsStruct())
+        types.push_back(MIR_T_P);
+
     for(const auto& param : def->GetChildren<ParameterDefinition>())
     {
-        ENFORCE(!param->isReference, param->loc, "the JIT can't generate a ref parameter yet");
+        ENFORCE(!param->isReference || param->typeSpec->type->IsStruct(), param->loc,
+            "the JIT can't generate a reference to a '{}' yet", param->typeSpec->type->GetName());
+
         types.push_back(MIRTypeOf(param->typeSpec->type, param->loc));
     }
 
@@ -168,9 +226,10 @@ MIR_item_t JITCodeGenerator::GetProtoItem(MIR_type_t resultType, const std::vect
     return it->second;
 }
 
-// MIR item names must be unique, so the signature joins the qualified name the way an extern's lookup key does.
+// MIR item names must be unique. Overloads share a qualified name, and a static function can share its signature
+// with a member function, whose receiver is its first parameter, so the function's type id joins the name.
 std::string JITCodeGenerator::GetFunctionName(const sptr<FunctionDefinition>& def) {
-    return std::format("{}:{}", def->qualifiedName.view(), def->GetSignature());
+    return std::format("{}#{}", def->qualifiedName.view(), typeInfo.at(def->type)->id);
 }
 
 // A call can name a function that isn't generated yet, and MIR allows only one open function at a time, so
@@ -211,6 +270,85 @@ MIR_insn_t JITCodeGenerator::GetLabelInsn(const LabelStatement* label)
     return it->second;
 }
 
+// A memory operand's base and index are registers, while a value can also be an immediate.
+MIR_reg_t JITCodeGenerator::EmitRegister(MIR_op_t valueOp)
+{
+    if(valueOp.mode == MIR_OP_REG)
+        return valueOp.u.reg;
+
+    MIR_reg_t reg = NewRegister(MIR_T_I64);
+    AppendInsn(MIR_new_insn(context, MIR_MOV, MIR_new_reg_op(context, reg), valueOp));
+
+    return reg;
+}
+
+// The address of a struct's storage. A local or parameter's register already holds it, and for a struct in a
+// static, a field or an element it is where the memory operand points.
+MIR_reg_t JITCodeGenerator::EmitAddress(MIR_op_t storageOp)
+{
+    if(storageOp.mode == MIR_OP_REG)
+        return storageOp.u.reg;
+
+    assert(storageOp.mode == MIR_OP_MEM);
+
+    MIR_reg_t addressReg = NewRegister(MIR_T_I64);
+    MIR_op_t addressOp = MIR_new_reg_op(context, addressReg);
+
+    AppendInsn(MIR_new_insn(context, MIR_ADD, addressOp,
+        MIR_new_reg_op(context, storageOp.u.mem.base), MIR_new_int_op(context, storageOp.u.mem.disp)));
+
+    if(storageOp.u.mem.index != 0)
+    {
+        MIR_op_t offsetOp = MIR_new_reg_op(context, NewRegister(MIR_T_I64));
+
+        AppendInsn(MIR_new_insn(context, MIR_MUL, offsetOp,
+            MIR_new_reg_op(context, storageOp.u.mem.index), MIR_new_int_op(context, storageOp.u.mem.scale)));
+        AppendInsn(MIR_new_insn(context, MIR_ADD, addressOp, addressOp, offsetOp));
+    }
+
+    return addressReg;
+}
+
+// Memory is loaded where it is read, so a call later in the expression can't change the value it sees. A local
+// or parameter is already a register, and a struct's value is the address of its storage wherever that is.
+MIR_op_t JITCodeGenerator::EmitLoad(Type* type, MIR_op_t storageOp, const SourceLocation& loc)
+{
+    if(type->IsStruct())
+        return MIR_new_reg_op(context, EmitAddress(storageOp));
+
+    if(storageOp.mode != MIR_OP_MEM)
+        return storageOp;
+
+    MIR_type_t valueType = MIRTypeOf(type, loc);
+    MIR_op_t valueOp = MIR_new_reg_op(context, NewRegister(valueType));
+
+    AppendInsn(MIR_new_insn(context, MoveCodeOf(valueType), valueOp, storageOp));
+    return valueOp;
+}
+
+// Stores a value of 'type' in 'storageOp'. A struct is copied a word at a time from the storage its value is the
+// address of, so the two are independent afterwards.
+void JITCodeGenerator::EmitMove(Type* type, MIR_op_t storageOp, MIR_op_t valueOp, const SourceLocation& loc)
+{
+    if(!type->IsStruct())
+    {
+        AppendInsn(MIR_new_insn(context, MoveCodeOf(MIRTypeOf(type, loc)), storageOp, valueOp));
+        return;
+    }
+
+    MIR_reg_t targetReg = EmitAddress(storageOp);
+    MIR_reg_t sourceReg = EmitRegister(valueOp);
+    MIR_op_t wordOp = MIR_new_reg_op(context, NewRegister(MIR_T_I64));
+
+    for(size_t i = 0; i != GetStructSize(type); ++i)
+    {
+        MIR_disp_t offset = static_cast<MIR_disp_t>(i * sizeof(Word));
+
+        AppendInsn(MIR_new_insn(context, MIR_MOV, wordOp, MIR_new_mem_op(context, MIR_T_I64, offset, sourceReg, 0, 0)));
+        AppendInsn(MIR_new_insn(context, MIR_MOV, MIR_new_mem_op(context, MIR_T_I64, offset, targetReg, 0, 0), wordOp));
+    }
+}
+
 // Program::globals holds every static and keeps one address for the program's life, since it is sized before any
 // body is generated, so a static is memory at a fixed offset from a register holding that address.
 MIR_op_t JITCodeGenerator::EmitGlobalOp(const sptr<VariableDefinition>& def, const SourceLocation& loc)
@@ -224,13 +362,76 @@ MIR_op_t JITCodeGenerator::EmitGlobalOp(const sptr<VariableDefinition>& def, con
     return MIR_new_mem_op(context, type, def->offset * sizeof(Word), baseReg, 0, 0);
 }
 
-// Where a variable keeps its value: a register for a local or parameter, and memory for a static.
+// A field is memory at a fixed offset from its owner, at the word offset RuntimeTypeInfo gave it. An object's
+// fields follow its header, and a struct's start at its address.
+MIR_op_t JITCodeGenerator::EmitFieldOp(
+    MIR_op_t ownerOp, Type* ownerType, const sptr<VariableDefinition>& def, const SourceLocation& loc)
+{
+    MIR_type_t type = MIRTypeOf(def->typeSpec->type, loc);
+    size_t headerSize = ownerType->IsStruct() ? 0 : ClassDataOffset;
+
+    return MIR_new_mem_op(context, type, (headerSize + def->offset) * sizeof(Word), EmitRegister(ownerOp), 0, 0);
+}
+
+// Stores every field of a new object or struct: from its argument when 'arguments' has one for it, and from the
+// field's own initializer otherwise.
+void JITCodeGenerator::EmitFieldValues(
+    MIR_op_t ownerOp, Type* ownerType, const std::vector<sptr<Expression>>& arguments)
+{
+    auto fields = ownerType->GetDefinition()->GetChildren<VariableDefinition>(
+        [](auto& field) { return !field->isStatic; });
+
+    auto currentArg = arguments.begin();
+
+    for(const auto& field : fields)
+    {
+        const sptr<Expression>& value = currentArg != arguments.end() ? *currentArg++ : field->initializer;
+        MIR_op_t valueOp = EmitExpressionValue(value);
+
+        EmitMove(field->typeSpec->type, EmitFieldOp(ownerOp, ownerType, field, value->loc), valueOp, value->loc);
+    }
+}
+
+// An element is memory after the array's header, at its index scaled to the size of an element.
+MIR_op_t JITCodeGenerator::EmitElementOp(const sptr<IndexExpression>& node)
+{
+    Type* elementType = node->target->EvaluateType()->GetElementType();
+    MIR_type_t type = MIRTypeOf(elementType, node->loc);
+
+    MIR_reg_t arrayReg = EmitRegister(EmitExpressionValue(node->target));
+    MIR_reg_t indexReg = EmitRegister(EmitExpressionValue(node->arg));
+
+    // a memory operand scales its index by a word at most, so a struct's index is counted in words first
+    if(elementType->IsStruct())
+    {
+        MIR_reg_t wordIndexReg = NewRegister(MIR_T_I64);
+
+        AppendInsn(MIR_new_insn(context, MIR_MUL, MIR_new_reg_op(context, wordIndexReg),
+            MIR_new_reg_op(context, indexReg), MIR_new_int_op(context, GetStructSize(elementType))));
+
+        indexReg = wordIndexReg;
+    }
+
+    return MIR_new_mem_op(context, type, ArrayDataOffset * sizeof(Word), arrayReg, indexReg, sizeof(Word));
+}
+
+// Where a variable keeps its value: a register for a local or parameter, and memory for a static or a field. A
+// struct local or parameter's register holds the address of its storage.
 MIR_op_t JITCodeGenerator::EmitVariableOp(const sptr<IdentifierExpression>& node)
 {
-    ENFORCE(!node->context || !Expression::IsValueExpression(node->context), node->loc,
-        "the JIT can't generate a member access yet");
+    auto varDef = node->targetDef->ToVariableDefinition();
 
-    if(auto varDef = node->targetDef->ToVariableDefinition(); varDef && varDef->isStatic)
+    if(node->context && Expression::IsValueExpression(node->context))
+    {
+        Type* contextType = node->context->EvaluateType();
+
+        ENFORCE(varDef && (contextType->IsClass() || contextType->IsStruct()), node->loc,
+            "the JIT can't generate this member access yet");
+
+        return EmitFieldOp(EmitExpressionValue(node->context), contextType, varDef, node->loc);
+    }
+
+    if(varDef && varDef->isStatic)
         return EmitGlobalOp(varDef, node->loc);
 
     auto it = variableRegisters.find(node->targetDef);
@@ -300,6 +501,15 @@ MIR_op_t JITCodeGenerator::EmitConversion(const sptr<Expression>& value, Type* r
 
     MIR_op_t resultOp = MIR_new_reg_op(context, NewRegister(targetType));
 
+    // A bool, int or num converted from an object is unboxed. The box holds it in its only field.
+    if(value->EvaluateType()->IsObject())
+    {
+        AppendInsn(MIR_new_insn(context, MoveCodeOf(targetType), resultOp,
+            MIR_new_mem_op(context, targetType, ClassDataOffset * sizeof(Word), EmitRegister(valueOp), 0, 0)));
+
+        return resultOp;
+    }
+
     AppendInsn(MIR_new_insn(context, targetType == MIR_T_D ? MIR_I2D : MIR_D2I, resultOp, valueOp));
     return resultOp;
 }
@@ -323,6 +533,31 @@ MIR_op_t JITCodeGenerator::EmitShortCircuit(const sptr<BinaryExpression>& node)
     return resultOp;
 }
 
+// Emits a call to JITGetInterfaceImplementationAddress, which returns an interface call's callee.
+MIR_op_t JITCodeGenerator::EmitInterfaceCalleeOp(
+    Type* interfaceType, const sptr<FunctionDefinition>& interfaceFuncDef, MIR_op_t receiverOp)
+{
+    size_t interfaceID = typeInfo.at(interfaceType)->id;
+    size_t interfaceFuncOffset = typeInfo.at(interfaceFuncDef->type)->ToFunctionInfo()->offset;
+
+    std::vector<MIR_type_t> paramTypes { MIR_T_P, MIR_T_P, MIR_T_I64, MIR_T_I64 };
+    MIR_op_t calleeOp = MIR_new_reg_op(context, NewRegister(MIR_T_P));
+
+    MIR_op_t ops[] {
+        MIR_new_ref_op(context, GetProtoItem(MIR_T_P, paramTypes)),
+        MIR_new_ref_op(context, GetImportItem("$getInterfaceImplementationAddress",
+            reinterpret_cast<void*>(&JITGetInterfaceImplementationAddress))),
+        calleeOp,
+        MIR_new_int_op(context, reinterpret_cast<int64_t>(currentProgram)),
+        receiverOp,
+        MIR_new_int_op(context, static_cast<int64_t>(interfaceID)),
+        MIR_new_int_op(context, static_cast<int64_t>(interfaceFuncOffset))
+    };
+
+    AppendInsn(MIR_new_insn_arr(context, MIR_CALL, std::size(ops), ops));
+    return calleeOp;
+}
+
 void JITCodeGenerator::EmitConditionalBranch(
     const sptr<Expression>& condition, MIR_insn_t target, bool expectedValue)
 {
@@ -332,17 +567,22 @@ void JITCodeGenerator::EmitConditionalBranch(
         context, expectedValue ? MIR_BT : MIR_BF, MIR_new_label_op(context, target), valueOp));
 }
 
+// Where an assignable expression keeps its value.
+MIR_op_t JITCodeGenerator::EmitStorageOp(const sptr<Expression>& target)
+{
+    if(auto identExpr = target->ToIdentifierExpression())
+        return EmitVariableOp(identExpr);
+
+    if(auto indexExpr = target->ToIndexExpression())
+        return EmitElementOp(indexExpr);
+
+    ThrowUnsupported(*target);
+}
+
 // Returns the value stored, which is what an assignment or a '++' yields.
 MIR_op_t JITCodeGenerator::EmitStore(const sptr<Expression>& target, MIR_op_t valueOp, const SourceLocation& loc)
 {
-    auto identExpr = target->ToIdentifierExpression();
-
-    if(!identExpr)
-        ThrowUnsupported(*target);
-
-    MIR_type_t type = MIRTypeOf(target->EvaluateType(), loc);
-
-    AppendInsn(MIR_new_insn(context, MoveCodeOf(type), EmitVariableOp(identExpr), valueOp));
+    EmitMove(target->EvaluateType(), EmitStorageOp(target), valueOp, loc);
     return valueOp;
 }
 
@@ -370,21 +610,12 @@ void JITCodeGenerator::VisitChildNode(const sptr<ASTNode>& node)
 
 void JITCodeGenerator::Visit(const sptr<ASTRoot>& node)
 {
-    sptr<FunctionDefinition> mainDef;
-    if(auto def = node->global->scope->FindDefinition("main"))
-    {
-        mainDef = def->ToFunctionDefinition();
-    }
-
-    ENFORCE(mainDef, SourceLocation(), "the JIT requires a global function named 'main'");
-
     sptr<JITProgram> program = spnew<JITProgram>();
 
     auto rtti = RuntimeTypeInfo(node, Compiler::GetActiveCompiler()->types);
     typeInfo = std::move(rtti.typeInfoByType);
     program->typeInfo = std::move(rtti.allTypeInfo);
-    program->globals = dynamic_array<Word>(rtti.globalSize);
-    std::ranges::fill(program->globals, Word(nullptr));
+    program->globals = dynamic_array<Word>(rtti.globalSize, Word(nullptr));
 
     context = *program->context;
     currentProgram = program.get();
@@ -415,10 +646,10 @@ void JITCodeGenerator::Visit(const sptr<ASTRoot>& node)
     MIR_link(context, MIR_set_gen_interface, nullptr);
     MIR_gen_finish(context);
 
-    // Functions are mapped by qualified name, so Program::Invoke calls the first one found.
-    for(auto& [qualifiedName, item] : generatedFunctions)
+    // 'call_addr' is the function's code. 'addr' is a thunk that jumps to it.
+    for(auto& [functionType, functionItem] : generatedFunctionItems)
     {
-        program->functionAddresses.try_emplace(std::string(qualifiedName), item->addr);
+        typeInfo.at(functionType)->ToFunctionInfo()->functionAddress = functionItem->u.func->call_addr;
     }
 
     this->program = std::move(program);
@@ -428,10 +659,19 @@ void JITCodeGenerator::Visit(const sptr<ASTRoot>& node)
 *         DEFINITIONS        *
 *****************************/
 
+void JITCodeGenerator::Visit(const sptr<ClassDefinition>& node)
+{
+    if(node->IsTemplateDeclaration())
+        return;
+
+    ASTVisitor::Visit(node);
+}
+
 void JITCodeGenerator::Visit(const sptr<FunctionDefinition>& node)
 {
-    // An extern has no body, and the call that needs it creates its import.
-    if(node->isExternal)
+    // An extern has no body, and the call that needs it creates its import. An interface's function has no body
+    // either. A template is generated per instance.
+    if(node->isExternal || node->isAbstract || node->IsTemplateDeclaration())
         return;
 
     MIR_type_t resultType = GetResultType(node);
@@ -459,17 +699,44 @@ void JITCodeGenerator::Visit(const sptr<FunctionDefinition>& node)
     MIR_func_t func = MIR_get_item_func(context, currentFunctionItem);
     size_t paramIndex = 0;
 
+    resultStorageReg = node->returnType->type->IsStruct()
+        ? MIR_reg(context, paramNames[paramIndex++].c_str(), func)
+        : 0;
+
     for(const auto& param : node->GetChildren<ParameterDefinition>())
     {
         variableRegisters[param.get()] = MIR_reg(context, paramNames[paramIndex++].c_str(), func);
     }
 
-    generatedFunctions.emplace_back(node->qualifiedName.view(), currentFunctionItem);
+    generatedFunctionItems[node->type] = currentFunctionItem;
+    typeInfo.at(node->type)->ToFunctionInfo()->compiledResultKind = GetCompiledResultKind(node);
 
     VisitChild(node->body);
 
     MIR_finish_func(context);
     currentFunctionItem = nullptr;
+}
+
+void JITCodeGenerator::Visit(const sptr<InterfaceDefinition>& node)
+{
+    if(node->IsTemplateDeclaration())
+        return;
+
+    ASTVisitor::Visit(node);
+}
+
+void JITCodeGenerator::Visit(const sptr<StructDefinition>& node)
+{
+    if(node->IsTemplateDeclaration())
+        return;
+
+    ASTVisitor::Visit(node);
+}
+
+// A definition is not code. A field's initializer is generated by each 'new' that uses it, and a local's or a
+// static's by the statement that defines it.
+void JITCodeGenerator::Visit(const sptr<VariableDefinition>& node)
+{
 }
 
 /*****************************
@@ -516,27 +783,45 @@ void JITCodeGenerator::Visit(const sptr<BooleanLiteralExpression>& node) {
 
 void JITCodeGenerator::Visit(const sptr<CallExpression>& node)
 {
-    ENFORCE(node->target->EvaluateType()->IsFunction(), node->loc, "the JIT can't generate an indirect call yet");
+    Type* targetType = node->target->EvaluateType();
 
-    auto func = node->target->ToIdentifierExpression()->targetDef->ToFunctionDefinition();
+    ENFORCE(targetType->IsFunction() || targetType->IsFunctorInterface(), node->loc,
+        "the JIT can't generate a call to a '{}' yet", targetType->GetName());
+
+    // A call to a functor calls its 'invoke' function. The analyzer has made the functor the first argument.
+    auto func = targetType->IsFunction()
+        ? node->target->ToIdentifierExpression()->targetDef->ToFunctionDefinition()
+        : targetType->GetDefinition()->GetFunction("invoke");
+
+    Type* returnType = func->returnType->type;
 
     MIR_type_t resultType = GetResultType(func);
     std::vector<MIR_type_t> paramTypes = GetParameterTypes(func);
 
-    // A shim takes the program ahead of the Fraze arguments, whether or not the C++ function does.
+    // A shim takes the program ahead of everything else, whether or not the C++ function does.
     if(func->isExternal)
         paramTypes.insert(paramTypes.begin(), MIR_T_P);
 
-    std::vector<MIR_op_t> ops {
-        MIR_new_ref_op(context, GetProtoItem(resultType, paramTypes)),
-        MIR_new_ref_op(context, func->isExternal
+    // this is the condition VMCodeGenerator uses to emit CallVirtual
+    bool isInterfaceCall = func->HasImplicitThisParam() && node->arguments[0]->EvaluateType()->IsInterface();
+
+    // an interface call's callee is set below, once its receiver has been evaluated
+    std::vector<MIR_op_t> ops { MIR_new_ref_op(context, GetProtoItem(resultType, paramTypes)), MIR_op_t{} };
+    size_t calleeOpIndex = 1;
+
+    if(!isInterfaceCall)
+    {
+        ops[calleeOpIndex] = MIR_new_ref_op(context, func->isExternal
             ? GetImportItem(GetFunctionName(func), func->externalFunction->GetJITEntry())
-            : GetFunctionItem(func))
-    };
+            : GetFunctionItem(func));
+    }
+
+    MIR_op_t resultOp{};
 
     if(resultType != MIR_T_UNDEF)
     {
-        ops.push_back(MIR_new_reg_op(context, NewRegister(resultType)));
+        resultOp = MIR_new_reg_op(context, NewRegister(resultType));
+        ops.push_back(resultOp);
     }
 
     if(func->isExternal)
@@ -544,17 +829,46 @@ void JITCodeGenerator::Visit(const sptr<CallExpression>& node)
         ops.push_back(MIR_new_int_op(context, reinterpret_cast<int64_t>(currentProgram)));
     }
 
+    // a struct comes back in storage of the caller's, whose address is the call's value
+    if(returnType->IsStruct())
+    {
+        resultOp = MIR_new_reg_op(context, NewStructStorage(returnType));
+        ops.push_back(resultOp);
+    }
+
+    auto params = func->GetChildren<ParameterDefinition>();
+    auto param = params.begin();
+    size_t receiverOpIndex = ops.size();
+
     for(auto& arg : node->arguments)
     {
-        VisitChild(arg);
-        ops.push_back(exprValueOp);
+        Type* paramType = (*param)->typeSpec->type;
+        MIR_op_t argOp = EmitExpressionValue(arg);
+
+        // a struct passed by value is a copy, which the callee is free to change. An extern never changes an
+        // argument, so it takes the caller's own struct.
+        if(paramType->IsStruct() && !(*param)->isReference && !func->isExternal)
+        {
+            MIR_op_t copyOp = MIR_new_reg_op(context, NewStructStorage(paramType));
+            EmitMove(paramType, copyOp, argOp, arg->loc);
+            argOp = copyOp;
+        }
+
+        ops.push_back(argOp);
+        ++param;
+    }
+
+    if(isInterfaceCall)
+    {
+        Type* interfaceType = node->arguments[0]->EvaluateType();
+        ops[calleeOpIndex] = EmitInterfaceCalleeOp(interfaceType, func, ops[receiverOpIndex]);
     }
 
     AppendInsn(MIR_new_insn_arr(context, MIR_CALL, ops.size(), ops.data()));
 
-    if(resultType != MIR_T_UNDEF)
+    if(!returnType->IsVoid())
     {
-        exprValueOp = ops[2];
+        exprValueOp = resultOp;
     }
 }
 
@@ -564,6 +878,20 @@ void JITCodeGenerator::Visit(const sptr<AsExpression>& node) {
 
 void JITCodeGenerator::Visit(const sptr<ConvertExpression>& node) {
     exprValueOp = EmitConversion(node->value, node->resultTypeSpec->type, node->loc);
+}
+
+// Only an 'is' on a value that can't be null gets here, so the answer is known now. SemanticAnalyzer turns
+// every other 'is' into a call to Type.IsInstance.
+void JITCodeGenerator::Visit(const sptr<IsExpression>& node)
+{
+    bool isSameType = node->value->EvaluateType() == node->typeSpec->GetType();
+    exprValueOp = MIR_new_int_op(context, isSameType ? 1 : 0);
+}
+
+void JITCodeGenerator::Visit(const sptr<SizeOfExpression>& node)
+{
+    size_t sizeInWords = typeInfo.at(node->typeSpec->type)->GetSize();
+    exprValueOp = MIR_new_int_op(context, static_cast<int64_t>(sizeInWords));
 }
 
 // A cast reinterprets a reference, so the value crosses it unchanged.
@@ -594,8 +922,19 @@ void JITCodeGenerator::Visit(const sptr<StringLiteralExpression>& node)
 
 void JITCodeGenerator::Visit(const sptr<DefaultValueExpression>& node)
 {
-    MIR_type_t type = MIRTypeOf(node->typeSpec->type, node->loc);
-    exprValueOp = type == MIR_T_D ? MIR_new_double_op(context, 0.0) : MIR_new_int_op(context, 0);
+    Type* type = node->typeSpec->type;
+
+    // a struct's default value gives every field its own initializer
+    if(type->IsStruct())
+    {
+        MIR_op_t structOp = MIR_new_reg_op(context, NewStructStorage(type));
+        EmitFieldValues(structOp, type, {});
+
+        exprValueOp = structOp;
+        return;
+    }
+
+    exprValueOp = MIRTypeOf(type, node->loc) == MIR_T_D ? MIR_new_double_op(context, 0.0) : MIR_new_int_op(context, 0);
 }
 
 void JITCodeGenerator::Visit(const sptr<IdentifierExpression>& node)
@@ -606,25 +945,85 @@ void JITCodeGenerator::Visit(const sptr<IdentifierExpression>& node)
         return;
     }
 
-    MIR_op_t storageOp = EmitVariableOp(node);
+    exprValueOp = EmitLoad(node->EvaluateType(), EmitVariableOp(node), node->loc);
+}
 
-    // A static lives in memory and is loaded where it is read, so a call later in the expression can't change
-    // the value it sees. A local or parameter is already a register.
-    if(storageOp.mode != MIR_OP_MEM)
+void JITCodeGenerator::Visit(const sptr<IndexExpression>& node) {
+    exprValueOp = EmitLoad(node->EvaluateType(), EmitElementOp(node), node->loc);
+}
+
+// An array's header holds its length in words, which is its count times the size of an element.
+void JITCodeGenerator::Visit(const sptr<ArrayCountExpression>& node)
+{
+    Type* elementType = node->array->EvaluateType()->GetElementType();
+
+    MIR_reg_t arrayReg = EmitRegister(EmitExpressionValue(node->array));
+    MIR_op_t countOp = MIR_new_reg_op(context, NewRegister(MIR_T_I64));
+
+    AppendInsn(MIR_new_insn(context, MIR_MOV, countOp,
+        MIR_new_mem_op(context, MIR_T_I64, ArrayLengthOffset * sizeof(Word), arrayReg, 0, 0)));
+
+    if(elementType->IsStruct())
     {
-        exprValueOp = storageOp;
-        return;
+        AppendInsn(MIR_new_insn(context, MIR_DIV, countOp, countOp,
+            MIR_new_int_op(context, GetStructSize(elementType))));
     }
 
-    MIR_type_t type = MIRTypeOf(node->EvaluateType(), node->loc);
-    MIR_op_t valueOp = MIR_new_reg_op(context, NewRegister(type));
+    exprValueOp = countOp;
+}
 
-    AppendInsn(MIR_new_insn(context, MoveCodeOf(type), valueOp, storageOp));
-    exprValueOp = valueOp;
+// The value of a fold is its last statement's expression, which is visited as an expression so that its value
+// isn't discarded the way a statement's is.
+void JITCodeGenerator::Visit(const sptr<FoldExpression>& node)
+{
+    auto& statements = node->body->statements;
+
+    for(size_t i = 0; i != statements.size() - 1; ++i)
+        VisitChild(statements[i]);
+
+    exprValueOp = EmitExpressionValue(node->GetResultStatement()->expression);
 }
 
 void JITCodeGenerator::Visit(const sptr<IntegerLiteralExpression>& node) {
     exprValueOp = MIR_new_int_op(context, node->value);
+}
+
+// The analyzer leaves an allocation in 'allocExpression', as a call to Type.NewClass or Type.NewArray, while a
+// struct is built in this function's frame. An array then stores the elements it lists, and a class or struct
+// every one of its fields.
+void JITCodeGenerator::Visit(const sptr<NewExpression>& node)
+{
+    Type* type = node->EvaluateType();
+
+    if(type->IsArray())
+    {
+        Type* elementType = type->GetElementType();
+        MIR_type_t elementMIRType = MIRTypeOf(elementType, node->loc);
+        size_t elementSize = elementType->IsStruct() ? GetStructSize(elementType) : 1;
+
+        MIR_reg_t arrayReg = EmitRegister(EmitExpressionValue(node->allocExpression));
+
+        for(size_t i = 0; i != node->arguments.size(); ++i)
+        {
+            MIR_op_t valueOp = EmitExpressionValue(node->arguments[i]);
+            MIR_op_t elementOp = MIR_new_mem_op(
+                context, elementMIRType, (ArrayDataOffset + i * elementSize) * sizeof(Word), arrayReg, 0, 0);
+
+            EmitMove(elementType, elementOp, valueOp, node->arguments[i]->loc);
+        }
+
+        exprValueOp = MIR_new_reg_op(context, arrayReg);
+        return;
+    }
+
+    ENFORCE(type->IsClass() || type->IsStruct(), node->loc, "the JIT can't generate a new '{}' yet", type->GetName());
+
+    MIR_op_t ownerOp = type->IsStruct()
+        ? MIR_new_reg_op(context, NewStructStorage(type))
+        : EmitExpressionValue(node->allocExpression);
+
+    EmitFieldValues(ownerOp, type, node->arguments);
+    exprValueOp = ownerOp;
 }
 
 void JITCodeGenerator::Visit(const sptr<NumberLiteralExpression>& node) {
@@ -722,6 +1121,13 @@ void JITCodeGenerator::Visit(const sptr<TernaryExpression>& node)
     exprValueOp = resultOp;
 }
 
+// A type's id, which is its index in Program::typeInfo.
+void JITCodeGenerator::Visit(const sptr<TypeLiteralExpression>& node)
+{
+    TypeInfo* type = currentProgram->GetTypeInfo(node->value);
+    exprValueOp = MIR_new_int_op(context, static_cast<int64_t>(type->id));
+}
+
 /*****************************
 *         STATEMENTS         *
 *****************************/
@@ -739,19 +1145,20 @@ void JITCodeGenerator::Visit(const sptr<ExpressionStatement>& node) {
 void JITCodeGenerator::Visit(const sptr<VariableDefinitionStatement>& node)
 {
     auto& def = node->variableDefinition;
-    MIR_type_t type = MIRTypeOf(def->typeSpec->type, def->loc);
+    Type* type = def->typeSpec->type;
     MIR_op_t valueOp = EmitExpressionValue(def->initializer);
 
     if(def->isStatic)
     {
-        AppendInsn(MIR_new_insn(context, MoveCodeOf(type), EmitGlobalOp(def, def->loc), valueOp));
+        EmitMove(type, EmitGlobalOp(def, def->loc), valueOp, def->loc);
         return;
     }
 
-    MIR_reg_t reg = NewRegister(type);
+    // a struct local is storage in the frame, and its register holds the address of it
+    MIR_reg_t reg = type->IsStruct() ? NewStructStorage(type) : NewRegister(MIRTypeOf(type, def->loc));
     variableRegisters[def.get()] = reg;
 
-    AppendInsn(MIR_new_insn(context, MoveCodeOf(type), MIR_new_reg_op(context, reg), valueOp));
+    EmitMove(type, MIR_new_reg_op(context, reg), valueOp, def->loc);
 }
 
 void JITCodeGenerator::Visit(const sptr<ReturnStatement>& node)
@@ -762,8 +1169,17 @@ void JITCodeGenerator::Visit(const sptr<ReturnStatement>& node)
         return;
     }
 
-    VisitChild(node->expression);
-    AppendInsn(MIR_new_ret_insn(context, 1, exprValueOp));
+    MIR_op_t valueOp = EmitExpressionValue(node->expression);
+
+    // a struct goes into the storage the caller passed for it
+    if(resultStorageReg != 0)
+    {
+        EmitMove(node->expression->EvaluateType(), MIR_new_reg_op(context, resultStorageReg), valueOp, node->loc);
+        AppendInsn(MIR_new_ret_insn(context, 0));
+        return;
+    }
+
+    AppendInsn(MIR_new_ret_insn(context, 1, valueOp));
 }
 
 

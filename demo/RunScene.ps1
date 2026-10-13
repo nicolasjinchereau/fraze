@@ -2,7 +2,8 @@
 # loading and the demo exited cleanly, and 1 otherwise.
 param(
     [ValidateSet('Debug', 'Release')] [string]$Configuration = 'Debug',
-    [int]$WaitSeconds = 30
+    [int]$WaitSeconds = 30,
+    [switch]$JIT
 )
 
 $outputDir = Join-Path $PSScriptRoot output
@@ -10,8 +11,18 @@ $stdoutPath = Join-Path $outputDir stdout.txt
 $stderrPath = Join-Path $outputDir stderr.txt
 New-Item -ItemType Directory -Force $outputDir | Out-Null
 
-$process = Start-Process (Join-Path $PSScriptRoot "bin\x64\$Configuration\Demo.exe") -WorkingDirectory $PSScriptRoot `
-    -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath -PassThru
+$startArguments = @{
+    FilePath = Join-Path $PSScriptRoot "bin\x64\$Configuration\Demo.exe"
+    WorkingDirectory = $PSScriptRoot
+    RedirectStandardOutput = $stdoutPath
+    RedirectStandardError = $stderrPath
+    PassThru = $true
+}
+
+# Start-Process rejects an empty argument list, so the list is passed only when it has something in it.
+if($JIT) { $startArguments.ArgumentList = '--jit' }
+
+$process = Start-Process @startArguments
 
 # The scene never exits on its own. CloseMainWindow() does nothing until the window is up, so the close is retried,
 # because a force-kill loses all of the buffered output.

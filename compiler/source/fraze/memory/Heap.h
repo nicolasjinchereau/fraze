@@ -13,12 +13,13 @@
 #include <span>
 #include <string_view>
 #include <tuple>
-#include <vector>
-#include <unordered_set>
 #include <iostream>
+#include <fraze/common/DynamicArray.h>
+#include <fraze/common/HashSet.h>
 #include <fraze/common/Platform.h>
 #include <fraze/common/SourceLocation.h>
 #include <fraze/common/Stack.h>
+#include <fraze/common/Vector.h>
 
 namespace fraze {
 
@@ -42,18 +43,23 @@ class Heap
 #endif
 
     std::mutex mut;
-    std::vector<Page> pages;
+    fraze::vector<Page> pages;
     size_t nextPage{};
-    std::vector<PageInfo> sortedPageInfo;
+    fraze::vector<PageInfo> sortedPageInfo;
     std::byte* minAddress = nullptr;
     std::byte* maxAddress = nullptr;
 
-    std::vector<Page> persistentPages;
+    fraze::vector<Page> persistentPages;
 
-    std::vector<std::span<std::byte>> ranges;
-    std::unordered_set<const std::byte*> pinned;
+    fraze::vector<std::span<std::byte>> ranges;
+    fraze::hash_set<const std::byte*> pinned;
     uint8_t currentColor{};
     Program* pProgram{};
+
+    void* executionThreadHandle{};
+    uint32_t executionThreadId{};
+    std::byte* executionThreadStackBase{};
+    dynamic_array<std::byte, alignof(void*)> executionThreadContextStorage;
 public:
     static constexpr size_t BlockSize = 16U;
     static constexpr size_t MinPageSize = 8 * 1024;
@@ -64,6 +70,11 @@ public:
     static_assert(MinGrownPageSize >= MinPageSize);
 
     Heap(Program* pProgram);
+    ~Heap();
+
+    // Makes the calling thread the execution thread, which is the one thread that runs Fraze code. A collection
+    // scans its stack and registers, and every other thread has to pin what it allocates.
+    void RegisterExecutionThread();
 
     std::byte* Allocate(size_t size, bool pin = false);
     std::byte* AllocatePersistent(size_t size);
@@ -92,7 +103,8 @@ private:
     void RemovePage(size_t pageIndex);
     Page* FindPage(const std::byte* p);
     void CollectInternal();
-    void ScanRange(std::span<std::byte> range);
+    void MarkProgramRoots();
+    void MarkRange(std::span<std::byte> range);
     void Mark(const std::byte* p);
 
 #if FRAZE_HEAP_DEBUG
@@ -117,12 +129,12 @@ struct Page
     size_t freeRunLimit{};
 
     std::unique_ptr<std::byte[], AlignedDeleter> storage;
-    std::vector<uint8_t> starts;
-    std::vector<uint8_t> inuse;
-    std::vector<uint8_t> color;
+    dynamic_array<uint8_t> starts;
+    dynamic_array<uint8_t> inuse;
+    dynamic_array<uint8_t> color;
 
 #if FRAZE_HEAP_DEBUG
-    std::vector<SourceLocation*> locations;
+    dynamic_array<SourceLocation*> locations;
 #endif
 
     static constexpr size_t InvalidIndex = static_cast<size_t>(-1);

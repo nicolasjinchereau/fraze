@@ -1,12 +1,17 @@
 # Fraze
 
-Fraze is a strongly typed, garbage-collected scripting language with C-like syntax, built from scratch in modern C++. It compiles to a custom stack-based bytecode and runs on its own virtual machine, with no third-party compiler frameworks or runtimes. The design goals are memory safety, simplicity, and fast execution. There is no undefined behavior, and unsafe operations are guarded by runtime checks that can be compiled out once code is trusted.
+Fraze is a strongly typed, garbage-collected scripting language with C-like syntax, built from scratch in modern C++. It compiles to either stack-based bytecode for its own virtual machine or native code through its JIT compiler. The design goals are memory safety, simplicity, and fast execution. There is no undefined behavior, and unsafe operations are guarded by runtime checks that can be compiled out once code is trusted.
 
-The implementation includes lexing, parsing, semantic analysis, code generation, a bytecode VM, a garbage collector, coroutines, and native interop. The repository includes the complete toolchain, a standard library written in Fraze itself, and a 3D demo app that embeds the language to drive a real-time rendered scene.
+The implementation includes lexing, parsing, semantic analysis, code generation, a bytecode VM, a JIT compiler, a garbage collector, coroutines, and native interop. The repository includes the complete toolchain, a standard library written in Fraze itself, and a 3D demo app that embeds the language to drive a real-time rendered scene.
 
 ## Demo
 
 The demo renders a 3D diorama with a character animated in real time. The skeletal animation and skin deformation are programmed in Fraze and run every frame, a solid stress test of the VM's throughput. Heavy math like `Mat4` multiplication is offloaded to native functions through `extern` declarations. Everything above the graphics API, including the scene graph, component system, camera controller, and async asset pipeline, is Fraze code.
+
+| Build | Interpreter | JIT |
+|---|---|---|
+| Debug | ~12 FPS | ~121 FPS |
+| Release | ~122 FPS | 800+ FPS |
 
 ![Fraze demo](demo.gif)
 
@@ -85,8 +90,8 @@ Task<void> Run()
 | `syntax-extensions/` | Fraze syntax highlighting extensions for Visual Studio and VS Code |
 | `third_party/` | External dependencies used by the demo (assimp, libpng, ...) |
 
-## Building
+## Build & Run
 
 1. Run `third_party\build-all.cmd` to build the external dependencies.
 2. Open `Fraze.sln` in Visual Studio (MSVC v145, C++ latest) and build the `Demo` project for x64.
-
+3. Pass `--jit` when running the demo to enable JIT compilation.

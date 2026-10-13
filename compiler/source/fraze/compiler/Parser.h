@@ -3,6 +3,7 @@
 *---------------------------------------------------------------*/
 
 #pragma once
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <format>
@@ -29,7 +30,6 @@ class Parser
     Token token;
     ScopeStack scopes;
     sptr<ASTRoot> astRoot;
-    int nextUniqueId = 0;
     size_t foldDepth = 0; // how many fold bodies enclose the statement being parsed
     bool allowInternalSymbols = false;
 public:
@@ -2812,8 +2812,13 @@ class ${}_Task
         // create functor class
         const Token& functorTok = Consume(Keyword::Functor);
         
-        int id = nextUniqueId++;
-        auto functorName = std::format("$functorClass{}", id);
+        // Functor classes from every file are defined in the global section, so each is numbered by how many the
+        // section already holds.
+        auto functorClassCount = std::ranges::count_if(astRoot->global->scope->definitions, [](const auto& def) {
+            return def->name.view().starts_with("$functorClass");
+        });
+
+        auto functorName = std::format("$functorClass{}", functorClassCount);
         auto loc = functorTok.loc;
 
         Scope* currentScope = scopes.GetCurrent();

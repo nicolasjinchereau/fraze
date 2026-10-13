@@ -53,7 +53,10 @@ public:
     VMProgram();
 
 protected:
-    Word InvokeImpl(const std::string& qualifiedFuncName, const std::span<Word>& args) override;
+    Word InvokeImpl(
+        const std::string& qualifiedFuncName,
+        const std::span<Word>& args,
+        CompiledFunctionCall* callCompiledFunction) override;
     std::span<Word> GetUsedStackRange() override;
 
 private:

@@ -366,7 +366,8 @@ void Graphics::Present()
     if(!target)
         return;
 
-    target->resources.swapChain->Present(swapInterval, 0);
+    UINT flags = DXGI_PRESENT_ALLOW_TEARING; // ensure DWM doesn't force vsync and cap FPS
+    target->resources.swapChain->Present(swapInterval, flags); 
     SetRenderTargetInternal(target);
 }
 
@@ -969,10 +970,8 @@ void Graphics::CreateSurfaceInternal(Window* window)
     swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
     swapChainDesc.BufferCount = 2;
     swapChainDesc.Scaling = DXGI_SCALING_STRETCH;
-    //swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
-    swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
-    swapChainDesc.Flags = 0;
-    //swapChainDesc.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
+    swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD; // ensure DWM doesn't force vsync and cap FPS
+    swapChainDesc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING; // ensure DWM doesn't force vsync and cap FPS
 
     // create swap chain
     ComPtr<IDXGIDevice1> dxgiDevice;

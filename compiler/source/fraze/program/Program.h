@@ -27,6 +27,8 @@ namespace fraze {
 class PersistentAllocator;
 class ScopedAllocator;
 
+using CompiledFunctionCall = Word(void* functionAddress, CompiledResultKind resultKind, Word* args);
+
 class Program
 {
 protected:
@@ -44,13 +46,7 @@ public:
     Program();
     virtual ~Program() = default;
 
-    Word Invoke(const std::string& qualifiedFuncName, WordValue auto&&... args)
-    {
-        std::array<Word, sizeof...(args)> words {
-            Word(std::forward<decltype(args)>(args))...
-        };
-        return InvokeImpl(qualifiedFuncName, words);
-    }
+    Word Invoke(const std::string& qualifiedFuncName, WordValue auto&&... args);
 
     TypeInfo* GetTypeInfo(std::string_view qualifiedName);
     void PinMemory(const void* p);
@@ -71,10 +67,66 @@ public:
     }
 
 protected:
-    virtual Word InvokeImpl(const std::string& qualifiedFuncName, const std::span<Word>& args) = 0;
+    // 'callCompiledFunction' is for a program whose functions are machine code. The VM runs 'args' as they are.
+    virtual Word InvokeImpl(
+        const std::string& qualifiedFuncName,
+        const std::span<Word>& args,
+        CompiledFunctionCall* callCompiledFunction) = 0;
 
     // Heap::CollectInternal scans this range for references.
     virtual std::span<Word> GetUsedStackRange() = 0;
 };
+
+
+// A num is passed to compiled code in a floating-point register, and everything else in an integer register.
+template<class Arg>
+using CompiledArg = std::conditional_t<std::is_floating_point_v<Arg>, Number, Integer>;
+
+template<class Arg>
+inline CompiledArg<Arg> GetCompiledArg(const Word& word)
+{
+    if constexpr(std::is_floating_point_v<Arg>)
+        return word.GetNumber();
+    else
+        return word.GetInteger();
+}
+
+template<class Result, class... Args, size_t... ArgIndices>
+inline Result CallCompiledFunctionAs(void* functionAddress, Word* args, std::index_sequence<ArgIndices...>)
+{
+    auto function = reinterpret_cast<Result(*)(CompiledArg<Args>...)>(functionAddress);
+    return function(GetCompiledArg<Args>(args[ArgIndices])...);
+}
+
+// Calls a compiled function with the words in 'args', each passed as the type the host gave for it in 'Args'.
+// Program::Invoke hands a JITProgram the instance of this for its own argument types.
+template<class... Args>
+inline Word CallCompiledFunction(void* functionAddress, CompiledResultKind resultKind, Word* args)
+{
+    constexpr auto argIndices = std::index_sequence_for<Args...>();
+
+    switch(resultKind)
+    {
+    case CompiledResultKind::None:
+        CallCompiledFunctionAs<void, Args...>(functionAddress, args, argIndices);
+        return Word(nullptr);
+
+    case CompiledResultKind::Number:
+        return Word(CallCompiledFunctionAs<Number, Args...>(functionAddress, args, argIndices));
+
+    case CompiledResultKind::Integer:
+        return Word(CallCompiledFunctionAs<Integer, Args...>(functionAddress, args, argIndices));
+    }
+
+    std::unreachable();
+}
+
+inline Word Program::Invoke(const std::string& qualifiedFuncName, WordValue auto&&... args)
+{
+    std::array<Word, sizeof...(args)> words{
+        Word(std::forward<decltype(args)>(args))...
+    };
+    return InvokeImpl(qualifiedFuncName, words, &CallCompiledFunction<std::remove_cvref_t<decltype(args)>...>);
+}
 
 } // fraze

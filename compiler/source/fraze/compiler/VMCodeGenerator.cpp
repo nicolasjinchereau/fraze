@@ -328,8 +328,7 @@ void VMCodeGenerator::Visit(const sptr<ASTRoot>& node)
     auto rtti = RuntimeTypeInfo(node, compiler->types);
     typeInfo = std::move(rtti.typeInfoByType);
     program->typeInfo = std::move(rtti.allTypeInfo);
-    program->globals = dynamic_array<Word>(rtti.globalSize);
-    std::ranges::fill(program->globals, Word(nullptr));
+    program->globals = dynamic_array<Word>(rtti.globalSize, Word(nullptr));
 
     ASTVisitor::Visit(node);
 }

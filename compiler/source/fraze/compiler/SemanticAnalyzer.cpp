@@ -700,7 +700,7 @@ sptr<FunctionDefinition> SemanticAnalyzer::GetMatchingFunction(const sptr<ClassD
                     }
                 }
 
-                if(paramsMatch)
+                if(paramsMatch && func->returnType->type == interfaceFunc->returnType->type)
                 {
                     match = func;
                     break;

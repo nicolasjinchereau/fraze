@@ -18,14 +18,12 @@
 #include <memory>
 #include <print>
 
-using clock_type = std::chrono::high_resolution_clock;
+using clock_type = std::chrono::steady_clock;
 
 namespace fraze {
 
 void AddExternFunctions(Compiler& compiler)
 {
-    compiler.AddFunction<&RecordFrameStart>("RecordFrameStart");
-    compiler.AddFunction<&RecordFrameEnd>("RecordFrameEnd");
     compiler.AddFunction<&Time_GetTicks>("Time.GetTicks");
     compiler.AddFunction<&Time_GetTicksPerSecond>("Time.GetTicksPerSecond");
     compiler.AddFunction<&NativeWindow_this>("NativeWindow.this");
@@ -79,45 +77,6 @@ void AddExternFunctions(Compiler& compiler)
     compiler.AddFunction<&Mat4_NumMul>("Mat4.operator*", "Mat4(Mat4,num)");
     compiler.AddFunction<&Vec4_Mat4Mul>("Vec4.operator*");
 }
-
-//#define PRINT_FPS
-
-#ifdef PRINT_FPS
-std::array<uint64_t, 512> frameLengths{};
-int nextFrame = 0;
-clock_type::time_point _startTime;
-clock_type::time_point _lastFpsPrint;
-
-// MAIN
-void RecordFrameStart() {
-    _startTime = clock_type::now();
-}
-
-void RecordFrameEnd()
-{
-    auto now = clock_type::now();
-    auto frameLength = (now - _startTime).count();
-    frameLengths[nextFrame] = frameLength;
-    nextFrame = (nextFrame + 1) % frameLengths.size();
-
-    float timeSinceLastPrint = duration_cast<std::chrono::duration<float>>(now - _lastFpsPrint).count();
-    if(timeSinceLastPrint > 1)
-    {
-        uint64_t totalFrameNanos = 0;
-        for(auto nanos : frameLengths)
-            totalFrameNanos += nanos;
-
-        double nanosPerFrame = static_cast<double>(totalFrameNanos) / frameLengths.size();
-        double secondsPerFrame = nanosPerFrame / 1000000000.0;
-        double fps = 1.0 / secondsPerFrame;
-        std::println("FPS: {}", fps);
-        _lastFpsPrint = now;
-    }
-}
-#else
-void RecordFrameStart(){}
-void RecordFrameEnd(){}
-#endif // PRINT_FPS
 
 // TIME
 Integer Time_GetTicks() {

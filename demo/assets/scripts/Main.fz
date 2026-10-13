@@ -2,9 +2,6 @@
 *  Copyright (c) 2026 Nicolas Jinchereau. All rights reserved.  *
 *---------------------------------------------------------------*/
 
-extern void RecordFrameStart();
-extern void RecordFrameEnd();
-
 class App
 {
     Window window;
@@ -123,10 +120,43 @@ class App
         loadingIndicator = null;
 
         Console.WriteLine("Finished loading scene.");
-        measureFPS = true;
+        BeginFPSMeasurement();
     }
 
     bool measureFPS = false;
+    int framesSinceLastPrint;
+    num lastFpsPrint;
+    num fpsValue = 0;
+    int fpsCount = 0;
+
+    void BeginFPSMeasurement()
+    {
+        measureFPS = true;
+        framesSinceLastPrint = 0;
+        lastFpsPrint = Time.Now.Seconds;
+    }
+
+    void PrintFPSMeasurement()
+    {
+        if(measureFPS)
+        {
+            ++framesSinceLastPrint;
+
+            num now = Time.Now.Seconds;
+            num elapsed = now - lastFpsPrint;
+
+            if(elapsed >= 1.0)
+            {
+                num fps = framesSinceLastPrint / elapsed;
+                fpsValue += fps;
+                ++fpsCount;
+                num avgFps = fpsValue / fpsCount;
+                Console.WriteLine("FPS: " + avgFps);
+                framesSinceLastPrint = 0;
+                lastFpsPrint = now;
+            }
+        }
+    }
 
     Task<void> Run()
     {
@@ -172,9 +202,6 @@ class App
             }
             else
             {
-                if(measureFPS)
-                    RecordFrameStart();
-
                 // no message processed
 
                 graphics.Clear();
@@ -184,8 +211,7 @@ class App
 
                 graphics.Present();
 
-                if(measureFPS)
-                    RecordFrameEnd();
+                PrintFPSMeasurement();
 
                 // allow task completions to run
                 await YieldAsync();

@@ -3,6 +3,7 @@
 *---------------------------------------------------------------*/
 
 #pragma once
+#include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <cstring>
@@ -26,6 +27,12 @@ public:
     explicit dynamic_array(std::size_t size)
     {
         allocate(size);
+    }
+
+    explicit dynamic_array(std::size_t size, const T& value)
+    {
+        allocate(size);
+        fill(value);
     }
 
     dynamic_array(const dynamic_array& other)
@@ -81,6 +88,10 @@ public:
         std::swap(_size, other._size);
     }
 
+    void fill(const T& value) noexcept {
+        std::fill(_data, _data + _size, value);
+    }
+
     T* data() noexcept {
         return _data;
     }
@@ -122,10 +133,12 @@ public:
     }
 
     T& operator[](std::size_t i) noexcept {
+        assert(i < _size);
         return _data[i];
     }
 
     const T& operator[](std::size_t i) const noexcept {
+        assert(i < _size);
         return _data[i];
     }
 

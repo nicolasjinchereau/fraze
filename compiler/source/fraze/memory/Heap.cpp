@@ -6,8 +6,13 @@
 #include <fraze/common/Extensions.h>
 #include <fraze/common/Object.h>
 #include <fraze/common/Platform.h>
+#include <fraze/common/jump/JumpPoint.h>
 #include <fraze/program/Program.h>
 #include <print>
+
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
 
 namespace fraze {
 
@@ -22,12 +27,12 @@ Page::Page(size_t requestedSize)
     void* mem = ::operator new(totalSize, std::align_val_t(Heap::BlockSize));
     storage.reset(static_cast<std::byte*>(mem));
 
-    starts.resize(blockCount, false);
-    inuse.resize(blockCount, false);
-    color.resize(blockCount, Heap::InitialBlockColor);
+    starts = dynamic_array<uint8_t>(blockCount, false);
+    inuse = dynamic_array<uint8_t>(blockCount, false);
+    color = dynamic_array<uint8_t>(blockCount, Heap::InitialBlockColor);
 
 #if FRAZE_HEAP_DEBUG
-    locations.resize(blockCount, nullptr);
+    locations = dynamic_array<SourceLocation*>(blockCount, nullptr);
 #endif
 }
 
@@ -160,6 +165,10 @@ std::byte* Page::GetBlock(size_t blockIndex)
 
 // HEAP
 
+// CONTEXT_FULL stops at the xmm registers. The upper halves of ymm and zmm are extended state.
+static constexpr DWORD ExecutionThreadContextFlags = CONTEXT_FULL | CONTEXT_XSTATE;
+static constexpr DWORD64 ExecutionThreadXStateFeatures = XSTATE_MASK_AVX | XSTATE_MASK_AVX512;
+
 Heap::Heap(Program* pProgram)
     : pProgram(pProgram)
 {
@@ -167,6 +176,7 @@ Heap::Heap(Program* pProgram)
 
     pages.reserve(32);
     sortedPageInfo.reserve(32);
+    pinned.reserve(512);
 
 #if FRAZE_HEAP_DEBUG
     std::filesystem::path outputPath = "output";
@@ -180,6 +190,42 @@ Heap::Heap(Program* pProgram)
 
     logFile.open(outputPath, std::ios::out);
 #endif
+}
+
+Heap::~Heap()
+{
+    if(executionThreadHandle)
+        CloseHandle(executionThreadHandle);
+}
+
+void Heap::RegisterExecutionThread()
+{
+    std::lock_guard<std::mutex> lk(mut);
+
+    assert(!executionThreadHandle);
+
+    HANDLE process = GetCurrentProcess();
+
+    [[maybe_unused]] BOOL duplicationSucceeded = DuplicateHandle(
+        process, GetCurrentThread(), process, &executionThreadHandle,
+        THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT, FALSE, 0);
+
+    assert(duplicationSucceeded);
+
+    ULONG_PTR stackLimit = 0;
+    ULONG_PTR stackBase = 0;
+    GetCurrentThreadStackLimits(&stackLimit, &stackBase);
+
+    executionThreadId = GetCurrentThreadId();
+    executionThreadStackBase = reinterpret_cast<std::byte*>(stackBase);
+
+    // Without a buffer, InitializeContext fails and reports the size it needs.
+    DWORD contextSize = 0;
+    InitializeContext(nullptr, ExecutionThreadContextFlags, nullptr, &contextSize);
+
+    // MarkRange reads whole words.
+    size_t storageSize = (contextSize + sizeof(Word) - 1) & ~(sizeof(Word) - 1);
+    executionThreadContextStorage = dynamic_array<std::byte, alignof(void*)>(storageSize);
 }
 
 std::byte* Heap::AllocateRaw(size_t size)
@@ -212,6 +258,8 @@ std::byte* Heap::AllocateRaw(size_t size)
 std::byte* Heap::Allocate(size_t size, bool pin)
 {
     std::lock_guard<std::mutex> lk(mut);
+
+    assert(pin || GetCurrentThreadId() == executionThreadId);
 
     if(auto block = AllocateRaw(size))
     {
@@ -429,22 +477,44 @@ void Heap::CollectInternal()
     if(currentColor == Heap::InitialBlockColor)
         ++currentColor;
 
-    auto& globals = pProgram->globals;
-    if(!globals.empty())
-        ScanRange(std::as_writable_bytes(std::span(globals.data(), globals.size())));
-
-    std::span<Word> usedStackRange = pProgram->GetUsedStackRange();
-    if(!usedStackRange.empty())
-        ScanRange(std::as_writable_bytes(usedStackRange));
-
-    for(auto& range : ranges)
+    if(!executionThreadHandle)
     {
-        ScanRange(range);
+        MarkProgramRoots();
     }
-
-    for(auto& p : pinned)
+    else if(GetCurrentThreadId() == executionThreadId)
     {
-        Mark(p);
+        JumpPoint savedRegisters{};
+        SaveJumpPoint(savedRegisters);
+
+        // 'savedRegisters' is in this frame, so the stack range holds it too.
+        MarkRange(std::span(reinterpret_cast<std::byte*>(savedRegisters.rsp), executionThreadStackBase));
+        MarkProgramRoots();
+    }
+    else
+    {
+        // GetThreadContext leaves out extended state that the execution thread isn't using, so the last capture
+        // must not stay.
+        executionThreadContextStorage.fill(std::byte(0));
+
+        CONTEXT* context = nullptr;
+        DWORD contextSize = static_cast<DWORD>(executionThreadContextStorage.size());
+        InitializeContext(executionThreadContextStorage.data(), ExecutionThreadContextFlags, &context, &contextSize);
+        SetXStateFeaturesMask(context, GetEnabledXStateFeatures() & ExecutionThreadXStateFeatures);
+
+        // The execution thread may hold any lock while it is suspended, so nothing may take a lock or allocate
+        // until the execution thread is resumed.
+        SuspendThread(executionThreadHandle);
+
+        // SuspendThread only requests the suspension, and GetThreadContext waits for it. GetThreadContext fails
+        // once the execution thread has exited, which leaves nothing to scan.
+        if(GetThreadContext(executionThreadHandle, context))
+        {
+            MarkRange(executionThreadContextStorage);
+            MarkRange(std::span(reinterpret_cast<std::byte*>(context->Rsp), executionThreadStackBase));
+        }
+
+        MarkProgramRoots();
+        ResumeThread(executionThreadHandle);
     }
 
     size_t deallocations = 0;
@@ -466,7 +536,28 @@ void Heap::CollectInternal()
     }
 }
 
-void Heap::ScanRange(std::span<std::byte> range)
+void Heap::MarkProgramRoots()
+{
+    auto& globals = pProgram->globals;
+    if(!globals.empty())
+        MarkRange(std::as_writable_bytes(std::span(globals.data(), globals.size())));
+
+    std::span<Word> usedStackRange = pProgram->GetUsedStackRange();
+    if(!usedStackRange.empty())
+        MarkRange(std::as_writable_bytes(usedStackRange));
+
+    for(auto& range : ranges)
+    {
+        MarkRange(range);
+    }
+
+    for(auto& p : pinned)
+    {
+        Mark(p);
+    }
+}
+
+void Heap::MarkRange(std::span<std::byte> range)
 {
     assert(range.data());
     assert(!range.empty());
@@ -493,10 +584,6 @@ void Heap::Mark(const std::byte* p)
     size_t startBlockIndex = page->GetAllocationStart(p);
     if(startBlockIndex == Page::InvalidIndex)
         return;
-
-#if FRAZE_HEAP_DEBUG
-    LogLocation("Mark", page->locations[startBlockIndex]);
-#endif
 
     if(page->color[startBlockIndex] == currentColor)
         return;

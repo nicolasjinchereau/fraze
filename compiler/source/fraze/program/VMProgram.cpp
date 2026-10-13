@@ -32,12 +32,16 @@ std::span<Word> VMProgram::GetUsedStackRange()
     return std::span(stack.data(), rsp + 1);
 }
 
-Word VMProgram::InvokeImpl(const std::string& qualifiedFuncName, const std::span<Word>& args)
+Word VMProgram::InvokeImpl(
+    const std::string& qualifiedFuncName,
+    const std::span<Word>& args,
+    CompiledFunctionCall* callCompiledFunction)
 {
     if(shouldInitialize)
     {
         shouldInitialize = false;
-        InvokeImpl("$staticConstructor", {});
+        heap.RegisterExecutionThread();
+        InvokeImpl("$staticConstructor", {}, nullptr);
     }
 
     auto typeInfo = GetTypeInfo(qualifiedFuncName);

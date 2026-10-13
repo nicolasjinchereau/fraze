@@ -4,6 +4,21 @@
 
 section OperatorTests
 {
+    enum Shade
+    {
+        Dim = 1,
+        Mid = 2,
+        Bright = 4
+    }
+
+    int evaluationCount = 0;
+
+    // counts its calls, so a test can tell whether an operand was evaluated
+    bool CountEvaluation(bool result) {
+        evaluationCount += 1;
+        return result;
+    }
+
     void Run()
     {
         int a = 3;
@@ -111,6 +126,121 @@ section OperatorTests
         assert(2 <= 2);
         assert(2 > 1);
         assert(2 >= 2);
+
+        // negation of an int
+        int n = 17;
+        assert(-n == 0 - 17);
+        assert(~n == -18);
+
+        // num operators
+        num p = 7.5;
+        num q = 2.0;
+        assert(p + q == 9.5);
+        assert(p - q == 5.5);
+        assert(p * q == 15.0);
+        assert(p / q == 3.75);
+        assert(p % q == 1.5);
+        assert(-p == 0.0 - 7.5);
+        assert(p > q);
+        assert(q < p);
+        assert(p >= p);
+        assert(q <= q);
+        assert(p != q);
+        assert(!(p == q));
+
+        // '||', and the operand that decides '&&' or '||' leaves the other one unevaluated
+        assert(x || y);
+        assert(y || x);
+        assert(!(y || y));
+
+        assert(!(y && CountEvaluation(true)));
+        assert(evaluationCount == 0);
+
+        assert(x || CountEvaluation(false));
+        assert(evaluationCount == 0);
+
+        assert(x && CountEvaluation(true));
+        assert(evaluationCount == 1);
+
+        // bit operators on an enum
+        Shade mask = Shade.Dim;
+        mask |= Shade.Bright;
+        assert(mask &? Shade.Bright);
+        assert(!(mask &? Shade.Mid));
+        assert((mask as int) == 5);
+
+        // an assert's message is a literal, a local or null
+        string message = "held in a local";
+        assert(a == 2, "a literal");
+        assert(a == 2, message);
+        assert(a == 2, null);
+    }
+}
+
+// an operand is read when it is evaluated, so a call later in the same expression can't change the value read
+section EvaluationOrderTests
+{
+    class Counter
+    {
+        int count;
+
+        // returns the new 'count'
+        int Bump() {
+            count += 1;
+            return count;
+        }
+    }
+
+    struct Point
+    {
+        num x;
+
+        // returns the new 'x'
+        num BumpX() {
+            x += 1.0;
+            return x;
+        }
+    }
+
+    int total = 0;
+
+    // returns the new 'total'
+    int BumpTotal() {
+        total += 1;
+        return total;
+    }
+
+    // returns the value it stored
+    int StoreFirst(int[] values, int value) {
+        values[0] = value;
+        return value;
+    }
+
+    void Run()
+    {
+        // a static
+        total = 1;
+        int fromStatic = total + BumpTotal();
+        assert(fromStatic == 3);
+        assert(total == 2);
+
+        // a field
+        Counter counter = new Counter{ 1 };
+        int fromField = counter.count + counter.Bump();
+        assert(fromField == 3);
+        assert(counter.count == 2);
+
+        // an array element
+        int[] numbers = new int[]{ 1 };
+        int fromElement = numbers[0] + StoreFirst(numbers, 5);
+        assert(fromElement == 6);
+        assert(numbers[0] == 5);
+
+        // a field of a struct
+        Point point = new Point{ 4.0 };
+        num fromStructField = point.x + point.BumpX();
+        assert(fromStructField == 9.0);
+        assert(point.x == 5.0);
     }
 }
 
@@ -137,6 +267,11 @@ section ConversionTests
     class Test
     {
         int value = 111;
+    }
+
+    class Other
+    {
+        int value;
     }
 
     functor void TestFunctor();
@@ -341,19 +476,112 @@ section ConversionTests
         TestEnum L41 = TestEnum.Two;
         string R41 = L41 as string;
         assert(R41 == "Two");
+
+        // a value of another type is not an instance of a type, and 'as' gives null for it
+        object L42 = new Test{};
+        assert(!(L42 is Other));
+        assert(L42 as Other == null);
+        assert(!(R1 is int));
+
+        // 'typeof' gives one Type per type
+        Type L43 = typeof(Test);
+        assert(L43 == typeof(Test));
+        assert(L43 != typeof(Other));
+        assert(L43.GetName() == "ConversionTests.Test");
+        assert(Type.IsInstance(L42, L43));
     }
 }
 
 section ArrayTests
 {
+    class Item
+    {
+        int count;
+    }
+
+    enum Shade
+    {
+        Dim,
+        Bright
+    }
+
+    int[] primes = new int[]{ 2, 3, 5, 7 };
+
+    // returns a new array, each element twice the one it was made from
+    int[] DoubleAll(int[] values)
+    {
+        int[] doubled = new int[values.Count];
+
+        for(int i = 0; i != values.Count; ++i)
+            doubled[i] = values[i] * 2;
+
+        return doubled;
+    }
+
     void Run()
     {
         int[] numbers = new int[]{ 1, 2, 3 };
-        
+
         for(int i = 0; i != numbers.Count; ++i)
         {
             assert(numbers[i] == i + 1);
         }
+
+        // an array of the size asked for, with every element at its type's default value
+        int[] sized = new int[4];
+        assert(sized != null);
+        assert(sized.Count == 4);
+        assert(sized[0] == 0);
+        assert(sized[3] == 0);
+
+        // the index is a literal, a local and an expression
+        int last = 3;
+        sized[0] = 7;
+        sized[1] = sized[0] + 1;
+        sized[last - 1] = 9;
+        sized[last] = 10;
+        assert(sized[0] == 7);
+        assert(sized[1] == 8);
+        assert(sized[2] == 9);
+        assert(sized[sized.Count - 1] == 10);
+
+        sized[1] += 4;
+        assert(sized[1] == 12);
+        assert(sized[2]++ == 9);
+        assert(++sized[2] == 11);
+
+        // an array that lists its elements, converted where the element type differs
+        num[] weights = new num[]{ 0.5, 1.5, 2 };
+        assert(weights.Count == 3);
+        assert(weights[0] + weights[1] == 2.0);
+        assert(weights[2] == 2.0);
+
+        string[] names = new string[]{ "one", "two" };
+        assert(names[1] == "two");
+
+        bool[] flags = new bool[]{ true, false };
+        assert(flags[0]);
+        assert(!flags[1]);
+
+        Shade[] shades = new Shade[]{ Shade.Dim, Shade.Bright };
+        assert(shades[1] == Shade.Bright);
+
+        // an array of references, each null until it is assigned
+        Item[] items = new Item[3];
+        assert(items[0] == null);
+
+        items[1] = new Item{ 30 };
+        items[1].count += 1;
+        assert(items[1].count == 31);
+        assert(items[2] == null);
+
+        // an array crosses a call in both directions, and a static holds one
+        int[] doubled = DoubleAll(sized);
+        assert(doubled.Count == 4);
+        assert(doubled[0] == 14);
+        assert(doubled[3] == 20);
+        assert(primes.Count == 4);
+        assert(primes[3] == 7);
     }
 }
 
@@ -710,6 +938,37 @@ section InterfaceTests
         int Value(int value) { return value * 11; }
     }
 
+    class OnlyInterface1 : Interface1 {
+        int One() { return 111; }
+    }
+
+    struct Extent
+    {
+        num width;
+        num height;
+    }
+
+    // these functions return a num and a struct, which a call hands back differently from an int
+    interface ISized {
+        num Area();
+        Extent Scaled(num factor);
+    }
+
+    class Sheet : ISized {
+        num width;
+        num height;
+
+        num Area() { return width * height; }
+        Extent Scaled(num factor) { return new Extent{ width * factor, height * factor }; }
+    }
+
+    class Disc : ISized {
+        num radius;
+
+        num Area() { return radius * radius * 3.0; }
+        Extent Scaled(num factor) { return new Extent{ radius * factor, radius * factor }; }
+    }
+
     void Run()
     {
         ImplementationA implA = new ImplementationA{};
@@ -733,6 +992,28 @@ section InterfaceTests
         assert(itf3.Value(3) == 3);
         itf3 = implB;
         assert(itf3.Value(3) == 33);
+
+        // an interface reference is tested against a class and against another interface
+        assert(itf1 is ImplementationB);
+        assert(!(itf1 is ImplementationA));
+        assert(itf1 as ImplementationA == null);
+        assert(itf1 is Interface2);
+
+        itf1 = new OnlyInterface1{};
+        assert(!(itf1 is Interface2));
+
+        // a num and a struct come back from a call through an interface
+        ISized sized = new Sheet{ 2.0, 3.0 };
+        assert(sized.Area() == 6.0);
+        assert(sized.Scaled(2.0).width == 4.0);
+
+        Extent half = sized.Scaled(0.5);
+        assert(half.width == 1.0);
+        assert(half.height == 1.5);
+
+        sized = new Disc{ 2.0 };
+        assert(sized.Area() == 12.0);
+        assert(sized.Scaled(2.0).height == 4.0);
     }
 }
 
@@ -756,6 +1037,44 @@ section StructTests
             return SumOf(this);
         }
     }
+
+    // 'height' has an initializer of its own, which a 'new' that doesn't pass it and a default value both use
+    struct Size
+    {
+        num width;
+        num height = 1.0;
+
+        Size Flipped() {
+            return new Size{ height, width };
+        }
+
+        void Scale(num factor) {
+            width *= factor;
+            height *= factor;
+        }
+
+        static Size operator+(Size left, Size right) {
+            return new Size{ left.width + right.width, left.height + right.height };
+        }
+    }
+
+    // a struct with structs in it
+    struct Frame
+    {
+        Size inner;
+        Size outer;
+        int id;
+    }
+
+    // an object with structs in it, and a field after them
+    class Canvas
+    {
+        Size size;
+        Frame frame;
+        int after = 9;
+    }
+
+    Size origin = new Size{ 3.0, 4.0 };
 
     void Run()
     {
@@ -808,13 +1127,94 @@ section StructTests
         assert(points2[1].y == 222);
         assert(points2[2].z == 333);
 
-        // TODO: add struct equality tests
-
         Point point3 = point1.Self();
         assert(point3.x == 1);
         assert(point3.y == 2);
         assert(point3.z == 3);
         assert(point1.Sum() == 6);
+
+        // a field's own initializer is used by a 'new' that doesn't pass the field, and by a default value
+        Size partial = new Size{ 5 };
+        assert(partial.width == 5.0);
+        assert(partial.height == 1.0);
+
+        Size blank;
+        assert(blank.width == 0.0);
+        assert(blank.height == 1.0);
+
+        // structs are equal when their fields are
+        Size copy = partial;
+        assert(copy == partial);
+        assert(copy != blank);
+
+        copy.width = 9.0;
+        assert(copy != partial);
+        assert(partial.width == 5.0);
+
+        // a ternary yields a struct
+        bool usePartial = true;
+        Size picked = usePartial ? partial : blank;
+        assert(picked.width == 5.0);
+
+        // structs made on every pass through a loop share their storage, which the stack would run out of otherwise
+        Size walked = new Size{ 0.0, 0.0 };
+
+        for(int i = 0; i != 100000; ++i)
+        {
+            Size step = new Size{ 1.0, 2.0 };
+            walked = walked + step.Flipped();
+        }
+
+        assert(walked.width == 200000.0);
+        assert(walked.height == 100000.0);
+
+        // a struct in a struct
+        Frame frame = new Frame{ partial, copy, 7 };
+        assert(frame.inner.width == 5.0);
+        assert(frame.outer.width == 9.0);
+        assert(frame.id == 7);
+
+        frame.outer.width = 8.0;
+        frame.inner = blank;
+        assert(frame.outer.width == 8.0);
+        assert(frame.inner.height == 1.0);
+        assert(copy.width == 9.0);
+
+        Size outerCopy = frame.outer;
+        outerCopy.height = 0.0;
+        assert(frame.outer.height == 1.0);
+
+        // structs in an object, with a field after them
+        Canvas canvas = new Canvas{ partial, frame };
+        assert(canvas.size.width == 5.0);
+        assert(canvas.frame.outer.width == 8.0);
+        assert(canvas.frame.id == 7);
+        assert(canvas.after == 9);
+
+        canvas.size.Scale(2.0);
+        canvas.frame.inner = copy;
+        assert(canvas.size.width == 10.0);
+        assert(canvas.frame.inner.width == 9.0);
+        assert(canvas.after == 9);
+        assert(partial.width == 5.0);
+
+        // every struct in a new object takes its fields' own initializers
+        Canvas blankCanvas = new Canvas{};
+        assert(blankCanvas.size.height == 1.0);
+        assert(blankCanvas.frame.outer.height == 1.0);
+        assert(blankCanvas.frame.id == 0);
+        assert(blankCanvas.after == 9);
+
+        // a struct in a static
+        assert(origin.width == 3.0);
+        origin.height = 5.0;
+        origin.Scale(2.0);
+        assert(origin.width == 6.0);
+        assert(origin.height == 10.0);
+
+        Size fromOrigin = origin;
+        origin.width = 0.0;
+        assert(fromOrigin.width == 6.0);
     }
 }
 
@@ -2130,6 +2530,10 @@ section StaticInitTests
             return count;
         }
 
+        void BumpCount() {
+            count += 1;
+        }
+
         num ReadFromTemp() {
             return fromTemp;
         }
@@ -2163,6 +2567,15 @@ section StaticInitTests
     // Inner's static constructor already ran, where Inner first appeared
     int afterInner = Inner.value * 2;
 
+    // a static variable without an initializer starts at its type's default value
+    bool ready;
+
+    class Settings
+    {
+        static int level = 3;
+        static num scale;
+    }
+
     void Run()
     {
         assert(sectionFromTemp == 9);
@@ -2184,12 +2597,104 @@ section StaticInitTests
 
         Named named = new Named{ "named" };
         assert(named.name == "named");
+
+        // each instance of a generic class has static variables of its own
+        box.BumpCount();
+        assert(box.ReadCount() == 6);
+        assert(ReadBoxCount() == 5);
+
+        assert(!ready);
+        assert(Settings.scale == 0.0);
+
+        // a static variable is assigned through its owner's name
+        ready = true;
+        Settings.scale = Settings.level * 0.5;
+        Inner.value = Settings.level + 4;
+        assert(ready);
+        assert(Settings.scale == 1.5);
+        assert(Inner.value == 7);
+
+        // '++' and a compound assignment on a static variable
+        assert(Settings.level++ == 3);
+        assert(++Settings.level == 5);
+        Settings.level -= 1;
+        assert(Settings.level == 4);
+    }
+}
+
+// a collection leaves alone whatever is still referred to, wherever the reference is held
+section GCTests
+{
+    class Item
+    {
+        int count;
+        Item next;
+    }
+
+    // a struct that holds references
+    struct Tagged
+    {
+        int id;
+        string label;
+        Item owner;
+    }
+
+    functor int IntSource();
+
+    Item survivor;
+    Item[] shelf;
+
+    // allocates items that nothing refers to once this returns
+    void MakeGarbage(int count)
+    {
+        for(int i = 0; i != count; ++i)
+        {
+            Item garbage = new Item{ i };
+        }
+    }
+
+    void Run()
+    {
+        // these two are reachable from statics, and the items on the shelf only through the array
+        survivor = new Item{ 41, new Item{ 42 } };
+        shelf = new Item[]{ new Item{ 1 }, new Item{ 2 }, null };
+
+        // each of these is referred to from this function alone
+        Item local = new Item{ 7 };
+        Item[] localItems = new Item[]{ new Item{ 3 } };
+        Tagged tagged = new Tagged{ 1, "tag" + 1, new Item{ 77 } };
+        string joined = "a=" + 10.5;
+        object boxed = 5;
+        int captured = 321;
+        IntSource source = functor int() { return captured; };
+
+        // the garbage reuses what the first collection freed, which would overwrite a survivor freed by mistake
+        GC.Collect();
+        MakeGarbage(10000);
+        GC.Collect();
+
+        assert(survivor.count == 41);
+        assert(survivor.next.count == 42);
+        assert(survivor.next.next == null);
+        assert(shelf.Count == 3);
+        assert(shelf[0].count + shelf[1].count == 3);
+        assert(shelf[2] == null);
+
+        assert(local.count == 7);
+        assert(localItems[0].count == 3);
+        assert(tagged.id == 1);
+        assert(tagged.label == "tag1");
+        assert(tagged.owner.count == 77);
+        assert(joined == "a=10.5");
+        assert(boxed as int == 5);
+        assert(source() == 321);
     }
 }
 
 void RunAllTests()
 {
     OperatorTests.Run();
+    EvaluationOrderTests.Run();
     LiteralTests.Run();
     ConversionTests.Run();
     ArrayTests.Run();
@@ -2209,4 +2714,5 @@ void RunAllTests()
     GotoTests.Run();
     SwitchTests.Run();
     StaticInitTests.Run();
+    GCTests.Run();
 }

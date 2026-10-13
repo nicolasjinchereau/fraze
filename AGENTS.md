@@ -50,10 +50,10 @@ Push-Location demo; .\bin\x64\Debug\Demo.exe --test; "exit code: $LASTEXITCODE";
   ```powershell
   .\demo\RunScene.ps1; "exit code: $LASTEXITCODE"
   ```
-- After a change to the compiler, also run the JIT. `--jit` compiles `demo/assets/jit/MainTest.fz` with the JIT instead of running the demo, and exits with what its `main` returns:
+- After a change to the compiler, also run the tests with the JIT. `--jit` makes the demo compile with the JIT instead of the bytecode generator, and `demo\RunScene.ps1 -JIT` passes it to the scene:
 
   ```powershell
-  Push-Location demo; .\bin\x64\Debug\Demo.exe --jit; "exit code: $LASTEXITCODE"; Pop-Location
+  Push-Location demo; .\bin\x64\Debug\Demo.exe --jit --test; "exit code: $LASTEXITCODE"; Pop-Location
   ```
 - Only Debug runs checks: Release calls `DisableAssert()`, `DisableNullCheck()`, `DisableBoundsCheck()` and `DisableTypeCheck()` in `demo/source/main.cpp`.
 
@@ -88,8 +88,8 @@ These serve two goals: being able to move or delete AST nodes freely, and keepin
   - Surface what the reader can't see where the name is used, through what the thing is rather than through internals they'd have to go and read. A field named `finalizer` is a good model: it says what the field is and hints at its purpose without naming anything hidden.
   - Name a function's side effects. Don't name one like a query (`TryTakeCachedResult`, not `HasCachedResult`), and name an effect beyond what the caller can already read (`TryCancelScheduledSave`, not `TryTakePendingSave`).
   - Don't rename existing code unless asked.
-- **Audience:** write comments and docs, `docs/agents/` included, for an expert engineer who already knows this project. Give the shape of a problem or mechanism, not a walkthrough of its details.
+- **Terms:** when the code has a name for a thing, comments and docs use that name every time they refer to it. Don't replace the name with a synonym, or with a description of what the thing does or how it was set up: prefer "the worker thread" over "the thread that runs the jobs" or "the thread started earlier". Say what the name means once, where the code introduces it.
+  - After a rename, update the comments and docs that use the old name, and the ones that describe the thing without naming it.
 - **Comments:** none by default. Add one only where someone who knows the project would otherwise misread the code, or would have to go read other code to follow it.
   - Before adding a comment, try to make it unnecessary with a better name or simpler code. A comment that a name could replace is a defect.
-  - Use actual code references rather than descriptive phrasing: prefer "stores `value` and calls `Finish`" over "completes the operation".
-  - When referring to an identifier that's vague or too short, say what it is: prefer "the retry limit, `k`" over "`k`".
+  - When you do add one, say what the code does or what the value is, briefly and in complete sentences.

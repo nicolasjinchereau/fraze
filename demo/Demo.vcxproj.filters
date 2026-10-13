@@ -20,9 +20,6 @@
     <Filter Include="assets\shaders">
       <UniqueIdentifier>{d1a30d68-7db7-4de7-ac5f-1572b8c31c81}</UniqueIdentifier>
     </Filter>
-    <Filter Include="assets\jit">
-      <UniqueIdentifier>{a841c566-f23f-4987-be59-755e031257eb}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\Buffer.cpp">
@@ -45,9 +42,6 @@
     </ClCompile>
     <ClCompile Include="source\main.cpp" />
     <ClCompile Include="source\ExternFunctions.cpp">
-      <Filter>source</Filter>
-    </ClCompile>
-    <ClCompile Include="source\JITTestFunctions.cpp">
       <Filter>source</Filter>
     </ClCompile>
     <ClCompile Include="source\File.cpp">
@@ -83,9 +77,6 @@
       <Filter>source</Filter>
     </ClInclude>
     <ClInclude Include="source\ExternFunctions.h">
-      <Filter>source</Filter>
-    </ClInclude>
-    <ClInclude Include="source\JITTestFunctions.h">
       <Filter>source</Filter>
     </ClInclude>
     <ClInclude Include="source\File.h">
@@ -170,9 +161,6 @@
     </None>
     <None Include="assets\scripts\Tests.fz">
       <Filter>assets\scripts</Filter>
-    </None>
-    <None Include="assets\jit\MainTest.fz">
-      <Filter>assets\jit</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>

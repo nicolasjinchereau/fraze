@@ -85,6 +85,15 @@ struct FieldInfo : TypeInfo
     virtual const FieldInfo* ToFieldInfo() const override { return this; }
 };
 
+// Says how a host that invokes a compiled function gets its result.
+enum class CompiledResultKind : uint8_t
+{
+    Unsupported, // the function takes or returns a struct, which a host can't pass or receive
+    None,
+    Integer,     // a bool, an int, an enum or a reference
+    Number,
+};
+
 struct FunctionInfo : TypeInfo
 {
     uint32_t returnSize;
@@ -92,6 +101,11 @@ struct FunctionInfo : TypeInfo
     uint32_t localSize;
     uint32_t codeStart;
     uint32_t codeEnd;
+
+    // The address of the function's machine code, which only JITCodeGenerator sets.
+    void* functionAddress{};
+    CompiledResultKind compiledResultKind{};
+
     uint32_t offset;
     sptr<IExternalFunction> externalFunction;
     bool isExternal;

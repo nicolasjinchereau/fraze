@@ -16,10 +16,6 @@ class Compiler;
 
 void AddExternFunctions(Compiler& compiler);
 
-// MAIN
-void RecordFrameStart();
-void RecordFrameEnd();
-
 // TIME
 Integer Time_GetTicks();
 Integer Time_GetTicksPerSecond();
